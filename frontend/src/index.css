@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply font-sans antialiased;
+}
+
+/* Transición suave al alternar entre modo claro / oscuro */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 200ms;
+}
+
+/* --- Modales flotantes -------------------------------------------------- */
+/* El backdrop desenfoca la app que queda detrás y vuelve a la normalidad al
+   cerrarse (la animación de salida la dispara la clase `is-closing`). */
+@keyframes ml-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0px) saturate(100%); }
+  to   { opacity: 1; backdrop-filter: blur(10px) saturate(140%); }
+}
+@keyframes ml-backdrop-out {
+  from { opacity: 1; backdrop-filter: blur(10px) saturate(140%); }
+  to   { opacity: 0; backdrop-filter: blur(0px) saturate(100%); }
+}
+@keyframes ml-panel-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ml-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(10px) scale(0.97); }
+}
+
+.ml-backdrop {
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  animation: ml-backdrop-in 220ms ease-out both;
+}
+.ml-panel {
+  animation: ml-panel-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ml-backdrop.is-closing { animation: ml-backdrop-out 180ms ease-in both; }
+.ml-panel.is-closing    { animation: ml-panel-out 180ms ease-in both; }
+
+/* El contenido del modal no debe heredar la transición global de color */
+.ml-panel * { transition-duration: 150ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-backdrop, .ml-panel,
+  .ml-backdrop.is-closing, .ml-panel.is-closing { animation: none; }
+}
+
+/* --- Barras de desplazamiento -------------------------------------------
+   Se reemplaza el scrollbar nativo por uno delgado, sin flechas ni riel
+   visible, en los tonos de la marca: gris apagado en reposo y ámbar al
+   pasar el cursor. Aplica tanto a la ventana como a cualquier contenedor
+   con overflow (tablas, modales, sidebar). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(251, 191, 36, 0.75); /* amber-400 */
+}
+.dark *::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(251, 191, 36, 0.8);
+}
+/* La esquina donde se cruzan las dos barras no debe pintarse */
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* --- Animaciones de la interfaz ------------------------------------------
+   Movimientos cortos y discretos: nada rebota ni se desplaza mucho. Todo
+   queda anulado si el sistema pide menos movimiento. */
+@keyframes ml-aparece {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Entrada suave de una pieza suelta (títulos, avisos, tarjetas) */
+.ml-aparece {
+  animation: ml-aparece 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Entrada de la vista completa al cambiar de módulo */
+.ml-vista {
+  animation: ml-aparece 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Realce mínimo de las tarjetas al pasar el cursor */
+.ml-tarjeta {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.ml-tarjeta:hover {
+  transform: translateY(-2px);
+}
+
+/* Los botones principales ceden un poco al pulsarlos */
+.ml-pulsable {
+  transition: transform 140ms ease, background-color 200ms ease;
+}
+.ml-pulsable:active {
+  transform: scale(0.97);
+}
+
+/* --- Pantalla de carga del acceso --------------------------------------- */
+@keyframes ml-splash-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ml-splash-gira {
+  to { transform: rotate(360deg); }
+}
+@keyframes ml-splash-barra {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+.ml-splash { animation: ml-splash-in 200ms ease-out both; }
+.ml-splash-tire { animation: ml-splash-gira 1100ms linear infinite; }
+.ml-splash-bar { animation: ml-splash-barra linear both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ml-aparece, .ml-vista, .ml-splash, .ml-splash-tire, .ml-splash-bar { animation: none; }
+  .ml-tarjeta:hover, .ml-pulsable:active { transform: none; }
+  .ml-splash-bar { width: 100%; }
+}

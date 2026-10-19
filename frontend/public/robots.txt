@@ -1,0 +1,7 @@
+# MiraLlantas: los buscadores indexan la página pública; el panel, el
+# portal de clientes y el login son privados.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /portal
+Disallow: /login

@@ -1,0 +1,129 @@
+import cors from 'cors';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import { config } from './config.js';
+import { query } from './db.js';
+import { HttpError, manejadorErrores } from './errores.js';
+// Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
+// llaman a los controladores (src/controllers), que usan los modelos
+// (src/models) para hablar con la base y las vistas (src/views) para
+// responder: es el patrón Modelo-Vista-Controlador.
+import { rutasAuth } from './routes/auth.routes.js';
+import { rutasAbonos, rutasCreditos, rutasSolicitudesCredito } from './routes/cartera.routes.js';
+import {
+  rutasCategorias,
+  rutasClientes,
+  rutasMarcas,
+  rutasProveedores,
+  rutasServicios,
+  rutasTerceros,
+  rutasTiposVehiculo,
+} from './routes/catalogos.routes.js';
+import { rutasCompras } from './routes/compras.routes.js';
+import { rutasCotizaciones } from './routes/cotizaciones.routes.js';
+import { rutasDashboard } from './routes/dashboard.routes.js';
+import { rutasEmpresa } from './routes/empresa.routes.js';
+import { rutasNotificaciones } from './routes/notificaciones.routes.js';
+import { rutasPortal } from './routes/portal.routes.js';
+import { rutasProductos } from './routes/productos.routes.js';
+import { rutasReferencias } from './routes/referencias.routes.js';
+import { rutasRoles, rutasUsuarios } from './routes/seguridad.routes.js';
+import { rutasSolicitudesServicio } from './routes/solicitudesServicio.routes.js';
+import { rutasVentas } from './routes/ventas.routes.js';
+
+/** Construye la aplicación Express. Separada de server.js para las pruebas. */
+export function crearApp() {
+  const app = express();
+
+  // Detrás de un proxy (Render, Railway…) la IP real llega en X-Forwarded-For
+  if (config.esProduccion) app.set('trust proxy', 1);
+
+  // Cabeceras de seguridad. La API solo responde JSON: no carga scripts,
+  // estilos ni marcos, así que la política de contenido lo prohíbe todo.
+  app.use(
+    helmet({
+      contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+      crossOriginResourcePolicy: { policy: 'same-site' },
+    }),
+  );
+
+  // Solo el frontend autorizado puede llamar a la API desde un navegador
+  app.use(
+    cors({
+      origin: config.corsOrigenes,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+      maxAge: 600,
+    }),
+  );
+
+  // Límite general por IP contra el abuso de la API (el login tiene uno
+  // más estricto en auth.routes.js)
+  if (!config.esPrueba) {
+    app.use(
+      '/api',
+      rateLimit({
+        windowMs: 60 * 1000,
+        limit: 300,
+        standardHeaders: 'draft-8',
+        legacyHeaders: false,
+        message: { error: 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.' },
+      }),
+    );
+  }
+
+  // Las fotos y los comprobantes viajan dentro del JSON como imágenes en
+  // texto (data URL), por eso el límite es mayor que el de 100 KB por defecto
+  app.use(express.json({ limit: '8mb' }));
+
+  // Las respuestas tienen datos privados: el navegador no debe guardarlas
+  app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
+  // Salud: la usa el proveedor de hosting para saber si la API responde
+  app.get('/api/salud', async (req, res) => {
+    await query('SELECT 1');
+    res.json({ estado: 'ok' });
+  });
+
+  // ---- Sesión, configuración y seguridad ----
+  app.use('/api/auth', rutasAuth);
+  app.use('/api/referencias', rutasReferencias);
+  app.use('/api/empresa', rutasEmpresa);
+  app.use('/api/roles', rutasRoles);
+  app.use('/api/usuarios', rutasUsuarios);
+  app.use('/api/dashboard', rutasDashboard);
+  app.use('/api/portal', rutasPortal);
+  app.use('/api/notificaciones', rutasNotificaciones);
+
+  // ---- Catálogo ----
+  app.use('/api/categorias', rutasCategorias);
+  app.use('/api/marcas', rutasMarcas);
+  app.use('/api/tipos-vehiculo', rutasTiposVehiculo);
+  app.use('/api/servicios', rutasServicios);
+  app.use('/api/productos', rutasProductos);
+
+  // ---- Contactos ----
+  app.use('/api/clientes', rutasClientes);
+  app.use('/api/proveedores', rutasProveedores);
+  app.use('/api/terceros', rutasTerceros);
+
+  // ---- Operación y cartera ----
+  app.use('/api/cotizaciones', rutasCotizaciones);
+  app.use('/api/ventas', rutasVentas);
+  app.use('/api/compras', rutasCompras);
+  app.use('/api/solicitudes-servicio', rutasSolicitudesServicio);
+  app.use('/api/creditos', rutasCreditos);
+  app.use('/api/abonos', rutasAbonos);
+  app.use('/api/solicitudes-credito', rutasSolicitudesCredito);
+
+  app.use((req, res) => {
+    throw new HttpError(404, `La ruta ${req.method} ${req.path} no existe.`);
+  });
+  app.use(manejadorErrores);
+
+  return app;
+}

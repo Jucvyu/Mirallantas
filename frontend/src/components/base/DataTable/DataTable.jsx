@@ -1,0 +1,469 @@
+import { Fragment, useMemo, useState } from 'react';
+import {
+  ChevronDown,
+  Download,
+  Eye,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from 'lucide-react';
+import AvisoError from '../AvisoError';
+import Dropdown from '../Dropdown';
+import { BORDER_OK, INPUT } from '../formStyles';
+import FormModal from '../FormModal';
+import ConfirmDialog from '../ConfirmDialog';
+import StatusSelect from '../StatusSelect';
+import StatusSwitch from '../StatusSwitch';
+
+const PAGE_SIZE = 8;
+
+/**
+ * Artículo que le corresponde al nombre de la entidad, para que los
+ * títulos digan "Nueva venta" y no "Nuevo venta".
+ *
+ * Se deduce de la terminación —a, -ión, -dad, -tud y -umbre son femeninas—
+ * y se puede forzar con la prop `entityGender`.
+ */
+function esFemenino(nombre) {
+  return /(a|ión|dad|tud|umbre)$/i.test(String(nombre).trim());
+}
+
+/** Esquema de formulario por defecto cuando la página no define uno propio. */
+function fallbackSections(columns) {
+  return [
+    {
+      title: 'Datos del registro',
+      fields: columns
+        .filter((c) => c.key !== 'id')
+        .map((c) => ({ key: c.key, label: c.label, placeholder: c.label })),
+    },
+  ];
+}
+
+/**
+ * Tabla genérica del panel administrativo: buscador, filtros, paginación y
+ * acciones por fila.
+ *
+ * La tabla NO guarda datos: muestra las filas que recibe (`data`) y, cuando
+ * el usuario hace algo, llama a la función correspondiente. Esas funciones
+ * normalmente guardan en la API y vuelven a cargar el listado (ver el hook
+ * useRecurso). Todas pueden ser asíncronas: si fallan, la tabla muestra el
+ * mensaje de error.
+ *
+ * Datos
+ *   data         filas a mostrar, cada una con un `id` único
+ *   cargando     muestra "Cargando…" mientras llegan los datos
+ *   error        mensaje si no se pudieron cargar
+ *   onRecargar   se llama al pulsar el botón de refrescar
+ *
+ * Acciones (si una no se pasa, su botón no aparece)
+ *   onCreate(values)          guardar un registro nuevo
+ *   onEdit(row, values)       guardar los cambios de una fila
+ *   onDelete(row)             eliminar una fila
+ *   onStatusChange(row, v)    cambio de estado desde la propia fila
+ *   onRowUpdate(row, patch)   cambio hecho por una celda o acción a medida;
+ *                             llega a `render` y `rowActions` como `update(patch)`
+ *
+ * Presentación
+ *   columns: [{ key, label, render?(row, { update }) }]
+ *   formSections: esquema del formulario de crear/editar/ver (ver FormModal)
+ *   entityName: nombre en singular, para los títulos ("usuario")
+ *   statusKey / statusOptions / statusVariant ('select' | 'switch') / statusFlow
+ *   filters: [{ key, label, options? }] filtros de la barra superior
+ *   createModal: ({ onSubmit, onClose }) => nodo, formulario de "Nuevo" a medida
+ *   rowActions: (row, { update }) => nodo, botones extra en cada fila
+ *   formValidate: (values) => ({ campo: 'mensaje' }) reglas entre campos
+ *   exportable, canView / canEdit / canDelete, entityGender, titleKey
+ *   (canEdit y canDelete también aceptan una función (row) => boolean para
+ *   bloquear filas concretas, p. ej. el rol Administrador)
+ *   canChangeStatus: (row) => boolean — si es false, el estado de esa fila
+ *   se muestra pero no se puede cambiar
+ *   rowClassName: (row) => clases extra de la fila (p. ej. resaltarla)
+ *   expandir: (row) => nodo | null — contenido desplegable bajo la fila
+ *
+ * Los filtros admiten varias opciones a la vez: `activeFilters[k]` es un
+ * arreglo y la fila entra si coincide con cualquiera de las marcadas.
+ */
+export default function DataTable({
+  columns,
+  data = [],
+  cargando = false,
+  error = '',
+  onRecargar,
+  onCreate,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onRowUpdate,
+  title,
+  newLabel = 'Nuevo registro',
+  statusKey,
+  toolbar = true,
+  readOnly = false,
+  formSections,
+  entityName = 'registro',
+  titleKey = 'nombre',
+  statusOptions,
+  statusVariant = 'select',
+  filters = [],
+  createModal,
+  rowActions,
+  statusFlow,
+  formValidate,
+  exportable = true,
+  canView = true,
+  canEdit = true,
+  canDelete = true,
+  canChangeStatus,
+  rowClassName,
+  expandir,
+  entityGender,
+}) {
+  const femenino = entityGender ? entityGender === 'f' : esFemenino(entityName);
+  const nuevo = femenino ? 'Nueva' : 'Nuevo';
+  const rows = data;
+
+  const [query, setQuery] = useState('');
+  const [activeFilters, setActiveFilters] = useState({});
+  const [page, setPage] = useState(1);
+  // { mode: 'create' | 'edit' | 'view' | 'delete', row }
+  const [dialog, setDialog] = useState(null);
+  // Filas desplegadas (cuando la tabla tiene contenido desplegable)
+  const [abiertas, setAbiertas] = useState(() => new Set());
+  const alternarFila = (id) =>
+    setAbiertas((prev) => {
+      const nuevas = new Set(prev);
+      if (nuevas.has(id)) nuevas.delete(id);
+      else nuevas.add(id);
+      return nuevas;
+    });
+  // Error de una acción hecha directamente sobre la fila (cambio de estado…)
+  const [errorAccion, setErrorAccion] = useState('');
+
+  const sections = useMemo(
+    () => formSections ?? fallbackSections(columns),
+    [formSections, columns],
+  );
+
+  const filterDefs = useMemo(
+    () =>
+      filters.map((f) => ({
+        ...f,
+        options: f.options ?? [...new Set(rows.map((r) => r[f.key]).filter(Boolean))],
+      })),
+    [filters, rows],
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchesQuery = !q || Object.values(row).some((v) => String(v).toLowerCase().includes(q));
+      // Cada filtro guarda un arreglo: sin marcas no filtra, y con varias
+      // basta con que la fila coincida con una de ellas.
+      const matchesFilters = Object.entries(activeFilters).every(
+        ([k, v]) => !v?.length || v.includes(String(row[k])),
+      );
+      return matchesQuery && matchesFilters;
+    });
+  }, [rows, query, activeFilters]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Si un filtro o un borrado deja la página actual vacía, se vuelve a la última
+  const paginaVisible = Math.min(page, totalPages);
+  const pageRows = filtered.slice((paginaVisible - 1) * PAGE_SIZE, paginaVisible * PAGE_SIZE);
+  const from = filtered.length === 0 ? 0 : (paginaVisible - 1) * PAGE_SIZE + 1;
+  const to = Math.min(paginaVisible * PAGE_SIZE, filtered.length);
+
+  /**
+   * Ejecuta una acción sobre una fila (cambio de estado, anular…) y, si la
+   * API la rechaza, muestra el mensaje encima de la tabla. Devuelve true si
+   * salió bien, para que la celda que la pidió sepa si debe cerrarse.
+   */
+  const ejecutar = async (accion) => {
+    setErrorAccion('');
+    try {
+      await accion();
+      return true;
+    } catch (e) {
+      setErrorAccion(e.message);
+      return false;
+    }
+  };
+
+  /** Función `update(patch)` que reciben las celdas y acciones a medida. */
+  const updateDe = (row) => (patch) => ejecutar(() => onRowUpdate?.(row, patch));
+
+  const puedeCrear = toolbar && Boolean(onCreate);
+  /** ¿Se puede editar / eliminar esta fila? */
+  const permite = (regla, row) => (typeof regla === 'function' ? regla(row) : Boolean(regla));
+  const puedeEditar = (row) => !readOnly && Boolean(onEdit) && permite(canEdit, row);
+  const puedeEliminar = (row) => !readOnly && Boolean(onDelete) && permite(canDelete, row);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {title && <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">{title}</h1>}
+        {toolbar && (
+          <div className="flex items-center gap-2">
+            {exportable && (
+              <button className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
+                <Download size={15} /> Exportar
+              </button>
+            )}
+            {puedeCrear && (
+              <button
+                onClick={() => setDialog({ mode: 'create' })}
+                className="ml-pulsable inline-flex items-center gap-2 rounded-lg bg-amber-400 px-3.5 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-300"
+              >
+                <Plus size={15} /> {newLabel}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <AvisoError mensaje={error || errorAccion} className="mt-4" />
+
+      <div className="mt-5 rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-brand-navy-800">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+          <div className="relative min-w-[180px] flex-1">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Buscar..."
+              className={`${INPUT} ${BORDER_OK} py-2 pl-9 pr-3`}
+            />
+          </div>
+          {filterDefs.map((f) => (
+            <Dropdown
+              key={f.key}
+              label={f.label}
+              multiple
+              value={activeFilters[f.key] ?? []}
+              options={f.options}
+              onChange={(valores) => {
+                setActiveFilters((a) => ({ ...a, [f.key]: valores }));
+                setPage(1);
+              }}
+              icon={<SlidersHorizontal size={13} className="shrink-0 opacity-70" />}
+            />
+          ))}
+          <button
+            onClick={() => {
+              setQuery('');
+              setActiveFilters({});
+              setErrorAccion('');
+              onRecargar?.();
+            }}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-brand-navy-700"
+            aria-label="Refrescar"
+            title="Quitar filtros y volver a cargar"
+          >
+            <RefreshCw size={14} />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                {columns.map((col) => (
+                  <th key={col.key} className="whitespace-nowrap px-5 py-3">
+                    {col.label}
+                  </th>
+                ))}
+                <th className="px-5 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map((row) => {
+                // ¿Se puede cambiar el estado de esta fila desde la tabla?
+                const cambiaEstado = onStatusChange && (!canChangeStatus || canChangeStatus(row));
+                const alCambiarEstado = cambiaEstado ? (v) => ejecutar(() => onStatusChange(row, v)) : undefined;
+                const desplegable = expandir?.(row);
+                const abierta = abiertas.has(row.id);
+                return (
+                  <Fragment key={row.id}>
+                    <tr
+                      className={`border-t border-slate-100 text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/5 dark:text-slate-300 dark:hover:bg-white/[0.03] ${rowClassName?.(row) ?? ''}`}
+                    >
+                      {columns.map((col) => (
+                        <td key={col.key} className="whitespace-nowrap px-5 py-3.5">
+                          {col.key === statusKey && statusVariant === 'switch' ? (
+                            <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />
+                          ) : col.key === statusKey ? (
+                            <StatusSelect
+                              value={row[col.key]}
+                              options={statusOptions}
+                              flow={statusFlow}
+                              onChange={alCambiarEstado}
+                            />
+                          ) : col.render ? (
+                            col.render(row, { update: updateDe(row) })
+                          ) : (
+                            row[col.key]
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center justify-end gap-1.5 text-slate-400">
+                          {desplegable && (
+                            <button
+                              onClick={() => alternarFila(row.id)}
+                              aria-expanded={abierta}
+                              className="rounded p-1 hover:text-amber-500"
+                              aria-label={abierta ? 'Ocultar el detalle' : 'Desplegar el detalle'}
+                              title={abierta ? 'Ocultar' : 'Desplegar'}
+                            >
+                              <ChevronDown size={15} className={`transition-transform ${abierta ? 'rotate-180' : ''}`} />
+                            </button>
+                          )}
+                          {rowActions?.(row, { update: updateDe(row) })}
+                          {canView && (
+                            <button
+                              onClick={() => setDialog({ mode: 'view', row })}
+                              className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
+                              aria-label="Ver"
+                              title="Ver detalle"
+                            >
+                              <Eye size={15} />
+                            </button>
+                          )}
+                          {puedeEditar(row) && (
+                            <button
+                              onClick={() => setDialog({ mode: 'edit', row })}
+                              className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
+                              aria-label="Editar"
+                              title="Editar"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
+                          {puedeEliminar(row) && (
+                            <button
+                              onClick={() => setDialog({ mode: 'delete', row })}
+                              className="rounded p-1 hover:text-red-500"
+                              aria-label="Eliminar"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {desplegable && abierta && (
+                      <tr className="border-t border-slate-100 bg-slate-50/60 dark:border-white/5 dark:bg-white/[0.02]">
+                        <td colSpan={columns.length + 1} className="px-5 py-4">
+                          {desplegable}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+              {pageRows.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + 1} className="px-5 py-10 text-center text-sm text-slate-400">
+                    {cargando ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoaderCircle size={15} className="animate-spin" /> Cargando…
+                      </span>
+                    ) : (
+                      'Sin resultados encontrados.'
+                    )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
+          <span>
+            Mostrando {from}-{to} de {filtered.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(Math.max(1, paginaVisible - 1))}
+              disabled={paginaVisible === 1}
+              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-white/10"
+            >
+              ‹
+            </button>
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-400 font-semibold text-slate-900">
+              {paginaVisible}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages, paginaVisible + 1))}
+              disabled={paginaVisible === totalPages}
+              className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-slate-100 disabled:opacity-30 dark:hover:bg-white/10"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {dialog?.mode === 'create' && createModal
+        ? createModal({ onSubmit: onCreate, onClose: () => setDialog(null) })
+        : null}
+
+      {dialog?.mode === 'create' && !createModal && (
+        <FormModal
+          mode="create"
+          title={`${nuevo} ${entityName}`}
+          subtitle="Completa los campos marcados con * para registrar."
+          sections={sections}
+          validate={formValidate}
+          submitLabel={`Guardar ${entityName}`}
+          onSubmit={onCreate}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.mode === 'edit' && (
+        <FormModal
+          mode="edit"
+          title={`Editar ${entityName}`}
+          subtitle={String(dialog.row.id)}
+          sections={sections}
+          initialValues={dialog.row}
+          validate={formValidate}
+          onSubmit={(values) => onEdit(dialog.row, values)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.mode === 'view' && (
+        <FormModal
+          mode="view"
+          title={`Detalle de ${femenino ? 'la' : 'el'} ${entityName}`}
+          subtitle={String(dialog.row.id)}
+          sections={sections}
+          initialValues={dialog.row}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.mode === 'delete' && (
+        <ConfirmDialog
+          record={{
+            title: dialog.row[titleKey] ?? dialog.row.id,
+            subtitle: dialog.row[titleKey] ? String(dialog.row.id) : null,
+          }}
+          onConfirm={() => onDelete(dialog.row)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
+  );
+}

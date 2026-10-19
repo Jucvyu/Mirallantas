@@ -1,0 +1,30 @@
+-- Revierte 0001: elimina todo el esquema inicial. Destruye los datos,
+-- así que solo debe ejecutarse en desarrollo o con una copia de seguridad.
+DROP TABLE IF EXISTS
+  solicitud_credito,
+  abono,
+  credito,
+  compra_detalle,
+  compra,
+  venta_detalle,
+  venta,
+  cotizacion_detalle,
+  cotizacion,
+  solicitud_servicio,
+  servicio,
+  producto_imagen,
+  producto,
+  tipo_vehiculo,
+  marca,
+  categoria,
+  tercero,
+  proveedor,
+  usuario,
+  cliente,
+  rol_permiso,
+  rol,
+  permiso,
+  empresa,
+  consecutivo;
+
+DROP FUNCTION IF EXISTS siguiente_numero(TEXT, INTEGER);

@@ -1,0 +1,27 @@
+{
+  "name": "mirallantas-database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Base de datos de MiraLlantas ERP: migraciones y scripts de PostgreSQL",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env local.js",
+    "migrate": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env migrate.js up",
+    "migrate:down": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env migrate.js down",
+    "migrate:status": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env migrate.js status",
+    "admin:crear": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env crearAdmin.js",
+    "db:limpiar": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env limpiar.js",
+    "db:respaldo": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env respaldo.js crear",
+    "db:restaurar": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env respaldo.js restaurar"
+  },
+  "dependencies": {
+    "bcryptjs": "3.0.3",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}

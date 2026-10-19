@@ -1,0 +1,154 @@
+// =========================================================================
+// Cliente HTTP: la única puerta de entrada del frontend a la API.
+//
+// Solo lo usan los servicios (src/services/*.service.js). Las pantallas
+// nunca llaman a la API directamente: le piden los datos a un servicio.
+// Así, si mañana cambia la dirección del servidor o la forma de enviar el
+// token, se cambia en un solo lugar.
+// =========================================================================
+
+/**
+ * Dirección de la API. Se configura con la variable VITE_API_URL en el
+ * archivo .env del frontend (ver .env.example). Si no existe, se usa la
+ * del servidor local de desarrollo.
+ */
+const URL_API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+
+/** Nombre con el que se guarda el token en el navegador. */
+const CLAVE_TOKEN = 'mirallantas-token';
+
+/** Evento que se dispara cuando el servidor rechaza la sesión (401). */
+export const EVENTO_SESION_EXPIRADA = 'mirallantas:sesion-expirada';
+
+/** Evento que se dispara cuando desactivan la cuenta con la sesión abierta. */
+export const EVENTO_CUENTA_INACTIVA = 'mirallantas:cuenta-inactiva';
+
+/** Código con el que la API avisa que la cuenta está inactiva. */
+export const CODIGO_CUENTA_INACTIVA = 'CUENTA_INACTIVA';
+
+// ---- Token de sesión ------------------------------------------------------
+// localStorage puede fallar (modo privado, almacenamiento bloqueado), por
+// eso cada acceso va dentro de try/catch.
+
+export function leerToken() {
+  try {
+    return localStorage.getItem(CLAVE_TOKEN);
+  } catch {
+    return null;
+  }
+}
+
+export function guardarToken(token) {
+  try {
+    localStorage.setItem(CLAVE_TOKEN, token);
+  } catch {
+    // Sin almacenamiento, la sesión dura lo que dure la pestaña
+  }
+}
+
+export function borrarToken() {
+  try {
+    localStorage.removeItem(CLAVE_TOKEN);
+  } catch {
+    // Nada que borrar
+  }
+}
+
+// ---- Errores --------------------------------------------------------------
+
+/**
+ * Error que devuelve la API. `message` ya viene en español y listo para
+ * mostrar al usuario; `detalles` trae los errores por campo cuando el
+ * servidor rechaza un formulario (422).
+ */
+export class ErrorApi extends Error {
+  constructor(estado, mensaje, detalles = [], datos = null) {
+    super(mensaje);
+    this.estado = estado;
+    this.detalles = detalles;
+    // Respuesta completa, por si trae datos extra (p. ej. intentos restantes)
+    this.datos = datos;
+  }
+}
+
+// ---- Peticiones -----------------------------------------------------------
+
+/**
+ * Hace una petición a la API y devuelve el cuerpo de la respuesta.
+ *
+ *   await api('/clientes')                                  // GET
+ *   await api('/clientes', { metodo: 'POST', cuerpo: {…} }) // POST
+ *   await api('/x', { cabecerasExtra: { 'Idempotency-Key': … } })
+ *
+ * Si algo sale mal lanza un `ErrorApi` con un mensaje para el usuario.
+ */
+export async function api(ruta, { metodo = 'GET', cuerpo, cabecerasExtra = {} } = {}) {
+  const token = leerToken();
+  const cabeceras = { ...cabecerasExtra };
+  if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
+  if (token) cabeceras.Authorization = `Bearer ${token}`;
+
+  let respuesta;
+  try {
+    respuesta = await fetch(`${URL_API}${ruta}`, {
+      method: metodo,
+      headers: cabeceras,
+      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+    });
+  } catch {
+    // fetch solo falla así cuando no hay conexión con el servidor
+    throw new ErrorApi(0, 'No hay conexión con el servidor. Revisa que la API esté encendida.');
+  }
+
+  // 204 = "sin contenido" (por ejemplo, al eliminar)
+  const datos = respuesta.status === 204 ? null : await respuesta.json().catch(() => null);
+
+  if (!respuesta.ok) {
+    // Sesión vencida o inválida: se avisa para volver al login
+    if (respuesta.status === 401 && token) {
+      borrarToken();
+      window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA));
+    }
+    // Cuenta desactivada mientras estaba en sesión: se sale y se le explica
+    if (datos?.codigo === CODIGO_CUENTA_INACTIVA && token) {
+      borrarToken();
+      window.dispatchEvent(new Event(EVENTO_CUENTA_INACTIVA));
+    }
+    throw new ErrorApi(
+      respuesta.status,
+      datos?.error ?? 'Ocurrió un error inesperado. Intenta de nuevo.',
+      datos?.detalles ?? [],
+      datos,
+    );
+  }
+  return datos;
+}
+
+/**
+ * Trae TODAS las filas de un listado paginado.
+ *
+ * La API devuelve máximo 100 filas por página; esta función pide página por
+ * página hasta tenerlas todas. Las tablas del panel filtran y paginan en el
+ * navegador, así que necesitan la lista completa.
+ */
+export async function traerTodo(ruta) {
+  const separador = ruta.includes('?') ? '&' : '?';
+  const filas = [];
+  for (let pagina = 1; ; pagina += 1) {
+    const respuesta = await api(`${ruta}${separador}porPagina=100&pagina=${pagina}`);
+    // Algunas rutas (roles, permisos) no paginan: devuelven todo de una vez
+    if (respuesta.total === undefined) return respuesta.datos;
+    filas.push(...respuesta.datos);
+    if (filas.length >= respuesta.total || respuesta.datos.length === 0) return filas;
+  }
+}
+
+/**
+ * Clave de idempotencia para un pago o una cotización: se genera una al
+ * abrir el formulario y se reutiliza si el envío se repite (doble clic,
+ * reintento). Así la API nunca registra el mismo pago dos veces.
+ */
+export const nuevaClaveIdempotencia = () => crypto.randomUUID();
+
+/** Cabecera que lleva la clave de idempotencia. */
+export const conClave = (clave) => (clave ? { 'Idempotency-Key': clave } : {});

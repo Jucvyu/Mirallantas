@@ -1,0 +1,26 @@
+{
+  "name": "mirallantas-erp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MiraLlantas ERP (monorepo): frontend/, backend/ y database/",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "instalar": "npm ci --prefix frontend && npm ci --prefix backend && npm ci --prefix database",
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend && node frontend/node_modules/oxlint/bin/oxlint backend database",
+    "api": "npm run dev --prefix backend",
+    "test": "npm test --prefix backend",
+    "db": "npm run db --prefix database",
+    "migrate": "npm run migrate --prefix database",
+    "migrate:down": "npm run migrate:down --prefix database",
+    "migrate:status": "npm run migrate:status --prefix database",
+    "admin:crear": "npm run admin:crear --prefix database --",
+    "db:limpiar": "npm run db:limpiar --prefix database --",
+    "db:respaldo": "npm run db:respaldo --prefix database",
+    "db:restaurar": "npm run db:restaurar --prefix database --"
+  }
+}
