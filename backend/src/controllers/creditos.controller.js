@@ -5,7 +5,7 @@ import { claveIdempotencia } from '../middleware/idempotencia.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as clientesModel from '../models/clientes.model.js';
 import * as creditosModel from '../models/creditos.model.js';
-import { pesos } from '../reglas.js';
+import { exigirMedioDelCliente, pesos } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
@@ -81,6 +81,8 @@ export async function cambiarActivo(req, res) {
 export async function registrarAbono(req, res) {
   const datos = req.validado.body;
   // El pantallazo solo aplica a transferencias: efectivo y tarjeta dejan su propio recibo
+  // Desde el portal solo se abona en efectivo o por transferencia
+  if (clienteDeSesion(req)) exigirMedioDelCliente(datos.medioPago);
   if (datos.medioPago === 'Transferencia' && !datos.comprobante) {
     throw new HttpError(422, 'Adjunta el comprobante de la transferencia.');
   }

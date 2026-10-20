@@ -33,8 +33,27 @@ export const mediosPago = [];
 export const PLAZOS_CREDITO = [30, 60, 90];
 export const INTERES_POR_PLAZO = { 30: 0.03, 60: 0.06, 90: 0.09 };
 
-/** La primera cuota de una compra a crédito debe cubrir al menos el 50 %. */
-export const CUOTA_INICIAL_CREDITO = 0.5;
+/**
+ * Venta a crédito: cuota inicial de al menos el 30 % del total (el 70 %
+ * restante se financia). De contado se paga el 100 %.
+ */
+export const CUOTA_INICIAL_PORCENTAJE = 30;
+export const CUOTA_INICIAL_CREDITO = CUOTA_INICIAL_PORCENTAJE / 100;
+
+/** Cuota inicial mínima: 30 % redondeado hacia arriba (igual que la API). */
+export const cuotaMinimaDe = (total) => Math.ceil((total * CUOTA_INICIAL_PORCENTAJE) / 100);
+
+/** Días calendario de vigencia de una cotización formal (los calcula la API). */
+export const VIGENCIA_COTIZACION_DIAS = 8;
+
+/** Plazo de respuesta para confirmar los precios de una solicitud. */
+export const PLAZO_RESPUESTA_HORAS = 24;
+
+/** Medios con los que paga un cliente desde el portal (la API también lo exige). */
+export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
+
+/** Etapas comerciales de una cotización (las calcula la API). */
+export const ETAPAS_COTIZACION = ['Solicitud', 'Emitida', 'Vencida', 'Aceptada'];
 
 /** Cupo máximo de crédito de cada cliente, en pesos. */
 export const CUPO_CARTERA = 2000000;

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Download, Mail, MapPin, Package, Phone, Receipt, Wrench } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Modal from '../../components/base/Modal';
@@ -26,55 +27,30 @@ const EMPRESA_SIN_DATOS = {
  * el administrador ("Generar comprobante") y el cliente ("Ver recibo").
  *
  * Si el documento llega sin líneas (desde un listado), se las pide a su
- * `servicio` (cotizacionesService o ventasService).
+ * `servicio` (cotizacionesService o ventasService). "Descargar PDF" pide el
+ * comprobante a la API (`onDescargarPdf`): no es una factura electrónica.
  */
-export default function ComprobanteVentaModal({ venta: inicial, servicio, titulo = 'Comprobante de venta', onClose }) {
+export default function ComprobanteVentaModal({
+  venta: inicial,
+  servicio,
+  titulo = 'Comprobante de venta',
+  onClose,
+  onDescargarPdf,
+}) {
   const { documento: venta, cargando, error } = useDetalle(inicial, servicio);
   const { empresa: datosEmpresa, cargando: cargandoEmpresa } = useEmpresa();
   const empresa = datosEmpresa ?? EMPRESA_SIN_DATOS;
   const lineas = venta.detalle ?? [];
 
-  /**
-   * Descarga el comprobante como archivo de texto.
-   *
-   * Sin backend no hay generador de PDF, así que se arma el documento en el
-   * navegador y se baja con un enlace temporal; al conectar el servicio real
-   * basta con cambiar el contenido del blob.
-   */
+  // El PDF lo genera la API con los datos guardados de la venta
+  const [errorPdf, setErrorPdf] = useState('');
+  const [descargando, setDescargando] = useState(false);
   const descargar = () => {
-    const ancho = 56;
-    const filas = lineas
-      .map((l) => `  ${l.cantidad} x ${l.nombre} (${l.medida})`.padEnd(ancho - 14) + String(l.subtotal).padStart(14))
-      .join('\n');
-
-    const contenido = [
-      empresa.nombre.toUpperCase(),
-      empresa.razonSocial,
-      `NIT ${empresa.nit}`,
-      empresa.direccion,
-      empresa.telefono,
-      '='.repeat(ancho),
-      `${titulo.toUpperCase()}`,
-      `Documento: ${venta.id}`,
-      `Fecha:     ${venta.fecha ?? ''}`,
-      `Cliente:   ${venta.cliente}`,
-      `Pago:      ${venta.metodoPago ?? '-'}`,
-      '-'.repeat(ancho),
-      'ITEMS',
-      filas || '  (sin líneas registradas)',
-      '-'.repeat(ancho),
-      `TOTAL`.padEnd(ancho - 14) + String(venta.total).padStart(14),
-      '='.repeat(ancho),
-      empresa.correo,
-      `Gracias por comprar en ${empresa.nombre}.`,
-    ].join('\n');
-
-    const url = URL.createObjectURL(new Blob([contenido], { type: 'text/plain;charset=utf-8' }));
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `comprobante-${venta.id}.txt`;
-    enlace.click();
-    URL.revokeObjectURL(url);
+    setErrorPdf('');
+    setDescargando(true);
+    Promise.resolve(onDescargarPdf(venta))
+      .catch((e) => setErrorPdf(e.message))
+      .finally(() => setDescargando(false));
   };
 
   return (
@@ -93,18 +69,21 @@ export default function ComprobanteVentaModal({ venta: inicial, servicio, titulo
           >
             Cerrar
           </button>
-          <button
-            type="button"
-            onClick={descargar}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300"
-          >
-            <Download size={16} /> Descargar
-          </button>
+          {onDescargarPdf && (
+            <button
+              type="button"
+              onClick={descargar}
+              disabled={descargando}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:opacity-60"
+            >
+              <Download size={16} /> {descargando ? 'Generando…' : 'Descargar PDF'}
+            </button>
+          )}
         </>
       )}
     >
       <div className="space-y-6">
-        <AvisoError mensaje={error} />
+        <AvisoError mensaje={error || errorPdf} />
         {/* Sin datos de la empresa no se inventan: se avisa */}
         {!datosEmpresa && !cargandoEmpresa && (
           <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-medium text-amber-700 dark:text-amber-400">

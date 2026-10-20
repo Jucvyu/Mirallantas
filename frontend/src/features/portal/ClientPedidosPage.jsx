@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
 import {
+  CalendarClock,
   CalendarDays,
   Check,
+  FileDown,
+  HandCoins,
+  Hourglass,
   ChevronDown,
   CreditCard,
   FileText,
@@ -19,11 +23,15 @@ import {
   estadosEntrega,
   estadosServicio,
   ESTADOS_PAGO,
+  ETAPAS_COTIZACION,
   metodosPago,
+  PLAZO_RESPUESTA_HORAS,
+  VIGENCIA_COTIZACION_DIAS,
 } from '../../constantes';
 import { useAuth } from '../../context/AuthContext';
 import { usePortal } from '../../context/PortalContext';
-import { creditosService } from '../../services';
+import { cotizacionesService, creditosService, ventasService } from '../../services';
+import AceptarCotizacionModal from '../shared/AceptarCotizacionModal';
 import PagoCotizacion from './PagoCotizacion';
 import PagoServicio from './PagoServicio';
 import ReencaucheModal from './ReencaucheModal';
@@ -67,6 +75,17 @@ function condicionCredito(credito) {
   return new Date(credito.fechaLimite) < new Date() ? 'Vencido' : 'Al día';
 }
 
+/** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
+const fechaCorta = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '');
+
+/** Cómo se le nombra cada etapa al cliente. */
+const ETIQUETA_ETAPA = {
+  Solicitud: 'Precios por confirmar',
+  Emitida: 'Cotización formal',
+  Vencida: 'Vencida',
+  Aceptada: 'Aceptada',
+};
+
 /** Guion para un estado que no aplica a la cotización. */
 function SinDato() {
   return <span className="text-xs text-slate-400 dark:text-slate-500">—</span>;
@@ -90,6 +109,13 @@ export default function ClientPedidosPage() {
   const [reencaucheDe, setReencaucheDe] = useState(null);
   const [abonoDe, setAbonoDe] = useState(null);
   const [reciboDe, setReciboDe] = useState(null);
+  const [aceptando, setAceptando] = useState(null);
+  const [errorPdf, setErrorPdf] = useState('');
+
+  const descargarPdf = (c) => {
+    setErrorPdf('');
+    cotizacionesService.descargarPdf(c.id).catch((e) => setErrorPdf(e.message));
+  };
 
   const alternarCotizacion = (id) => setCotizacionesAbiertas((prev) => ({ ...prev, [id]: !prev[id] }));
   const alternarServicio = (clave) => setServiciosAbiertos((prev) => ({ ...prev, [clave]: !prev[clave] }));
@@ -125,6 +151,7 @@ export default function ClientPedidosPage() {
   // uno trae su propia función de coincidencia.
   // -----------------------------------------------------------------------
   const filtros = [
+    { key: 'etapa', label: 'Etapa', options: ETAPAS_COTIZACION },
     { key: 'estado', label: 'Cotización', options: estadosCotizacion },
     { key: 'estadoEntrega', label: 'Entrega', options: estadosEntrega },
     { key: 'metodoPago', label: 'Método de pago', options: metodosPago },
@@ -196,6 +223,12 @@ export default function ClientPedidosPage() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex h-6 items-center gap-2">
                   <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Etapa
+                  </span>
+                  <Badge tone={c.etapa}>{ETIQUETA_ETAPA[c.etapa] ?? c.etapa}</Badge>
+                </div>
+                <div className="flex h-6 items-center gap-2">
+                  <span className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                     Crédito
                   </span>
                   {c.credito ? <Badge>{c.condicion}</Badge> : <SinDato />}
@@ -232,7 +265,7 @@ export default function ClientPedidosPage() {
                 <Package size={13} /> {c.items} {c.items === 1 ? 'llanta' : 'llantas'}
               </p>
               <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <CreditCard size={13} /> {c.metodoPago}
+                <CreditCard size={13} /> {c.metodoPago || 'Se elige al aceptar la cotización'}
               </p>
               {/* Una sola línea (la dirección completa queda en el título) */}
               <p
@@ -248,12 +281,67 @@ export default function ClientPedidosPage() {
                   Total
                 </span>
                 <span className="text-right">
-                  <span className="block text-lg font-bold text-slate-900 dark:text-white">{c.total}</span>
+                  <span className="block text-lg font-bold text-slate-900 dark:text-white">
+                    {c.etapa === 'Solicitud' ? 'Por confirmar' : c.total}
+                  </span>
                   {/* Siempre la misma altura: el desglose o un espacio vacío */}
                   <span className="block h-4 text-[10px] text-slate-500 dark:text-slate-400">
                     {c.conServicios ? `Incluye servicios por ${c.totalServicios}` : ''}
                   </span>
                 </span>
+              </div>
+
+              {/* ---- Vigencia y acciones según la etapa (mismo alto en todas) ---- */}
+              <div className="mt-3 flex min-h-[4.25rem] flex-col justify-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-white/5">
+                {c.etapa === 'Solicitud' && (
+                  <p className="flex items-start gap-1.5 font-medium text-amber-700 dark:text-amber-300">
+                    <Hourglass size={13} className="mt-px shrink-0" />
+                    Estamos confirmando los precios con nuestros proveedores (respuesta en hasta {PLAZO_RESPUESTA_HORAS}{' '}
+                    horas). Todavía no es una cotización formal.
+                  </p>
+                )}
+                {c.etapa === 'Emitida' && (
+                  <>
+                    <p className="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                      <CalendarClock size={13} className="shrink-0 text-amber-500" />
+                      Válida hasta el {fechaCorta(c.venceEn)} ({VIGENCIA_COTIZACION_DIAS} días)
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAceptando(c)}
+                        className="flex flex-1 items-center justify-center gap-1 rounded-md bg-amber-400 py-1.5 text-[11px] font-bold text-slate-900 hover:bg-amber-300"
+                      >
+                        <HandCoins size={12} /> Aceptar cotización
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => descargarPdf(c)}
+                        className="flex items-center justify-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white dark:border-white/10 dark:text-slate-300"
+                        title="Descargar la cotización en PDF"
+                      >
+                        <FileDown size={12} /> PDF
+                      </button>
+                    </div>
+                  </>
+                )}
+                {c.etapa === 'Vencida' && (
+                  <p className="font-medium text-red-600 dark:text-red-400">
+                    Venció el {fechaCorta(c.venceEn)}. Escríbenos para actualizar los precios.
+                  </p>
+                )}
+                {c.etapa === 'Aceptada' &&
+                  (c.emitidaEn ? (
+                    <button
+                      type="button"
+                      onClick={() => descargarPdf(c)}
+                      className="flex items-center gap-1 self-start font-semibold text-slate-600 hover:text-amber-600 dark:text-slate-300"
+                    >
+                      <FileDown size={13} /> Descargar la cotización (PDF)
+                    </button>
+                  ) : (
+                    <p className="text-slate-500 dark:text-slate-400">Reencauche: su valor se gestiona en el servicio.</p>
+                  ))}
               </div>
 
               {/* ---- Botón que despliega el detalle ---- */}
@@ -279,6 +367,28 @@ export default function ClientPedidosPage() {
                 }`}
               >
                 <div className="overflow-hidden">
+                  {/* ---- Fechas y vigencia ---- */}
+                  <dl className="mb-4 grid grid-cols-2 gap-2 text-xs">
+                    {[
+                      ['Solicitada', c.fecha],
+                      ['Emitida', c.emitidaEn ? fechaCorta(c.emitidaEn) : 'Pendiente'],
+                      ['Vence', c.venceEn ? fechaCorta(c.venceEn) : '—'],
+                      [
+                        'Vigencia',
+                        c.etapa === 'Solicitud'
+                          ? `Empieza al emitirla (${VIGENCIA_COTIZACION_DIAS} días)`
+                          : c.emitidaEn
+                            ? `${VIGENCIA_COTIZACION_DIAS} días calendario`
+                            : 'No aplica',
+                      ],
+                    ].map(([etiqueta, valor]) => (
+                      <div key={etiqueta} className="rounded-lg bg-white/60 px-2.5 py-2 dark:bg-white/5">
+                        <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{etiqueta}</dt>
+                        <dd className="mt-0.5 font-semibold text-slate-700 dark:text-slate-200">{valor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
                     Productos y servicios
                   </p>
@@ -326,7 +436,11 @@ export default function ClientPedidosPage() {
                                 pagoRechazado ? 'text-red-500' : 'text-slate-900 dark:text-white'
                               }`}
                             >
-                              {solicitud ? solicitud.precioTexto : linea.subtotal}
+                              {solicitud
+                                ? solicitud.precioTexto
+                                : linea.precioUnitarioValor === null
+                                  ? 'Por confirmar'
+                                  : linea.subtotal}
                             </span>
                           </div>
 
@@ -538,10 +652,22 @@ export default function ClientPedidosPage() {
       />
 
       {/* Comprobante de venta generado con los datos de la cotización */}
+      {errorPdf && (
+        <p role="alert" className="mt-3 rounded-lg border border-red-400/50 bg-red-500/5 px-3 py-2 text-sm text-red-600">
+          {errorPdf}
+        </p>
+      )}
+
+      {/* Aceptar la cotización formal: contado o crédito (inicial del 30 %) */}
+      {aceptando && (
+        <AceptarCotizacionModal cotizacion={aceptando} desdePortal onAceptada={recargar} onClose={() => setAceptando(null)} />
+      )}
+
       {reciboDe && (
         <ComprobanteVentaModal
           venta={{ ...reciboDe, cliente: nombre }}
           titulo="Recibo de compra"
+          onDescargarPdf={reciboDe.venta ? () => ventasService.descargarPdf(reciboDe.venta, { desdePortal: true }) : undefined}
           onClose={() => setReciboDe(null)}
         />
       )}

@@ -78,8 +78,14 @@ export async function levantarEntorno() {
       },
       body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
     });
+    const tipo = respuesta.headers.get('content-type') ?? '';
+    // Un PDF (u otro archivo) se devuelve como bytes, sin interpretarlo
+    if (!tipo.includes('json')) {
+      const bytes = Buffer.from(await respuesta.arrayBuffer());
+      return { estado: respuesta.status, cuerpo: null, tipo, bytes };
+    }
     const texto = await respuesta.text();
-    return { estado: respuesta.status, cuerpo: texto ? JSON.parse(texto) : null };
+    return { estado: respuesta.status, cuerpo: texto ? JSON.parse(texto) : null, tipo };
   };
 
   const iniciarSesion = async (correo, password = passwordDemo) => {

@@ -1,4 +1,5 @@
 import { query } from '../db.js';
+import { CAMPOS_ETAPA } from './cotizaciones.model.js';
 import { SUBCONSULTA_ESTADO, SUBCONSULTA_ESTADO_PAGO, SUBCONSULTA_TOTAL_SERVICIOS } from './pagosCotizacion.model.js';
 
 /**
@@ -12,7 +13,7 @@ export async function cotizaciones(clienteId) {
     `SELECT c.id, c.numero, c.fecha, c.metodo_pago AS "metodoPago", c.plazo_dias AS "plazoDias",
             c.subtotal, c.interes, c.total, c.cuota_inicial AS "cuotaInicial", c.confirmado,
             c.estado, c.estado_entrega AS "estadoEntrega", c.direccion_entrega AS "direccionEntrega",
-            c.motivo_cancelacion AS "motivoCancelacion",
+            c.motivo_cancelacion AS "motivoCancelacion", ${CAMPOS_ETAPA},
             (SELECT v.numero FROM venta v WHERE v.cotizacion_id = c.id) AS venta,
             ${SUBCONSULTA_ESTADO} AS "pagoEstado",
             ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago",
@@ -28,7 +29,8 @@ export async function cotizaciones(clienteId) {
 /** Todas las líneas de las cotizaciones del cliente, con el estado de cada reencauche. */
 export async function lineasDeCotizaciones(clienteId) {
   const { rows } = await query(
-    `SELECT d.cotizacion_id AS "cotizacionId", d.id, d.tipo, d.descripcion, d.medida, d.cantidad,
+    `SELECT d.cotizacion_id AS "cotizacionId", d.id, d.tipo, d.producto_id AS "productoId",
+            p.codigo AS "codigoProducto", d.descripcion, d.medida, d.cantidad,
             d.precio_unitario AS "precioUnitario", d.subtotal,
             ss.numero AS "solicitudServicio", ss.estado AS "estadoServicio",
             ss.estado_evidencia AS "estadoEvidencia", ss.descripcion AS "descripcionCarcasa",
@@ -39,6 +41,7 @@ export async function lineasDeCotizaciones(clienteId) {
             ss.pago_comprobante AS "pagoComprobante", ss.pago_fecha AS "pagoFecha", ss.pago_motivo AS "pagoMotivo"
        FROM cotizacion_detalle d
        JOIN cotizacion c ON c.id = d.cotizacion_id
+       LEFT JOIN producto p ON p.id = d.producto_id
        LEFT JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
        LEFT JOIN servicio sv ON sv.id = ss.servicio_id
        LEFT JOIN tercero te ON te.id = ss.tercero_id

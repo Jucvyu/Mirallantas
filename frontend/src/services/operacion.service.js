@@ -9,7 +9,7 @@ import {
   imagenCambiada,
   ventaDesdeApi,
 } from './adaptadores';
-import { api, conClave } from './http';
+import { api, conClave, descargarArchivo } from './http';
 import { crearServicio } from './recurso';
 import { parseCOP, vacioANull } from '../utils/formato';
 
@@ -61,36 +61,59 @@ export const cotizacionesService = {
   ...cotizacionesBase,
 
   /**
-   * Nueva cotización armada por un asesor (formulario "Nueva cotización").
-   * Los precios no se envían: la API los toma del catálogo.
+   * Solicitud de cotización armada por un asesor ("Nueva cotización"). Solo
+   * cliente, llantas, cantidades y servicios: la fecha la pone el servidor,
+   * los precios se confirman al emitir y el método de pago se elige al
+   * aceptar.
    *
-   *   datos:    { cliente, proveedor, fecha, metodoPago, plazo, direccion, lineas, cuotaInicial }
-   *   contexto: { clientes, proveedores } para convertir nombres en ids
+   *   datos: { clienteId, proveedorId, direccion, lineas }
    */
-  crearDesdePanel(datos, { clientes, proveedores }) {
-    const esCredito = datos.metodoPago === 'Crédito';
+  crearDesdePanel(datos) {
     return api('/cotizaciones', {
       metodo: 'POST',
       cuerpo: {
-        clienteId: idPorNombre(clientes, datos.cliente, 'nombreCompleto'),
-        proveedorId: idPorNombre(proveedores, datos.proveedor, 'nombreRazonSocial'),
-        fecha: datos.fecha,
-        metodoPago: datos.metodoPago,
-        plazoDias: esCredito ? datos.plazo : 0,
+        clienteId: datos.clienteId,
+        proveedorId: datos.proveedorId || null,
         direccionEntrega: datos.direccion,
         lineas: datos.lineas.map((l) =>
           l.tipo === 'producto'
             ? { tipo: 'producto', productoId: l.productoId, cantidad: l.cantidad }
             : lineaServicio({ ...l, medidas: l.medida, descripcion: l.detalle }),
         ),
-        ...(esCredito ? { cuotaInicial: { monto: datos.cuotaInicial } } : {}),
-        // De contado: cómo se paga y la consignación
-        ...(!esCredito && datos.pago?.medioPago
-          ? { pago: { medioPago: datos.pago.medioPago, comprobante: datos.pago.comprobante || undefined } }
-          : {}),
       },
     });
   },
+
+  /**
+   * El asesor confirma con el proveedor el costo de cada llanta, fija el
+   * precio de venta y emite la cotización formal (vigencia de 8 días).
+   *   lineas: [{ id, proveedorId, costoProveedor, precioUnitario }]
+   */
+  emitir: (numero, lineas) =>
+    api(`/cotizaciones/${encodeURIComponent(numero)}/emitir`, { metodo: 'POST', cuerpo: { lineas } }),
+
+  /**
+   * Acepta la cotización formal: contado (con su pago) o crédito (plazo y
+   * cuota inicial). El cliente lo hace desde el portal; el asesor, por él en
+   * el local.
+   *   datos: { metodoPago, plazoDias, pago: { medioPago, comprobante }, cuotaInicial: { monto, medioPago, comprobante } }
+   */
+  aceptar(numero, datos, { desdePortal = false } = {}) {
+    const esCredito = datos.metodoPago === 'Crédito';
+    const conComprobante = (p) => ({ medioPago: p.medioPago, comprobante: p.comprobante || undefined });
+    return api(`${desdePortal ? '/portal' : ''}/cotizaciones/${encodeURIComponent(numero)}/aceptar`, {
+      metodo: 'POST',
+      cuerpo: {
+        metodoPago: datos.metodoPago,
+        ...(esCredito
+          ? { plazoDias: datos.plazoDias, cuotaInicial: { ...conComprobante(datos.cuotaInicial), monto: datos.cuotaInicial.monto } }
+          : { pago: conComprobante(datos.pago) }),
+      },
+    });
+  },
+
+  /** Descarga la cotización formal en PDF. */
+  descargarPdf: (numero) => descargarArchivo(`/cotizaciones/${encodeURIComponent(numero)}/pdf`, `Cotizacion-${numero}.pdf`),
 
   /** El asesor aprueba o rechaza la consignación del pago de contado. */
   revisarPago: (fila, estado, motivo) =>
@@ -104,39 +127,21 @@ export const cotizacionesService = {
     }),
 
   /**
-   * Cotización que envía un cliente desde el portal (su "carrito").
-   *
-   *   datos: { metodoPago, plazo, direccion, productos, servicios, abonoInicial, pago }
-   *   abonoInicial: pago de la cuota inicial (solo a crédito)
-   *   pago: { medioPago, comprobante } (solo de contado)
+   * Solicitud de cotización que envía un cliente desde el portal (su
+   * "carro"): llantas, cantidades y servicios, sin precios ni pago.
+   *   datos: { direccion, productos, servicios, claveIdempotencia }
    */
-  crearDesdePortal({ metodoPago, plazo, direccion, productos, servicios, abonoInicial, pago, claveIdempotencia }) {
-    const esCredito = metodoPago === 'Crédito';
+  crearDesdePortal({ direccion, productos, servicios, claveIdempotencia }) {
     return api('/cotizaciones', {
-      // Si el envío se repite, la API devuelve la misma cotización
+      // Si el envío se repite, la API devuelve la misma solicitud
       cabecerasExtra: conClave(claveIdempotencia),
       metodo: 'POST',
       cuerpo: {
-        metodoPago,
-        plazoDias: esCredito ? plazo : 0,
         direccionEntrega: direccion,
         lineas: [
           ...productos.map((p) => ({ tipo: 'producto', productoId: p.id, cantidad: p.cantidad })),
           ...servicios.map((s) => lineaServicio(s)),
         ],
-        ...(esCredito && abonoInicial
-          ? {
-              cuotaInicial: {
-                monto: parseCOP(abonoInicial.monto),
-                medioPago: abonoInicial.metodoPago,
-                comprobante: abonoInicial.comprobante || undefined,
-              },
-            }
-          : {}),
-        // De contado (con productos): cómo se paga y la consignación
-        ...(!esCredito && pago?.medioPago
-          ? { pago: { medioPago: pago.medioPago, comprobante: pago.comprobante || undefined } }
-          : {}),
       },
     });
   },
@@ -144,10 +149,13 @@ export const cotizacionesService = {
 
 // ---- Ventas ----------------------------------------------------------------------
 
-/** Al crear se envía todo; al editar, solo lo que una venta deja cambiar. */
-function ventaHaciaApi(v, fila, { clientes, proveedores, terceros }) {
-  const proveedorId = idPorNombre(proveedores, v.proveedor, 'nombreRazonSocial');
-  const terceroId = idPorNombre(terceros, v.tercero, 'nombreRazonSocial');
+/**
+ * Al crear se envía todo; al editar, solo lo que una venta deja cambiar.
+ * Cliente, proveedor y tercero llegan como ids desde los buscadores.
+ */
+function ventaHaciaApi(v, fila, { proveedores = [], terceros = [] } = {}) {
+  const proveedorId = v.proveedorId || idPorNombre(proveedores, v.proveedor, 'nombreRazonSocial');
+  const terceroId = v.terceroId || idPorNombre(terceros, v.tercero, 'nombreRazonSocial');
   if (fila) {
     return {
       proveedorId,
@@ -158,7 +166,7 @@ function ventaHaciaApi(v, fila, { clientes, proveedores, terceros }) {
     };
   }
   return {
-    clienteId: idPorNombre(clientes, v.cliente, 'nombreCompleto'),
+    clienteId: v.clienteId || null,
     proveedorId,
     terceroId,
     fecha: v.fecha,
@@ -170,9 +178,18 @@ function ventaHaciaApi(v, fila, { clientes, proveedores, terceros }) {
   };
 }
 
-export const ventasService = conCambios(
-  crearServicio({ ruta: '/ventas', desdeApi: ventaDesdeApi, haciaApi: ventaHaciaApi, metodoEditar: 'PATCH' }),
-);
+export const ventasService = {
+  ...conCambios(
+    crearServicio({ ruta: '/ventas', desdeApi: ventaDesdeApi, haciaApi: ventaHaciaApi, metodoEditar: 'PATCH' }),
+  ),
+
+  /** Descarga el comprobante de la venta en PDF (el cliente, desde su portal). */
+  descargarPdf: (numero, { desdePortal = false } = {}) =>
+    descargarArchivo(
+      `${desdePortal ? '/portal' : ''}/ventas/${encodeURIComponent(numero)}/pdf`,
+      `Comprobante-${numero}.pdf`,
+    ),
+};
 
 // ---- Compras -----------------------------------------------------------------------
 
@@ -183,7 +200,7 @@ export const ventasService = conCambios(
 function compraHaciaApi(v, fila, contexto) {
   if (fila) return { estado: v.estado, estadoEntrega: v.estadoEntrega };
   return {
-    proveedorId: idPorNombre(contexto.proveedores, v.proveedor, 'nombreRazonSocial'),
+    proveedorId: v.proveedorId || idPorNombre(contexto.proveedores ?? [], v.proveedor, 'nombreRazonSocial'),
     cotizacion: v.cotizacion || null,
     lineas: v.lineas.map((l) => ({
       productoId: l.id,
@@ -202,8 +219,9 @@ export const comprasService = {
 
   /**
    * Productos de una cotización convertidos en líneas de compra. El precio
-   * propuesto es el último de compra conocido; el asesor lo ajusta.
-   * Los servicios no se compran: los ejecuta un tercero.
+   * propuesto es el costo que se confirmó con el proveedor al emitir la
+   * cotización; si no hay, el último costo de compra conocido (sin
+   * confirmar). Los servicios no se compran: los ejecuta un tercero.
    */
   async lineasDeCotizacion(numeroCotizacion, productos) {
     const cotizacion = await cotizacionesService.obtener(numeroCotizacion);
@@ -211,11 +229,14 @@ export const comprasService = {
       .filter((l) => l.tipo === 'producto')
       .map((l) => {
         const ficha = productos.find((p) => p.id === l.productoId);
+        const confirmado = l.costoConfirmadoEn !== null && l.costoProveedor !== null;
         return {
           id: l.productoId,
           nombre: l.nombre,
           medidas: l.medida,
-          precioCompra: ficha?.precioCompra ?? 0,
+          precioCompra: confirmado ? l.costoProveedor : (ficha?.precioCompra ?? 0),
+          costoConfirmadoEn: confirmado ? l.costoConfirmadoEn : null,
+          proveedorConfirmado: confirmado ? l.proveedorLinea : '',
           cantidad: l.cantidad,
           deCotizacion: true,
         };

@@ -1,5 +1,4 @@
-import { ArrowRight, Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Zap } from 'lucide-react';
 
 export default function Hero() {
   return (
@@ -17,19 +16,10 @@ export default function Hero() {
 
         <p className="mx-auto mt-6 max-w-2xl text-base text-slate-500 dark:text-slate-400 sm:text-lg">
           MiraLlantas es la plataforma ERP completa para distribuidoras y talleres de llantas.
-          Pedidos, reencauche, créditos, entregas, inventario y más — todo integrado.
+          Cotizaciones, reencauche, créditos, entregas y más — todo integrado.
         </p>
 
-        <div className="mt-8 flex justify-center">
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-6 py-3 text-sm font-semibold text-slate-900 hover:bg-amber-300"
-          >
-            Probar ahora — es gratis <ArrowRight size={16} />
-          </Link>
-        </div>
       </div>
-
     </section>
   );
 }

@@ -200,7 +200,6 @@ export async function sembrar(connectionString, { password }) {
         tipo_vehiculo_id: idDe(tiposVehiculo, p.tipoVehiculo, 'el tipo de vehículo'),
         precio_compra: p.precioCompra,
         precio_venta: p.precioVenta,
-        stock: p.stock,
         activo: p.estado === 'Activo',
       });
       productos.set(p.nombre, id);
@@ -269,6 +268,13 @@ export async function sembrar(connectionString, { password }) {
       mock.clienteSinCredito.cotizaciones.map((c) => ({ cliente: nombreLuis, ...c })),
     );
 
+    /** "2026-10-01" + 8 días → "2026-10-09" (en UTC, sin desfases de zona horaria). */
+    const sumarDias = (fecha, dias) => {
+      const d = new Date(`${fecha}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + dias);
+      return d.toISOString().slice(0, 10);
+    };
+
     const cotizaciones = new Map();
     for (const c of todasCotizaciones) {
       const detalle = c.detalle ?? [];
@@ -284,6 +290,9 @@ export async function sembrar(connectionString, { password }) {
         total: pesos(c.total) ?? 0,
         cuota_inicial: pesos(c.cuotaInicial) ?? 0,
         confirmado: c.confirmado ?? true,
+        // Las cotizaciones de prueba ya están emitidas (y aceptadas: tienen método de pago)
+        emitida_en: (c.confirmado ?? true) ? c.fecha : null,
+        vence_en: (c.confirmado ?? true) ? sumarDias(c.fecha, 8) : null,
         estado: c.estado,
         estado_entrega: c.estadoEntrega,
         direccion_entrega: c.direccionEntrega,

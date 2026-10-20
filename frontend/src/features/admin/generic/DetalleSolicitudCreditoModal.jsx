@@ -17,7 +17,7 @@ import { solicitudesCreditoService } from '../../../services';
  * se aprueba o no (no aprobarla pide el motivo).
  *
  *   Aprobar     → se abre el crédito en la cartera del cliente.
- *   No aprobar  → la cotización se rechaza y las llantas vuelven al stock.
+ *   No aprobar  → la cotización se rechaza.
  */
 export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onResuelta, onClose }) {
   const { documento: solicitud, cargando, error } = useDetalle(inicial, solicitudesCreditoService);

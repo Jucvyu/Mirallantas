@@ -8,7 +8,8 @@ import { esquemaEdicion, esquemaFiltros, esquemaNuevo } from '../validators/prod
 /**
  * Rutas de productos (/api/productos).
  *
- *   GET  /       catálogo (cualquiera con sesión; el portal solo ve activos)
+ *   GET  /         catálogo (cualquiera con sesión; el portal solo ve activos)
+ *   GET  /medidas  medidas registradas (buscador del formulario de productos)
  *   GET  /:id    un producto con sus imágenes
  *   POST /       crea un producto                    (permiso "Productos")
  *   PUT  /:id    actualiza; también activa/desactiva (permiso "Productos")
@@ -17,6 +18,7 @@ export const rutasProductos = Router();
 rutasProductos.use(autenticar);
 
 rutasProductos.get('/', validar(esquemaFiltros, 'query'), controlador.listar);
+rutasProductos.get('/medidas', controlador.medidas);
 rutasProductos.get('/:id', validar(esquemaId, 'params'), controlador.obtener);
 rutasProductos.post('/', requierePermiso('Productos'), validar(esquemaNuevo), controlador.crear);
 rutasProductos.put(

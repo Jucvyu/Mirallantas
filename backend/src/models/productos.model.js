@@ -17,13 +17,35 @@ export const COLUMNAS_EDITABLES = {
   activo: 'activo',
 };
 
+/**
+ * Rango de precio orientativo para el catálogo del cliente: el menor y el
+ * mayor entre el precio de venta actual y los precios a los que se vendió o
+ * se cotizó formalmente la llanta en los últimos 180 días. Son precios de
+ * venta reales; el costo del proveedor nunca entra en la cuenta.
+ */
+const RANGO_PRECIO = `
+  LEFT JOIN LATERAL (
+    SELECT MIN(r.valor) AS minimo, MAX(r.valor) AS maximo
+      FROM (
+        SELECT p.precio_venta AS valor
+        UNION ALL
+        SELECT vd.precio_unitario FROM venta_detalle vd JOIN venta ve ON ve.id = vd.venta_id
+         WHERE vd.producto_id = p.id AND ve.estado <> 'Anulada' AND ve.fecha >= CURRENT_DATE - 180
+        UNION ALL
+        SELECT cd.precio_unitario FROM cotizacion_detalle cd JOIN cotizacion co ON co.id = cd.cotizacion_id
+         WHERE cd.producto_id = p.id AND co.emitida_en >= CURRENT_DATE - 180 AND cd.precio_unitario IS NOT NULL
+      ) r
+     WHERE r.valor > 0
+  ) rango ON TRUE`;
+
 const SELECCION = `
   p.id, p.codigo, p.nombre, p.descripcion, p.medidas,
   p.categoria_id AS "categoriaId", c.nombre AS categoria,
   p.marca_id AS "marcaId", m.nombre AS marca,
   p.tipo_vehiculo_id AS "tipoVehiculoId", tv.nombre AS "tipoVehiculo",
   p.precio_compra AS "precioCompra", p.precio_venta AS "precioVenta",
-  p.stock, p.activo,
+  rango.minimo AS "precioMinimo", rango.maximo AS "precioMaximo",
+  p.activo,
   (SELECT i.url FROM producto_imagen i WHERE i.producto_id = p.id ORDER BY i.orden, i.id LIMIT 1) AS foto`;
 
 const DESDE = `
@@ -57,7 +79,7 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
   const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
   const total = await query(`SELECT COUNT(*)::int AS n ${DESDE} ${where}`, valores);
   const { rows } = await query(
-    `SELECT ${SELECCION} ${DESDE} ${where}
+    `SELECT ${SELECCION} ${DESDE} ${RANGO_PRECIO} ${where}
       ORDER BY p.nombre, p.id
       LIMIT $${valores.length + 1} OFFSET $${valores.length + 2}`,
     [...valores, porPagina, (pagina - 1) * porPagina],
@@ -67,7 +89,7 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
 
 /** Un producto por id, o null. */
 export async function buscarPorId(id) {
-  const { rows } = await query(`SELECT ${SELECCION} ${DESDE} WHERE p.id = $1`, [id]);
+  const { rows } = await query(`SELECT ${SELECCION} ${DESDE} ${RANGO_PRECIO} WHERE p.id = $1`, [id]);
   return rows[0] ?? null;
 }
 
@@ -79,14 +101,24 @@ export async function imagenes(productoId) {
   return rows;
 }
 
-/** Crea un producto (stock en 0, sin precio de compra) y devuelve su id. */
+/**
+ * Crea un producto (sin precio de compra) y devuelve su id. El código no se
+ * envía: lo genera la base (ML-000001…) y la restricción UNIQUE lo protege
+ * aunque dos asesores creen productos al mismo tiempo.
+ */
 export async function crear(db, p) {
   const { rows } = await db.query(
-    `INSERT INTO producto (codigo, nombre, descripcion, categoria_id, marca_id, medidas, tipo_vehiculo_id, precio_venta)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-    [p.codigo, p.nombre, p.descripcion ?? null, p.categoriaId, p.marcaId, p.medidas, p.tipoVehiculoId ?? null, p.precioVenta],
+    `INSERT INTO producto (nombre, descripcion, categoria_id, marca_id, medidas, tipo_vehiculo_id, precio_venta)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [p.nombre, p.descripcion ?? null, p.categoriaId, p.marcaId, p.medidas, p.tipoVehiculoId ?? null, p.precioVenta],
   );
   return rows[0].id;
+}
+
+/** Medidas registradas en el catálogo, sin repetir (para el buscador de medidas). */
+export async function medidas() {
+  const { rows } = await query('SELECT DISTINCT medidas FROM producto ORDER BY medidas');
+  return rows.map((r) => r.medidas);
 }
 
 /** Actualiza las columnas indicadas: pares [['columna', valor], …]. */
@@ -101,35 +133,15 @@ export async function guardarFoto(db, productoId, foto) {
   if (foto) await db.query('INSERT INTO producto_imagen (producto_id, url) VALUES ($1, $2)', [productoId, foto]);
 }
 
-/** Datos de un producto que necesita la cotización (precio y estado). */
+/** Datos de un producto que necesita la cotización (nombre, medida, precio sugerido y estado). */
 export async function paraCotizar(db, id) {
-  const { rows } = await (db ?? POOL).query('SELECT id, nombre, medidas, precio_venta, stock, activo FROM producto WHERE id = $1', [
+  const { rows } = await (db ?? POOL).query('SELECT id, nombre, medidas, precio_venta, activo FROM producto WHERE id = $1', [
     id,
   ]);
   return rows[0] ?? null;
 }
 
-// ---- Inventario ------------------------------------------------------------------
-
-/**
- * Descuenta unidades del stock solo si alcanzan (la condición va en el
- * mismo UPDATE: dos pedidos a la vez no pueden dejarlo en negativo).
- * Devuelve true si se descontó.
- */
-export async function descontarStock(db, productoId, cantidad) {
-  const { rowCount } = await db.query('UPDATE producto SET stock = stock - $1 WHERE id = $2 AND stock >= $1', [
-    cantidad,
-    productoId,
-  ]);
-  return rowCount > 0;
-}
-
-/** Devuelve unidades al stock (pedido rechazado, venta anulada, compra recibida). */
-export async function sumarStock(db, productoId, cantidad) {
-  await db.query('UPDATE producto SET stock = stock + $1 WHERE id = $2', [cantidad, productoId]);
-}
-
-/** Guarda el último precio al que se compró el producto. */
+/** Guarda el último precio al que se compró el producto (costo interno). */
 export async function actualizarPrecioCompra(db, productoId, precio) {
   await db.query('UPDATE producto SET precio_compra = $1 WHERE id = $2', [precio, productoId]);
 }

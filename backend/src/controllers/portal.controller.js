@@ -1,5 +1,6 @@
 import { enTransaccion } from '../db.js';
 import { HttpError } from '../errores.js';
+import { exigirMedioDelCliente } from '../reglas.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import * as pagosModel from '../models/pagosCotizacion.model.js';
@@ -46,6 +47,7 @@ export async function resumen(req, res) {
 export async function pagarServicio(req, res) {
   const clienteId = exigirCliente(req);
   const { medioPago, comprobante } = req.validado.body;
+  exigirMedioDelCliente(medioPago);
   // En efectivo se paga en el local; con cualquier otro medio hay comprobante
   if (medioPago !== 'Efectivo' && !comprobante) throw new HttpError(422, 'Adjunta el comprobante del pago.');
 

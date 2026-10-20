@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { aceptar, cotizacionEmitida, PNG } from './comercial.js';
 import { levantarEntorno } from './entorno.js';
 
 /**
@@ -7,9 +8,6 @@ import { levantarEntorno } from './entorno.js';
  * rechazo e historial), de los datos que no se repiten entre cuentas y del
  * administrador principal.
  */
-
-// Imagen PNG real de 1×1 píxel
-const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 let e;
 const t = {};
@@ -24,33 +22,29 @@ after(async () => {
   await e?.cerrar();
 });
 
-const pedido = (pago) => ({
-  metodoPago: 'Contado',
-  direccionEntrega: 'Cra 5 #10-22, Pereira',
-  lineas: [{ tipo: 'producto', productoId: 1, cantidad: 1 }],
-  ...(pago ? { pago } : {}),
-});
+const contado = (pago) => ({ metodoPago: 'Contado', ...(pago ? { pago } : {}) });
 
 describe('Pago de contado de una cotización', () => {
-  test('pide cómo se paga y la consignación (salvo en efectivo)', async () => {
-    const sinPago = await e.api('/cotizaciones', { metodo: 'POST', token: t.luis, cuerpo: pedido() });
-    assert.equal(sinPago.estado, 422);
-    const sinComprobante = await e.api('/cotizaciones', {
-      metodo: 'POST',
+  test('al aceptarla pide cómo se paga y la consignación (salvo en efectivo)', async () => {
+    t.numero = await cotizacionEmitida(e, {
       token: t.luis,
-      cuerpo: pedido({ medioPago: 'Transferencia' }),
+      tokenAsesor: t.admin,
+      lineas: [{ tipo: 'producto', productoId: 1, cantidad: 1 }],
     });
-    assert.equal(sinComprobante.estado, 422);
+    assert.equal((await aceptar(e, t.luis, t.numero, contado())).estado, 422);
+    assert.equal((await aceptar(e, t.luis, t.numero, contado({ medioPago: 'Transferencia' }))).estado, 422);
+    // Desde el portal ya no se ofrece tarjeta ni "Otro"
+    for (const medioPago of ['Tarjeta', 'Otro']) {
+      const r = await aceptar(e, t.luis, t.numero, contado({ medioPago, comprobante: PNG }));
+      assert.equal(r.estado, 422, medioPago);
+    }
 
-    const ok = await e.api('/cotizaciones', {
-      metodo: 'POST',
-      token: t.luis,
-      cuerpo: pedido({ medioPago: 'Transferencia', comprobante: PNG }),
-    });
-    assert.equal(ok.estado, 201, JSON.stringify(ok.cuerpo));
+    const ok = await aceptar(e, t.luis, t.numero, contado({ medioPago: 'Transferencia', comprobante: PNG }));
+    assert.equal(ok.estado, 200, JSON.stringify(ok.cuerpo));
     assert.equal(ok.cuerpo.datos.pagoEstado, 'En revisión');
+    assert.equal(ok.cuerpo.datos.estadoPago, 'Pendiente');
     assert.equal(ok.cuerpo.datos.pagos.length, 1);
-    t.numero = ok.cuerpo.datos.numero;
+    assert.equal(ok.cuerpo.datos.pagos[0].monto, 280000, 'de contado se paga el 100 %');
   });
 
   test('mientras el pago está en revisión la cotización no cambia', async () => {

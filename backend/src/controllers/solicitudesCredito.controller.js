@@ -11,7 +11,6 @@ import { CUPO_CARTERA, pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirSinCreditoAbierto } from './creditos.controller.js';
 import { exigirActivo } from './estados.js';
-import { devolverLineas } from './inventario.js';
 
 /**
  * Controlador de solicitudes de crédito.
@@ -23,7 +22,7 @@ import { devolverLineas } from './inventario.js';
  *               la cuota inicial queda como su primer abono (confirmado) y
  *               la cotización pasa a "Aprobada". El saldo usable del
  *               cliente baja en lo que queda debiendo.
- *   Rechazada → la cotización se rechaza y sus llantas vuelven al stock.
+ *   Rechazada → la cotización se rechaza.
  *
  * También existen solicitudes sueltas (monto y plazo, sin cotización) que
  * crea un asesor: al aprobarlas se abre el crédito por ese monto.
@@ -103,7 +102,6 @@ async function rechazarDeCotizacion(db, solicitud, motivo) {
       ['estado', 'Rechazada'],
       ['motivo_cancelacion', `Crédito no aprobado: ${motivo}`],
     ]);
-    await devolverLineas(db, await cotizacionesModel.lineas(cotizacion.id, db));
   }
 }
 

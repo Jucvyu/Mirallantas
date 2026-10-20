@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { aceptar, cotizacionEmitida, PNG } from './comercial.js';
 import { levantarEntorno } from './entorno.js';
 
 /**
@@ -7,9 +8,6 @@ import { levantarEntorno } from './entorno.js';
  * cotizaciones (Pendiente / Aprobado / Rechazado) y de los avisos del
  * personal de Pedidos-Cotización.
  */
-
-// Imagen PNG real de 1×1 píxel
-const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 let e;
 const t = {};
@@ -26,12 +24,6 @@ after(async () => {
   await e?.cerrar();
 });
 
-const contado = {
-  metodoPago: 'Contado',
-  direccionEntrega: 'Cra 5 #10-22, Pereira',
-  lineas: [{ tipo: 'producto', productoId: 1, cantidad: 1 }],
-  pago: { medioPago: 'Transferencia', comprobante: PNG },
-};
 
 describe('Permisos de la vista de cliente', () => {
   test('el Cliente y el Administrador tienen Catálogo, Mis cotizaciones y Mi cartera', async () => {
@@ -50,11 +42,18 @@ describe('Permisos de la vista de cliente', () => {
 });
 
 describe('Estado de pago y avisos de Pedidos-Cotización', () => {
-  test('una cotización de contado del portal queda con pago Pendiente y avisa al personal', async () => {
-    const r = await e.api('/cotizaciones', { metodo: 'POST', token: t.luis, cuerpo: contado });
-    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
+  test('una cotización aceptada de contado queda con pago Pendiente y avisa al personal', async () => {
+    t.numero = await cotizacionEmitida(e, {
+      token: t.luis,
+      tokenAsesor: t.admin,
+      lineas: [{ tipo: 'producto', productoId: 1, cantidad: 1 }],
+    });
+    const r = await aceptar(e, t.luis, t.numero, {
+      metodoPago: 'Contado',
+      pago: { medioPago: 'Transferencia', comprobante: PNG },
+    });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.estadoPago, 'Pendiente');
-    t.numero = r.cuerpo.datos.numero;
 
     for (const token of [t.admin, t.asesor]) {
       const avisos = await e.api('/notificaciones', { token });

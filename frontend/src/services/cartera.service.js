@@ -73,7 +73,8 @@ function solicitudCreditoHaciaApi(v, fila, contexto) {
   if (fila) return { estado: v.estado, motivo: vacioANull(v.motivo) };
   return {
     // Desde el portal no hay cliente que elegir: la API usa el de la sesión
-    clienteId: contexto?.clientes ? idPorNombre(contexto.clientes, v.cliente, 'nombreCompleto') : undefined,
+    // El buscador del panel entrega el id real del cliente
+    clienteId: v.clienteId || (contexto?.clientes ? idPorNombre(contexto.clientes, v.cliente, 'nombreCompleto') : undefined),
     monto: parseCOP(v.monto),
     plazoDias: Number(v.plazoDias),
   };
@@ -90,7 +91,7 @@ export const solicitudesCreditoService = {
   ...solicitudesCreditoBase,
   /** Aprobar (abre el crédito) o rechazar (exige motivo). */
   cambiarEstado: (fila, estado) => solicitudesCreditoBase.enviar(fila, { estado }),
-  /** No aprobar con su motivo (la cotización se rechaza y el stock vuelve). */
+  /** No aprobar con su motivo (la cotización se rechaza). */
   rechazar: (fila, motivo) => solicitudesCreditoBase.enviar(fila, { estado: 'Rechazada', motivo }),
 };
 
@@ -99,9 +100,9 @@ export const solicitudesCreditoService = {
 /** Formulario → API: los nombres elegidos viajan como ids. */
 function solicitudServicioHaciaApi(v, fila, { clientes, terceros }) {
   return {
-    ...(fila ? { estado: v.estado } : { clienteId: idPorNombre(clientes, v.cliente, 'nombreCompleto') }),
+    ...(fila ? { estado: v.estado } : { clienteId: v.clienteId || idPorNombre(clientes, v.cliente, 'nombreCompleto') }),
     // El servicio no se elige: siempre es "Reencauche" (lo pone la API)
-    terceroId: idPorNombre(terceros, v.tercero, 'nombreRazonSocial'),
+    terceroId: v.terceroId !== undefined ? v.terceroId || null : idPorNombre(terceros, v.tercero, 'nombreRazonSocial'),
     fecha: vacioANull(v.fecha) ?? undefined,
     cantidad: Number(v.cantidad),
     medidas: vacioANull(v.medidas),

@@ -5,6 +5,7 @@ import FormModal from '../../../components/base/FormModal';
 import PageHeader from '../../../components/base/PageHeader';
 import { estadosEvidenciaCarcasa, estadosServicio } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
+import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
 import { clientesService, solicitudesServicioService, tercerosService } from '../../../services';
 import { formatCOP, parseCOP } from '../../../utils/formato';
 import DetallePagoServicioModal from './DetallePagoServicioModal';
@@ -75,20 +76,21 @@ const columns = [
 ];
 
 function seccionesFormulario({ clientes, terceros }) {
-  const activos = (lista, campo) => lista.filter((x) => x.activo).map((x) => x[campo]);
   return [
     {
       title: 'Origen de la solicitud',
       fields: [
         // El cliente se elige al crear; después no cambia
-        { key: 'cliente', label: 'Cliente', type: 'select', required: true, options: activos(clientes, 'nombreCompleto'), emptyLabel: 'cliente', only: 'create' },
+        // Buscador por nombre o documento: guarda el id real del cliente
+        { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opcionesClientes(clientes), placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente', only: 'create' },
         { key: 'cliente', label: 'Cliente', only: ['edit', 'view'], soloLectura: true },
         {
-          key: 'tercero',
+          key: 'terceroId',
           label: 'Reencauchadora',
-          type: 'select',
+          type: 'buscador',
           // Una reencauchadora inactiva no puede recibir solicitudes nuevas
-          options: activos(terceros, 'nombreRazonSocial'),
+          options: opcionesEmpresas(terceros),
+          placeholderBusqueda: 'Razón social o NIT',
           emptyLabel: 'tercero',
           hint: 'Se asigna cuando la carcasa pasa la revisión.',
         },

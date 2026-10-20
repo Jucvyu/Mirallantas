@@ -4,7 +4,8 @@ import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import {
-  CUOTA_INICIAL_CREDITO,
+  CUOTA_INICIAL_PORCENTAJE,
+  cuotaMinimaDe,
   estadosEntrega,
   estadosVenta,
   FLUJO_ESTADOS_VENTA,
@@ -13,25 +14,28 @@ import {
 import { useRecurso } from '../../../hooks/useRecurso';
 import { clientesService, proveedoresService, tercerosService, ventasService } from '../../../services';
 import { parseCOP } from '../../../utils/formato';
+import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
 import EstadoEntrega from '../shared/EstadoEntrega';
 import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 
 /**
- * La empresa exige que la primera cuota cubra al menos la mitad del total
- * cuando la venta se financia. (La API vuelve a comprobarlo al guardar.)
+ * Venta a crédito: la cuota inicial cubre al menos el 30 % del total (el
+ * 70 % restante se financia); de contado se paga el 100 %. La API vuelve a
+ * comprobarlo al guardar.
  */
 function validarCuotaInicial(values) {
   if (values.metodoPago !== 'Crédito') return {};
   const total = parseCOP(values.total);
   const inicial = parseCOP(values.cuotaInicial);
-  const minimo = Math.round(total * CUOTA_INICIAL_CREDITO);
   if (!total) return {};
+  const minimo = cuotaMinimaDe(total);
   if (inicial < minimo) {
     return {
-      cuotaInicial: `La primera cuota debe ser de al menos $ ${minimo.toLocaleString('es-CO')} (50% del total).`,
+      cuotaInicial: `La cuota inicial debe ser de al menos $ ${minimo.toLocaleString('es-CO')} (${CUOTA_INICIAL_PORCENTAJE} % del total).`,
     };
   }
+  if (inicial >= total) return { cuotaInicial: 'Si se paga todo de una vez, registra la venta de contado.' };
   return {};
 }
 
@@ -66,34 +70,40 @@ const columns = [
 ];
 
 function seccionesFormulario({ clientes, proveedores, terceros }) {
-  const activos = (lista, campo) => lista.filter((x) => x.activo).map((x) => x[campo]);
   return [
     {
       title: 'Datos de la venta',
       fields: [
-        ...soloAlCrear({
-          key: 'cliente',
-          label: 'Cliente',
-          type: 'select',
-          required: true,
-          options: activos(clientes, 'nombreCompleto'),
-          emptyLabel: 'cliente',
-        }),
+        // Buscador por nombre o documento: guarda el id real del cliente
         {
-          key: 'proveedor',
+          key: 'clienteId',
+          label: 'Cliente',
+          type: 'buscador',
+          required: true,
+          options: opcionesClientes(clientes),
+          placeholderBusqueda: 'Nombre o número de documento',
+          emptyLabel: 'cliente',
+          only: 'create',
+        },
+        { key: 'cliente', label: 'Cliente', only: ['edit', 'view'], soloLectura: true },
+        {
+          key: 'proveedorId',
           label: 'Proveedor',
-          type: 'select',
-          options: activos(proveedores, 'nombreRazonSocial'),
+          type: 'buscador',
+          options: opcionesEmpresas(proveedores),
+          placeholderBusqueda: 'Razón social o NIT',
           emptyLabel: 'proveedor',
           hint: 'Proveedor que surtió los productos vendidos.',
         },
         ...soloAlCrear({ key: 'fecha', label: 'Fecha', type: 'date', required: true }),
         ...soloAlCrear({ key: 'metodoPago', label: 'Método de pago', type: 'select', required: true, options: metodosPago }),
         {
-          key: 'tercero',
+          key: 'terceroId',
           label: 'Tercero (reencauchadora)',
-          type: 'select',
-          options: activos(terceros, 'nombreRazonSocial'),
+          type: 'buscador',
+          options: opcionesEmpresas(terceros),
+          placeholderBusqueda: 'Razón social o NIT',
+          emptyLabel: 'tercero',
           hint: 'Solo si la venta incluye un servicio de reencauche.',
         },
         { key: 'estado', label: 'Estado', type: 'select', options: estadosVenta, only: ['edit', 'view'] },
@@ -110,7 +120,7 @@ function seccionesFormulario({ clientes, proveedores, terceros }) {
           label: 'Cuota inicial (COP)',
           type: 'money',
           placeholder: '0',
-          hint: 'A crédito, no puede ser menor al 50% del total.',
+          hint: `A crédito, al menos el ${CUOTA_INICIAL_PORCENTAJE} % del total (el resto se financia). De contado se paga el 100 %.`,
         }),
       ],
     },
@@ -223,6 +233,7 @@ export default function VentasPage() {
         <ComprobanteVentaModal
           venta={comprobanteDe}
           servicio={ventasService}
+          onDescargarPdf={(v) => ventasService.descargarPdf(v.id)}
           onClose={() => setComprobanteDe(null)}
         />
       )}

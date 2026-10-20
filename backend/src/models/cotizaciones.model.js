@@ -6,13 +6,30 @@ import { SUBCONSULTA_ESTADO, SUBCONSULTA_ESTADO_PAGO, SUBCONSULTA_TOTAL_SERVICIO
  * Solo SQL: las reglas (precios, crédito, estados) están en el controlador.
  */
 
+/**
+ * Etapa comercial de la cotización (la calcula la base con la fecha del
+ * negocio, nunca la del navegador):
+ *   Solicitud  el cliente pidió productos; los precios están por confirmar
+ *   Emitida    cotización formal con precios, vigente (hasta vence_en)
+ *   Vencida    cotización formal que no se aceptó a tiempo
+ *   Aceptada   el cliente eligió contado o crédito; sigue el pedido
+ */
+export const CAMPOS_ETAPA = `
+    c.emitida_en AS "emitidaEn", c.vence_en AS "venceEn",
+    CASE
+      WHEN NOT c.confirmado THEN 'Solicitud'
+      WHEN c.metodo_pago IS NOT NULL THEN 'Aceptada'
+      WHEN c.vence_en < CURRENT_DATE THEN 'Vencida'
+      ELSE 'Emitida'
+    END AS etapa`;
+
 const COTIZACION = {
   select: `
     c.id, c.numero, c.fecha, c.metodo_pago AS "metodoPago", c.plazo_dias AS "plazoDias",
     c.subtotal, c.interes, c.total, c.cuota_inicial AS "cuotaInicial",
     c.cuota_inicial_medio AS "cuotaInicialMedio", c.confirmado,
     c.estado, c.estado_entrega AS "estadoEntrega", c.direccion_entrega AS "direccionEntrega",
-    c.motivo_cancelacion AS "motivoCancelacion",
+    c.motivo_cancelacion AS "motivoCancelacion", ${CAMPOS_ETAPA},
     c.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
     c.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     (SELECT v.numero FROM venta v WHERE v.cotizacion_id = c.id) AS venta,
@@ -55,6 +72,20 @@ export function buscarPorNumero(numero, opciones = {}, db = POOL) {
   return consultarPorNumero(COTIZACION, numero, { ...opciones, que: 'La cotización' }, db);
 }
 
+/**
+ * Datos internos de cada línea: proveedor y costo confirmado, el precio de
+ * venta sugerido del catálogo y el último costo de compra. La vista de
+ * documentos los quita cuando quien pregunta es un cliente del portal.
+ */
+export const CAMPOS_INTERNOS_LINEA = [
+  'proveedorLineaId',
+  'proveedorLinea',
+  'costoProveedor',
+  'costoConfirmadoEn',
+  'precioSugerido',
+  'ultimoCosto',
+];
+
 /** Líneas de la cotización, con el estado de la solicitud de reencauche de cada servicio. */
 export async function lineas(cotizacionId, db = POOL) {
   const { rows } = await db.query(
@@ -62,9 +93,14 @@ export async function lineas(cotizacionId, db = POOL) {
             ss.numero AS "solicitudServicio", ss.estado AS "estadoServicio",
             ss.estado_evidencia AS "estadoEvidencia", ss.foto_url AS foto,
             ss.descripcion AS "descripcionCarcasa", ss.tiempo_estimado AS "tiempoEstimado",
-            ss.garantia, ss.fecha AS "fechaServicio", te.nombre_razon_social AS tercero
+            ss.garantia, ss.fecha AS "fechaServicio", te.nombre_razon_social AS tercero,
+            ss.precio AS "precioServicio",
+            d.proveedor_id AS "proveedorLineaId", pv.nombre_razon_social AS "proveedorLinea",
+            d.costo_proveedor AS "costoProveedor", d.costo_confirmado_en AS "costoConfirmadoEn",
+            p.precio_venta AS "precioSugerido", p.precio_compra AS "ultimoCosto"
        FROM cotizacion_detalle d
        LEFT JOIN producto p ON p.id = d.producto_id
+       LEFT JOIN proveedor pv ON pv.id = d.proveedor_id
        LEFT JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
        LEFT JOIN tercero te ON te.id = ss.tercero_id
       WHERE d.cotizacion_id = $1 ORDER BY d.id`,
@@ -73,33 +109,55 @@ export async function lineas(cotizacionId, db = POOL) {
   return rows;
 }
 
+/**
+ * Guarda en una línea de producto el costo confirmado con el proveedor
+ * (con fecha y usuario) y el precio de venta definitivo.
+ */
+export async function confirmarLinea(db, lineaId, { proveedorId, costoProveedor, precioUnitario, usuarioId }) {
+  await db.query(
+    `UPDATE cotizacion_detalle
+        SET proveedor_id = $2, costo_proveedor = $3, costo_confirmado_en = now(), costo_confirmado_por = $4,
+            precio_unitario = $5::bigint, subtotal = $5::bigint * cantidad
+      WHERE id = $1`,
+    [lineaId, proveedorId, costoProveedor, usuarioId, precioUnitario],
+  );
+}
+
+/**
+ * Emite la cotización formal: guarda los valores y la vigencia. Las fechas
+ * salen de la base (zona horaria del negocio): hoy y hoy + `dias`.
+ */
+export async function emitir(db, id, { subtotal, dias }) {
+  await db.query(
+    `UPDATE cotizacion
+        SET subtotal = $2, interes = 0, total = $2, confirmado = TRUE,
+            emitida_en = CURRENT_DATE, vence_en = CURRENT_DATE + $3::int
+      WHERE id = $1`,
+    [id, subtotal, dias],
+  );
+}
+
 /** Fila completa de la tabla (con nombres de columna SQL), para generar la venta. */
 export async function fila(db, id) {
   const { rows } = await db.query('SELECT * FROM cotizacion WHERE id = $1', [id]);
   return rows[0];
 }
 
-/** Crea la cabecera con su número consecutivo (PED-AAAA-NNN) → { id, numero }. */
+/**
+ * Crea la cabecera con su número consecutivo (PED-AAAA-NNN) → { id, numero }.
+ * La fecha es la de hoy (la pone la base). Los valores quedan en 0 hasta
+ * que el asesor emita la cotización formal.
+ */
 export async function crear(db, c) {
   const { rows } = await db.query(
-    `INSERT INTO cotizacion (numero, cliente_id, proveedor_id, fecha, metodo_pago, plazo_dias,
-                             subtotal, interes, total, cuota_inicial, cuota_inicial_medio,
-                             cuota_inicial_comprobante, confirmado, direccion_entrega, clave_idempotencia)
-     VALUES (siguiente_numero('PED'), $1, $2, COALESCE($3::date, CURRENT_DATE), $4, $5,
-             $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `INSERT INTO cotizacion (numero, cliente_id, proveedor_id, metodo_pago, confirmado,
+                             direccion_entrega, clave_idempotencia)
+     VALUES (siguiente_numero('PED'), $1, $2, $3, $4, $5, $6)
      RETURNING id, numero`,
     [
       c.clienteId,
       c.proveedorId ?? null,
-      c.fecha ?? null,
-      c.metodoPago,
-      c.plazoDias,
-      c.subtotal,
-      c.interes,
-      c.total,
-      c.cuotaInicial,
-      c.cuotaInicialMedio ?? null,
-      c.cuotaInicialComprobante ?? null,
+      c.metodoPago ?? null,
       c.confirmado,
       c.direccionEntrega,
       c.claveIdempotencia ?? null,
@@ -132,8 +190,9 @@ export async function crearLinea(db, cotizacionId, l) {
       l.descripcion,
       l.medida ?? null,
       l.cantidad,
-      l.precioUnitario,
-      l.precioUnitario * l.cantidad,
+      // Producto: sin precio hasta la cotización formal (NULL = por confirmar)
+      l.precioUnitario ?? null,
+      l.precioUnitario == null ? null : l.precioUnitario * l.cantidad,
     ],
   );
 }

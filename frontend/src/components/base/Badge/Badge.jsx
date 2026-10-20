@@ -12,6 +12,11 @@ const STATUS_STYLES = {
   Aprobada: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   Completada: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   Activo: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  Aceptada: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  // Etapas de la cotización
+  Solicitud: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  Emitida: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  Vencida: 'bg-red-500/15 text-red-600 dark:text-red-400',
   // Ámbar — pendiente / en proceso
   Pendiente: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   'En proceso': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
@@ -27,7 +32,6 @@ const STATUS_STYLES = {
   Cancelado: 'bg-red-500/15 text-red-600 dark:text-red-400',
   Rechazada: 'bg-red-500/15 text-red-600 dark:text-red-400',
   'No apta': 'bg-red-500/15 text-red-600 dark:text-red-400',
-  Agotado: 'bg-red-500/15 text-red-600 dark:text-red-400',
   Anulada: 'bg-red-500/15 text-red-600 dark:text-red-400',
   Inactivo: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
   // Azul — informativo / neutral

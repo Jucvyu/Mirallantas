@@ -114,7 +114,6 @@ describe('Estado Inactivo', () => {
       metodo: 'POST',
       token: t.admin,
       cuerpo: {
-        codigo: 'PRD-PAUSA-01',
         nombre: 'Llanta de prueba',
         categoriaId: categoria.cuerpo.datos.id,
         marcaId: marca,

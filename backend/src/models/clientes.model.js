@@ -53,3 +53,14 @@ export async function creditoAbierto(db, clienteId) {
   );
   return rows[0]?.numero ?? null;
 }
+
+/** Datos del cliente que se imprimen en los documentos (cotización y comprobante). */
+export async function paraDocumento(id, db = POOL) {
+  const { rows } = await db.query(
+    `SELECT nombre_completo AS nombre, tipo_documento AS "tipoDocumento", numero_documento AS "numeroDocumento",
+            direccion, telefono, correo
+       FROM cliente WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}

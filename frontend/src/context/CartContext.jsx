@@ -4,30 +4,34 @@ const CartContext = createContext(null);
 
 let servicioSeq = 0;
 
+/** Cantidad máxima de una llanta en la solicitud (la API también la limita). */
+export const CANTIDAD_MAXIMA = 999;
+
+/** Deja la cantidad entre 1 y 999 (vacía o inválida queda en 1). */
+const acotar = (n) => Math.min(CANTIDAD_MAXIMA, Math.max(1, Math.floor(Number(n) || 1)));
+
 /**
- * Carrito de la cotización-pedido en curso.
+ * Carro de la solicitud de cotización en curso.
  *
- * Refleja las dos tablas de detalle del modelo:
- *   - `productos` → detalle_venta (producto, cantidad y precio unitario)
- *   - `servicios` → detalle_servicio más la evidencia de la carcasa
- *     (foto y descripción de la llanta usada)
+ *   - `productos`: llantas con la cantidad que necesita el cliente
+ *   - `servicios`: reencauches con la foto y la descripción de la carcasa
+ *
+ * No guarda precios, subtotales ni stock: el precio definitivo lo confirma
+ * un asesor con el proveedor después de recibir la solicitud. Una llanta
+ * que ya está en el carro suma cantidad en vez de repetirse.
  *
  * Vive en el ClientLayout, así que sobrevive mientras el cliente navega
- * entre el catálogo y el resto del portal. Como los productos ya tienen
- * precio de venta, el carrito calcula el subtotal.
+ * entre el catálogo y el resto del portal.
  */
 export function CartProvider({ children }) {
   const [productos, setProductos] = useState([]);
   const [servicios, setServicios] = useState([]);
 
   const addProducto = useCallback((producto, cantidad = 1) => {
-    // No se piden más unidades de las que hay en inventario (la API lo
-    // vuelve a revisar al enviar la cotización)
-    const tope = (n) => (producto.stock === undefined ? n : Math.min(n, producto.stock));
     setProductos((prev) => {
       const encontrado = prev.find((p) => p.id === producto.id);
       if (encontrado) {
-        return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: tope(p.cantidad + cantidad) } : p));
+        return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: acotar(p.cantidad + cantidad) } : p));
       }
       return [
         ...prev,
@@ -38,23 +42,15 @@ export function CartProvider({ children }) {
           marca: producto.marca,
           medidas: producto.medidas,
           categoria: producto.categoria,
-          precioVenta: producto.precioVenta,
           foto: producto.foto,
-          stock: producto.stock,
-          cantidad: tope(cantidad),
+          cantidad: acotar(cantidad),
         },
       ];
     });
   }, []);
 
   const setCantidad = useCallback((id, cantidad) => {
-    setProductos((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        const pedida = Math.max(1, Number(cantidad) || 1);
-        return { ...p, cantidad: p.stock === undefined ? pedida : Math.min(pedida, Math.max(p.stock, 1)) };
-      }),
-    );
+    setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: acotar(cantidad) } : p)));
   }, []);
 
   const removeProducto = useCallback((id) => {
@@ -66,7 +62,7 @@ export function CartProvider({ children }) {
     setServicios((prev) => [...prev, { ...servicio, id: `SRVL-${servicioSeq}` }]);
   }, []);
 
-  /** Cambia los datos de un servicio ya agregado (se edita desde el detalle). */
+  /** Cambia los datos de un servicio ya agregado (se edita desde el carro). */
   const updateServicio = useCallback((id, cambios) => {
     setServicios((prev) => prev.map((s) => (s.id === id ? { ...s, ...cambios } : s)));
   }, []);
@@ -80,11 +76,8 @@ export function CartProvider({ children }) {
     setServicios([]);
   }, []);
 
-  const value = useMemo(() => {
-    // Los servicios no se cobran en la cotización: el asesor les pone valor
-    // después y el cliente los paga aparte. Solo suman los productos.
-    const subtotalProductos = productos.reduce((acc, p) => acc + p.precioVenta * p.cantidad, 0);
-    return {
+  const value = useMemo(
+    () => ({
       productos,
       servicios,
       addProducto,
@@ -97,9 +90,9 @@ export function CartProvider({ children }) {
       count: productos.length + servicios.length,
       unidades:
         productos.reduce((acc, p) => acc + p.cantidad, 0) + servicios.reduce((acc, s) => acc + s.cantidad, 0),
-      subtotal: subtotalProductos,
-    };
-  }, [productos, servicios, addProducto, setCantidad, removeProducto, addServicio, updateServicio, removeServicio, clear]);
+    }),
+    [productos, servicios, addProducto, setCantidad, removeProducto, addServicio, updateServicio, removeServicio, clear],
+  );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

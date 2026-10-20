@@ -51,6 +51,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 8 | Limita las solicitudes por IP y los intentos de inicio de sesión (contra fuerza bruta). |
 | [cloudinary](https://cloudinary.com/documentation/node_integration) | 2 | Guarda las imágenes subidas (fotos y comprobantes) fuera de la base. |
 | [nodemailer](https://nodemailer.com) | 10 | Envía por correo (SMTP) el código para recuperar la contraseña. |
+| [PDFKit](https://pdfkit.org) | 0.20 | Genera en el servidor la cotización formal y el comprobante de venta en PDF. |
 | `node:crypto` (nativo de Node) | — | Doble factor TOTP y cifrado AES-256-GCM de datos sensibles, sin librerías extra. |
 | [embedded-postgres](https://github.com/leinelissen/embedded-postgres) | 18.4 (dev) | **Solo desarrollo y pruebas**: un PostgreSQL real sin instalar nada. |
 | `node:test` (nativo de Node) | — | Pruebas automatizadas de la API. |
@@ -220,7 +221,8 @@ Piezas compartidas del backend:
 | Archivo | Qué hace |
 | --- | --- |
 | `backend/src/app.js` | Arma la aplicación Express y monta todas las rutas. |
-| `backend/src/reglas.js` | **Reglas del negocio** en un solo lugar: interés por plazo, cuota inicial del 50 %, cupo, flujos de estados. |
+| `backend/src/reglas.js` | **Reglas del negocio** en un solo lugar: interés por plazo, cuota inicial del 30 %, vigencia de 8 días, medios de pago del portal, cupo, flujos de estados. |
+| `backend/src/views/pdf.view.js` | Cotización formal y comprobante de venta en PDF, con los datos guardados. |
 | `backend/src/middleware/auth.js` | Verifica el token, carga los permisos y limita al portal a sus propios datos. |
 | `backend/src/middleware/validar.js` | Aplica un esquema de `validators/` a la petición. |
 | `backend/src/models/listado.model.js` | Consultas comunes: listados paginados, búsqueda por número, `UPDATE` parcial. |
@@ -325,16 +327,16 @@ Todas las rutas empiezan por `/api`. Salvo `salud`, `auth/login`, `auth/2fa/veri
 | Roles | `GET/POST /roles`, `PUT/DELETE /roles/:id`, `GET /roles/permisos` | `Roles` + rol Administrador |
 | Usuarios | `GET/POST /usuarios`, `PUT/DELETE /usuarios/:id` | `Usuarios` + rol Administrador |
 | Catálogos | `GET/POST /categorias`, `/marcas`, `/tipos-vehiculo`, `/servicios` · `PUT/DELETE /…/:id` · `PATCH /…/:id/estado` | `Categorías`, `Marcas`, `Productos` |
-| Productos | `GET/POST /productos`, `GET/PUT /productos/:id` | `Productos` para escribir |
+| Productos | `GET/POST /productos`, `GET /productos/medidas`, `GET/PUT /productos/:id` | `Productos` para escribir |
 | Contactos | `/clientes`, `/proveedores`, `/terceros` (mismas rutas que los catálogos) | `Clientes`, `Proveedores`, `Terceros` |
-| Cotizaciones | `GET/POST /cotizaciones` (acepta `Idempotency-Key`), `GET/PATCH/DELETE /cotizaciones/:numero` | `Pedidos-Cotización` |
-| Ventas | `GET/POST /ventas`, `GET/PATCH /ventas/:numero` | `Ventas` |
+| Cotizaciones | `GET/POST /cotizaciones` (solicitud; acepta `Idempotency-Key`), `GET/PATCH/DELETE /cotizaciones/:numero`, `POST /cotizaciones/:numero/emitir`, `POST /cotizaciones/:numero/aceptar`, `GET /cotizaciones/:numero/pdf` | `Pedidos-Cotización` |
+| Ventas | `GET/POST /ventas`, `GET/PATCH /ventas/:numero`, `GET /ventas/:numero/pdf` | `Ventas` |
 | Compras | `GET/POST /compras`, `GET/PATCH /compras/:numero` | `Compras` |
 | Créditos | `GET/POST /creditos`, `GET/PATCH /creditos/:numero`, `POST /creditos/:numero/abonos` (acepta `Idempotency-Key`) | `Cartera` |
 | Abonos | `GET /abonos`, `PATCH /abonos/:numero` (confirmar o rechazar) | `Abonos` |
 | Solicitudes | `/solicitudes-credito`, `/solicitudes-servicio` | `Cartera`, `Solicitudes de servicio` |
 | Tableros | `GET /dashboard`, `GET /portal/resumen` | `Dashboard` / sesión |
-| Portal | `POST /portal/servicios/:numero/pago`, `GET /portal/notificaciones`, `POST /portal/notificaciones/leidas` | cliente |
+| Portal | `POST /portal/cotizaciones/:numero/aceptar`, `POST /portal/servicios/:numero/pago`, `GET /portal/ventas/:numero/pdf`, `GET /portal/notificaciones`, `POST /portal/notificaciones/leidas` | cliente |
 | Avisos del personal | `GET /notificaciones`, `POST /notificaciones/leidas` | personal (solo los módulos que tenga, hoy Pedidos-Cotización) |
 | Pago de servicios | `POST /solicitudes-servicio/:numero/pago` (aprobar o rechazar) | `Solicitudes de servicio` |
 
@@ -347,18 +349,44 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
 
 ## Reglas del negocio que aplica la API
 
-- **Crédito**: interés de 3 %, 6 % o 9 % según el plazo (30, 60 o 90 días); la primera cuota
-  debe cubrir al menos el **50 %** del total; cupo máximo de **$ 2.000.000** por cliente.
+- **Flujo comercial de la cotización** (columna "Etapa"):
+  1. **Solicitud**: el cliente arma su carro de cotización en el catálogo (llantas y cantidades,
+     sin precios ni stock) y la envía; el asesor también puede registrarla. No lleva fecha manual
+     (la pone el servidor), precios ni método de pago. El cliente ve el aviso de que los precios se
+     confirman en **hasta 24 horas** y que enviarla no es una compra.
+  2. **Cotización formal**: en Pedidos-Cotización, "Confirmar precios" registra por cada llanta el
+     proveedor, el **costo que este confirmó** (con fecha y usuario; nunca se toma solo un costo
+     viejo) y el **precio de venta** (no puede quedar por debajo del costo). Al emitirla vence a los
+     **8 días calendario** (la fecha la calcula la base con la zona horaria del negocio). Si el
+     catálogo cambia después, la cotización emitida conserva sus precios. Se descarga en **PDF**.
+  3. **Aceptación**: dentro de la vigencia, el cliente elige **contado** (paga el 100 %) o
+     **crédito** (cuota inicial de al menos el 30 %). Vencida, el asesor la vuelve a confirmar y
+     emitir. Una solicitud o una cotización sin aceptar no avanza ni se despacha (solo se rechaza).
+- **Crédito (ventas a crédito)**: interés de 3 %, 6 % o 9 % según el plazo (30, 60 o 90 días); la
+  cuota inicial cubre al menos el **30 %** del total (redondeado hacia arriba al peso) y el resto se
+  financia; de contado se paga el 100 %. Vale para la aceptación de cotizaciones y para las ventas
+  directas. No aplica a las compras a proveedores. Cupo máximo de **$ 2.000.000** por cliente.
+- **Medios de pago del portal**: el cliente paga en efectivo o por transferencia (la API rechaza
+  tarjeta u "otro" desde el portal); en el local el asesor puede registrar los demás medios.
+- **Catálogo del cliente**: muestra un **rango de precio orientativo** (el menor y el mayor entre el
+  precio de venta actual y lo que se vendió o cotizó formalmente en los últimos 180 días), o "Precio
+  por confirmar". La API nunca le envía el costo, el precio exacto ni datos internos del proveedor.
+- **Productos**: el código lo genera la base (**ML-000001**, …) con una secuencia y una restricción
+  única; no cambia al editar. El formulario no pide precio de compra ni stock; la medida se elige
+  con un buscador de las medidas ya registradas (o se escribe una nueva, normalizada).
+- **Sin stock**: el aplicativo no maneja existencias (la migración 0010 retiró `producto.stock` y
+  `compra.stock_aplicado`). Las cantidades de cotizaciones, ventas y compras se conservan. Recibir
+  una compra solo guarda el último costo de compra de cada llanta (dato interno).
 - **Un solo crédito abierto por cliente**: lo garantiza la base de datos con un índice único.
-- **Total de la cotización**: precio del catálogo × cantidad (más el interés si es a crédito). Lo
+- **Total de la cotización**: precio confirmado × cantidad (más el interés si es a crédito). Lo
   calcula la API; nadie lo escribe a mano.
-- **Cotización a crédito**: exige registrar antes la cuota inicial (con comprobante, salvo pago en
-  efectivo) y crea una **solicitud de crédito** pendiente por lo que se financia. En "Solicitudes
+- **Aceptación a crédito**: exige la cuota inicial (con comprobante, salvo pago en efectivo) y crea
+  una **solicitud de crédito** pendiente por lo que se financia. En "Solicitudes
   de crédito" el asesor ve el detalle del pedido y la consignación y la aprueba o no:
   - **Aprobada**: se abre el crédito en la cartera del cliente (la cuota inicial queda como su
     primer abono confirmado) y la cotización pasa a "Aprobada". El saldo usable baja en lo que
     queda debiendo.
-  - **No aprobada** (con motivo): la cotización se rechaza y sus llantas vuelven al stock.
+  - **No aprobada** (con motivo): la cotización se rechaza.
 - **Estado de pago**: cada cotización muestra su pago como Pendiente, Aprobado o Rechazado (de
   contado, la última consignación; a crédito, la solicitud que revisa la cuota inicial). En
   Pedidos-Cotización hay un filtro "Estado de pago" y, en "Mis cotizaciones", la carta de un pago
@@ -401,10 +429,12 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
   el pago aprobado, y su valor ya no cambia después de pagado.
 - **Notificaciones**: el cliente las ve en la campana del portal (valor de un servicio, pagos y
   abonos aprobados o rechazados, crédito aprobado o no). Se revisan cada minuto.
-- **Inventario**: una cotización descuenta el stock al crearse (si no alcanza, no se crea); si se
-  rechaza, se elimina o su venta se anula, las unidades vuelven. Una compra suma su mercancía
-  (y guarda el último precio de compra) al quedar **Recibida** y con entrega **Entregado**, una
-  sola vez.
+- **Compras**: cada línea que viene de la cotización muestra si su costo se confirmó con el
+  proveedor (y cuándo) o si está sin confirmar; el precio propuesto es ese costo confirmado.
+- **Comprobante de venta en PDF**: se genera en el servidor con la venta guardada (empresa,
+  cliente, llantas, cuota inicial y saldo si es a crédito). No es una factura electrónica.
+- **Tablas del panel**: en pantalla grande caben sin scroll horizontal (el texto largo baja de
+  línea); en celular y tableta cada fila se ve como una tarjeta con todas sus columnas.
 - **Al completar una cotización** se genera su venta con las mismas líneas (y su crédito, si lo
   tiene, queda ligado a esa venta).
 - **Abonos**: nacen pendientes; cuando un asesor los confirma baja el saldo del crédito y sube el
@@ -561,9 +591,4 @@ Comprueba `https://tu-api/api/salud` → `{"estado":"ok"}`.
 
 Estos puntos del plan de mejoras esperan una decisión del equipo antes de implementarse:
 
-- Formato del código automático de productos (hoy el asesor lo escribe al crear).
-- Vigencia de 8 días de las cotizaciones y PDF de cotización.
-- Abono mínimo del 30 % en compras a crédito y acuerdos de precio con proveedores.
-- Comprobante de venta en PDF (hoy se descarga en texto).
 - Estados de cotización que permiten comprar (hoy: "Aprobada" y "En proceso").
-- Recuperación de contraseña por correo (hoy la restablece un administrador).

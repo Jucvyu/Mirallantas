@@ -98,8 +98,7 @@ export default function SelectorProductosModal({ onAgregar, onClose }) {
             <thead className="sticky top-0 bg-slate-50 dark:bg-brand-navy-900">
               <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 <th className="px-4 py-2.5">Producto</th>
-                <th className="px-4 py-2.5">Stock</th>
-                <th className="px-4 py-2.5 text-right">Precio venta</th>
+                <th className="px-4 py-2.5 text-right">Precio de lista</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -115,9 +114,6 @@ export default function SelectorProductosModal({ onAgregar, onClose }) {
                       {p.codigo} · {p.marca} · {p.medidas}
                     </p>
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className={p.stock === 0 ? 'font-semibold text-red-500' : ''}>{p.stock}</span>
-                  </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-right">{pesos(p.precioVenta)}</td>
                   <td className="px-4 py-2.5 text-right">
                     <button
@@ -132,7 +128,7 @@ export default function SelectorProductosModal({ onAgregar, onClose }) {
               ))}
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-400">
+                  <td colSpan={3} className="px-4 py-8 text-center text-sm text-slate-400">
                     {productos.cargando ? 'Cargando el catálogo…' : 'Ningún producto coincide con la búsqueda.'}
                   </td>
                 </tr>

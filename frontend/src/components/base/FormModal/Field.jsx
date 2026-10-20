@@ -42,7 +42,10 @@ function toList(value) {
  *   soloLectura: el campo se ve pero no se puede cambiar (p. ej. el código
  *   de un producto, que no cambia una vez asignado)
  *   type: text | email | tel | number | password | date | money | textarea |
- *         select | checkboxes | image | avatar | color | switch
+ *         select | buscador | checkboxes | image | avatar | color | switch
+ *   buscador: selector con barra de búsqueda. `options` puede traer objetos
+ *   { valor, etiqueta, detalle } (se guarda el valor, p. ej. el id real del
+ *   cliente) y `permitirNuevo` deja escribir un valor que aún no existe.
  *   avatar: foto de perfil circular; al subirla, el usuario elige con un
  *   círculo qué parte se ve (ver RecorteCircular)
  * mode: 'edit' (editable) | 'view' (solo lectura, estilo "detalle")
@@ -126,7 +129,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
   // que el listado y el detalle lo muestren sin conversiones.
   const encendido = value === ENCENDIDO || value === true;
 
-  const esCatalogo = type === 'select' || type === 'checkboxes';
+  const esCatalogo = type === 'select' || type === 'checkboxes' || (type === 'buscador' && !field.permitirNuevo);
   const catalogoVacio = esCatalogo && !readOnly && options.length === 0;
 
   return (
@@ -355,15 +358,20 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
           aria-invalid={Boolean(error)}
           className={`${INPUT} ${border} resize-none ${readOnly ? 'cursor-default' : ''}`}
         />
-      ) : type === 'select' ? (
+      ) : type === 'select' || type === 'buscador' ? (
         readOnly ? (
-          <div className={`${INPUT} ${BORDER_OK} cursor-default`}>{value || '—'}</div>
-        ) : options.length > MINIMO_PARA_BUSCAR ? (
+          <div className={`${INPUT} ${BORDER_OK} cursor-default`}>
+            {options.find((o) => o?.valor === value)?.etiqueta ?? (value || '—')}
+          </div>
+        ) : type === 'buscador' || options.length > MINIMO_PARA_BUSCAR ? (
           <SearchSelect
+            id={id}
             value={value ?? ''}
             options={options}
             onChange={(opcion) => onChange(key, opcion)}
             error={Boolean(error)}
+            permitirNuevo={field.permitirNuevo}
+            placeholderBusqueda={field.placeholderBusqueda}
           />
         ) : (
           <div className="relative">

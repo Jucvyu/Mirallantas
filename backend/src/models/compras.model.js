@@ -7,7 +7,6 @@ import { actualizarCampos, consultarListado, consultarPorNumero, POOL } from './
 const COMPRA = {
   select: `
     c.id, c.numero, c.fecha, c.total, c.estado, c.estado_entrega AS "estadoEntrega",
-    c.stock_aplicado AS "stockAplicado",
     c.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     co.numero AS cotizacion`,
   desde: `
@@ -36,13 +35,27 @@ export function buscarPorNumero(numero, opciones = {}, db = POOL) {
   return consultarPorNumero(COMPRA, numero, { ...opciones, que: 'La compra' }, db);
 }
 
-/** Líneas de la compra con los datos del producto. */
+/**
+ * Líneas de la compra con los datos del producto y, si la llanta viene de
+ * la cotización de origen, el costo que se confirmó con el proveedor (null
+ * = precio sin confirmar).
+ */
 export async function lineas(compraId, db = POOL) {
   const { rows } = await db.query(
     `SELECT d.id, d.producto_id AS "productoId", p.codigo AS "codigoProducto", p.nombre AS producto,
-            p.medidas AS medida, d.cantidad, d.precio_unitario AS "precioUnitario", d.subtotal, d.origen
+            p.medidas AS medida, d.cantidad, d.precio_unitario AS "precioUnitario", d.subtotal, d.origen,
+            conf.costo_proveedor AS "costoConfirmado", conf.costo_confirmado_en AS "costoConfirmadoEn",
+            conf.proveedor AS "proveedorConfirmado"
        FROM compra_detalle d
+       JOIN compra c ON c.id = d.compra_id
        JOIN producto p ON p.id = d.producto_id
+       LEFT JOIN LATERAL (
+         SELECT cd.costo_proveedor, cd.costo_confirmado_en, pr.nombre_razon_social AS proveedor
+           FROM cotizacion_detalle cd LEFT JOIN proveedor pr ON pr.id = cd.proveedor_id
+          WHERE cd.cotizacion_id = c.cotizacion_id AND cd.producto_id = d.producto_id
+            AND cd.costo_confirmado_en IS NOT NULL
+          ORDER BY cd.id LIMIT 1
+       ) conf ON TRUE
       WHERE d.compra_id = $1 ORDER BY d.id`,
     [compraId],
   );

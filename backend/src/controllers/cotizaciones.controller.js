@@ -3,6 +3,7 @@ import { HttpError } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import { claveIdempotencia } from '../middleware/idempotencia.js';
 import * as clientesModel from '../models/clientes.model.js';
+import * as empresaModel from '../models/empresa.model.js';
 import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import { aPares } from '../models/listado.model.js';
 import * as productosModel from '../models/productos.model.js';
@@ -16,32 +17,38 @@ import * as solicitudesModel from '../models/solicitudesServicio.model.js';
 import * as ventasModel from '../models/ventas.model.js';
 import {
   calcularTotales,
+  CUOTA_INICIAL_PORCENTAJE,
   CUPO_CARTERA,
+  exigirMedioDelCliente,
   pesos,
   PLAZOS_CREDITO,
   SERVICIO_POR_DEFECTO,
   validarTransicion,
+  VIGENCIA_COTIZACION_DIAS,
 } from '../reglas.js';
 import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
+import { enviarPdfCotizacion } from '../views/pdf.view.js';
 import { enviarSinContenido } from '../views/respuesta.view.js';
-import { descontarLineas, devolverLineas } from './inventario.js';
+import { exigirActivo } from './estados.js';
 
 /**
- * Controlador de cotizaciones-pedido.
+ * Controlador de cotizaciones-pedido. El flujo comercial tiene tres pasos:
  *
- * - El cliente del portal crea cotizaciones para sí mismo; el asesor, para
- *   cualquier cliente.
- * - Los precios se toman del catálogo, nunca del navegador.
- * - El total es precio del catálogo × cantidad (más el interés si es a
- *   crédito); nadie lo escribe a mano.
- * - Al crearse descuenta el stock de los productos; si se rechaza o se
- *   elimina, las unidades vuelven.
- * - Si es a crédito, crea su solicitud de crédito: el asesor la aprueba o
- *   no en "Solicitudes de crédito" (ver solicitudesCredito.controller.js).
- * - De contado (con valor), lleva la consignación del pago: queda "En
- *   revisión" y la cotización no cambia de estado hasta que el asesor la
- *   apruebe. Si la rechaza, el cliente sube otra (quedan como historial).
- * - Solo el personal cambia estados o elimina.
+ *   1. Solicitud (crear): el cliente del portal, o el asesor por él, pide
+ *      llantas y cantidades. No lleva precios ni método de pago: el precio
+ *      definitivo se confirma después con el proveedor. Los servicios de
+ *      reencauche abren su solicitud de servicio, como siempre.
+ *   2. Cotización formal (emitir): el asesor confirma con el proveedor el
+ *      costo de cada llanta, fija el precio de venta y la emite. Vence a
+ *      los 8 días calendario. Un precio nunca se da por confirmado sin que
+ *      el asesor lo registre.
+ *   3. Aceptación (aceptar): dentro de la vigencia, el cliente elige
+ *      contado (sube el pago) o crédito (plazo + cuota inicial del 30 %, que
+ *      abre su solicitud de crédito). Desde aquí sigue el pedido de siempre.
+ *
+ * - Los precios nunca vienen del navegador del cliente.
+ * - El aplicativo no maneja stock: pedir llantas no reserva existencias.
+ * - El pedido no avanza hasta que todo su pago esté aprobado (ver actualizar).
  * - Al pasar a "Completada" se genera la venta en la misma transacción.
  */
 
@@ -56,9 +63,15 @@ async function leerCompleta(req, numero, db) {
   };
 }
 
+/** Desde el portal solo se paga en efectivo (en el local) o por transferencia. */
+function exigirMedioDelPortal(medio, esPortal) {
+  if (esPortal) exigirMedioDelCliente(medio);
+}
+
 /** Pago de contado: con qué medio y, salvo en efectivo, con su consignación. */
-function exigirPagoContado(pago) {
-  if (!pago?.medioPago) throw new HttpError(422, 'Indica cómo vas a pagar (efectivo, transferencia u otro).');
+function exigirPagoContado(pago, esPortal) {
+  if (!pago?.medioPago) throw new HttpError(422, 'Indica cómo vas a pagar.');
+  exigirMedioDelPortal(pago.medioPago, esPortal);
   if (pago.medioPago !== 'Efectivo' && !pago.comprobante) {
     throw new HttpError(422, 'Adjunta la consignación del pago.');
   }
@@ -81,26 +94,39 @@ export async function obtener(req, res) {
   enviarDocumento(res, await leerCompleta(req, req.params.numero), Boolean(clienteDeSesion(req)));
 }
 
+/**
+ * GET /cotizaciones/:numero/pdf — la cotización formal en PDF. Una
+ * solicitud todavía no tiene precios confirmados: no hay documento.
+ */
+export async function pdf(req, res) {
+  const cotizacion = await cotizacionesModel.buscarPorNumero(req.params.numero, { clienteId: clienteDeSesion(req) });
+  if (!cotizacion.emitidaEn) {
+    throw new HttpError(422, 'La cotización formal todavía no se ha emitido: los precios están por confirmar.');
+  }
+  const [lineas, cliente, empresa] = await Promise.all([
+    cotizacionesModel.lineas(cotizacion.id),
+    clientesModel.paraDocumento(cotizacion.clienteId),
+    empresaModel.obtener(),
+  ]);
+  enviarPdfCotizacion(res, { empresa, cotizacion, cliente, lineas });
+}
+
 // ---------------------------------------------------------------------------
-// Crear
+// 1. Solicitud
 // ---------------------------------------------------------------------------
 
 /**
- * Pone precio y descripción a cada línea tomándolos del catálogo.
- * Lanza 422 si un producto o servicio no existe o no está disponible.
+ * Completa cada línea con los datos del catálogo (nombre y medida). Las
+ * llantas quedan sin precio hasta la cotización formal; los servicios, en
+ * 0 (se cobran aparte). Lanza 422 si algo no existe o no está disponible.
  */
-async function preciosDelCatalogo(db, lineasPedidas) {
+async function lineasDelCatalogo(db, lineasPedidas) {
   const lineas = [];
   for (const linea of lineasPedidas) {
     if (linea.tipo === 'producto') {
       const producto = await productosModel.paraCotizar(db, linea.productoId);
       if (!producto?.activo) throw new HttpError(422, 'Uno de los productos no existe o ya no está a la venta.');
-      lineas.push({
-        ...linea,
-        descripcion: producto.nombre,
-        medida: producto.medidas,
-        precioUnitario: producto.precio_venta,
-      });
+      lineas.push({ ...linea, descripcion: producto.nombre, medida: producto.medidas, precioUnitario: null });
     } else {
       const servicio = await serviciosModel.paraCotizar(db, { id: linea.servicioId, nombre: SERVICIO_POR_DEFECTO });
       if (!servicio?.activo) throw new HttpError(422, 'El servicio no existe o no está disponible.');
@@ -118,49 +144,23 @@ async function preciosDelCatalogo(db, lineasPedidas) {
   return lineas;
 }
 
-/**
- * Reglas del crédito al crear una cotización. Devuelve la cuota inicial
- * que se guarda (la pagada, o la mínima si el asesor no indicó otra).
- */
-async function validarCredito(db, { clienteId, total, cuotaMinima, pago, esPortal }) {
-  const abierto = await clientesModel.creditoAbierto(db, clienteId);
-  if (abierto) {
-    throw new HttpError(422, `El cliente ya tiene el crédito ${abierto} abierto: solo se permite uno a la vez.`);
+/** Una misma llanta pedida dos veces se junta en una sola línea. */
+function juntarRepetidas(lineas) {
+  const juntas = [];
+  for (const linea of lineas) {
+    const igual = linea.tipo === 'producto' && juntas.find((l) => l.tipo === 'producto' && l.productoId === linea.productoId);
+    if (igual) igual.cantidad += linea.cantidad;
+    else juntas.push({ ...linea });
   }
-  const pendiente = await solicitudesCreditoModel.pendienteDeCliente(db, clienteId);
-  if (pendiente) {
-    throw new HttpError(422, `El cliente ya tiene la solicitud de crédito ${pendiente} en revisión.`);
-  }
-  if (total > CUPO_CARTERA) {
-    throw new HttpError(422, `El total (${pesos(total)}) supera el cupo de crédito de ${pesos(CUPO_CARTERA)}.`);
-  }
-  // El cliente debe pagar la cuota inicial antes de enviar la cotización
-  if (esPortal && !pago) throw new HttpError(422, 'Registra el abono de la cuota inicial para enviar la cotización.');
-  const cuotaInicial = pago?.monto ?? cuotaMinima;
-  if (cuotaInicial < cuotaMinima) {
-    throw new HttpError(422, `La cuota inicial debe ser de al menos ${pesos(cuotaMinima)} (50 % del total).`);
-  }
-  if (cuotaInicial >= total) throw new HttpError(422, 'Si se paga todo de una vez, elige pago de contado.');
-  if (esPortal && !pago.medioPago) throw new HttpError(422, 'Indica el medio de pago de la cuota inicial.');
-  // En efectivo se paga en el local; con cualquier otro medio hay pantallazo
-  if (pago?.medioPago && pago.medioPago !== 'Efectivo' && !pago.comprobante) {
-    throw new HttpError(422, 'Adjunta el comprobante del pago de la cuota inicial.');
-  }
-  return cuotaInicial;
+  return juntas;
 }
 
-/** POST /cotizaciones */
+/** POST /cotizaciones — registra la solicitud (sin precios ni método de pago). */
 export async function crear(req, res) {
   const datos = req.validado.body;
   const esPortal = Boolean(clienteDeSesion(req));
   const clienteId = esPortal ? clienteDeSesion(req) : datos.clienteId;
   if (!clienteId) throw new HttpError(422, 'Selecciona el cliente de la cotización.');
-
-  const esCredito = datos.metodoPago === 'Crédito';
-  const plazoDias = esCredito ? datos.plazoDias : 0;
-  if (esCredito && !PLAZOS_CREDITO.includes(plazoDias)) {
-    throw new HttpError(422, `El plazo debe ser de ${PLAZOS_CREDITO.join(', ')} días.`);
-  }
 
   const clave = claveIdempotencia(req);
   let repetida = false;
@@ -176,40 +176,22 @@ export async function crear(req, res) {
       throw new HttpError(422, 'El cliente no existe o está inactivo.');
     }
 
-    // 1. Precios de cada línea, tomados del catálogo
-    const lineas = await preciosDelCatalogo(db, datos.lineas);
+    const lineas = await lineasDelCatalogo(db, juntarRepetidas(datos.lineas));
+    // Solo con llantas hay precios que confirmar. Una solicitud de puro
+    // reencauche no lleva cotización formal: su valor y su pago van en
+    // "Solicitudes de servicio".
+    const conProductos = lineas.some((l) => l.tipo === 'producto');
 
-    // 2. Totales con las reglas del negocio
-    const subtotal = lineas.reduce((suma, l) => suma + l.precioUnitario * l.cantidad, 0);
-    const { interes, total, cuotaMinima } = calcularTotales(subtotal, datos.metodoPago, plazoDias);
-
-    // 3. Reglas del crédito; de contado con valor, el pago
-    const cuotaInicial = esCredito
-      ? await validarCredito(db, { clienteId, total, cuotaMinima, pago: datos.cuotaInicial, esPortal })
-      : 0;
-    const pagaContado = !esCredito && total > 0;
-    if (pagaContado) exigirPagoContado(datos.pago);
-
-    // 4. Cabecera. El valor que arma el cliente lo confirma después un asesor
     const cotizacion = await cotizacionesModel.crear(db, {
       clienteId,
       proveedorId: esPortal ? null : datos.proveedorId,
-      fecha: esPortal ? null : datos.fecha,
-      metodoPago: datos.metodoPago,
-      plazoDias,
-      subtotal,
-      interes,
-      total,
-      cuotaInicial,
-      cuotaInicialMedio: datos.cuotaInicial?.medioPago,
-      cuotaInicialComprobante: datos.cuotaInicial?.comprobante,
-      // El total lo calculó el servidor con los precios del catálogo
-      confirmado: true,
+      metodoPago: conProductos ? null : 'Contado',
+      confirmado: !conProductos,
       direccionEntrega: datos.direccionEntrega,
       claveIdempotencia: clave,
     });
 
-    // 5. Líneas. Cada servicio abre su solicitud de reencauche
+    // Líneas. Cada servicio abre su solicitud de reencauche
     for (const l of lineas) {
       let solicitudServicioId = null;
       if (l.tipo === 'servicio') {
@@ -232,37 +214,17 @@ export async function crear(req, res) {
         descripcion: l.tipo === 'producto' ? l.descripcion : l.descripcionServicio,
       });
     }
-    // 6. Las llantas pedidas salen del inventario (422 si no alcanzan)
-    await descontarLineas(db, lineas);
 
-    // 7. De contado: la consignación queda en revisión del asesor
-    if (pagaContado) {
-      await pagosModel.crear(db, {
-        cotizacionId: cotizacion.id,
-        monto: total,
-        medioPago: datos.pago.medioPago,
-        comprobante: datos.pago.comprobante,
-      });
-    }
-
-    // 8. A crédito: queda pendiente la solicitud por lo que se financia
-    if (esCredito) {
-      await solicitudesCreditoModel.crearParaCotizacion(db, {
-        clienteId,
-        cotizacionId: cotizacion.id,
-        monto: total - cuotaInicial,
-        plazoDias,
-      });
-    }
-
-    // 9. Si la hizo el cliente desde el portal, se avisa al personal
+    // Si la pidió el cliente desde el portal, se avisa al personal
     if (esPortal) {
       const cliente = await avisosPersonal.nombreCliente(db, clienteId);
       await avisosPersonal.crear(
         {
           modulo: 'Pedidos-Cotización',
-          titulo: 'Nueva cotización',
-          mensaje: `${cliente} envió la cotización ${cotizacion.numero} (${esCredito ? 'a crédito' : 'de contado'}).`,
+          titulo: conProductos ? 'Nueva solicitud de cotización' : 'Nueva solicitud de reencauche',
+          mensaje: conProductos
+            ? `${cliente} pidió la cotización ${cotizacion.numero}: confirma los precios con el proveedor (plazo de respuesta: 24 horas).`
+            : `${cliente} pidió un reencauche (${cotizacion.numero}).`,
           enlace: '/admin/pedidos-cotizacion',
         },
         db,
@@ -272,6 +234,192 @@ export async function crear(req, res) {
   });
 
   enviarDocumento(res, await leerCompleta(req, numero), esPortal, repetida ? 200 : 201);
+}
+
+// ---------------------------------------------------------------------------
+// 2. Cotización formal (solo personal)
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /cotizaciones/:numero/emitir — el asesor registra, para cada llanta,
+ * el proveedor, el costo que este le confirmó y el precio de venta, y emite
+ * la cotización formal con su vigencia. Se puede volver a emitir (p. ej. si
+ * venció) mientras el cliente no la haya aceptado; los precios de una
+ * cotización emitida no cambian si después cambia el catálogo.
+ */
+export async function emitir(req, res) {
+  const { lineas: confirmadas } = req.validado.body;
+
+  await enTransaccion(async (db) => {
+    const cotizacion = await cotizacionesModel.buscarPorNumero(req.params.numero, { bloquear: 'c' }, db);
+    if (cotizacion.estado !== 'Pendiente') {
+      throw new HttpError(422, `La cotización está "${cotizacion.estado}": ya no se puede emitir.`);
+    }
+    if (cotizacion.metodoPago) throw new HttpError(422, 'El cliente ya aceptó esta cotización: sus precios no cambian.');
+
+    const productos = (await cotizacionesModel.lineas(cotizacion.id, db)).filter((l) => l.tipo === 'producto');
+    if (productos.length === 0) throw new HttpError(422, 'La cotización no tiene llantas que cotizar.');
+
+    let subtotal = 0;
+    for (const linea of productos) {
+      const datos = confirmadas.find((c) => c.id === linea.id);
+      if (!datos) throw new HttpError(422, `Confirma el precio de "${linea.descripcion}" antes de emitir.`);
+      await exigirActivo('proveedor', datos.proveedorId, db);
+      // El precio de venta no puede quedar por debajo de lo que cuesta la llanta
+      if (datos.precioUnitario < datos.costoProveedor) {
+        throw new HttpError(
+          422,
+          `El precio de "${linea.descripcion}" (${pesos(datos.precioUnitario)}) es menor que el costo confirmado (${pesos(datos.costoProveedor)}).`,
+        );
+      }
+      await cotizacionesModel.confirmarLinea(db, linea.id, { ...datos, usuarioId: req.usuario.id });
+      subtotal += datos.precioUnitario * linea.cantidad;
+    }
+    const sobrantes = confirmadas.filter((c) => !productos.some((l) => l.id === c.id));
+    if (sobrantes.length > 0) throw new HttpError(422, 'Una de las líneas no es una llanta de esta cotización.');
+
+    await cotizacionesModel.emitir(db, cotizacion.id, { subtotal, dias: VIGENCIA_COTIZACION_DIAS });
+    await notificaciones.crear(
+      {
+        clienteId: cotizacion.clienteId,
+        titulo: `Tu cotización está lista · ${cotizacion.numero}`,
+        mensaje: `Confirmamos los precios: ${pesos(subtotal)}. La cotización es válida por ${VIGENCIA_COTIZACION_DIAS} días; acéptala desde "Mis cotizaciones".`,
+        enlace: '/portal/pedidos',
+        tipo: 'exito',
+      },
+      db,
+    );
+  });
+
+  enviarDocumento(res, await leerCompleta(req, req.params.numero));
+}
+
+// ---------------------------------------------------------------------------
+// 3. Aceptación (cliente del portal o asesor en el local)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reglas del crédito al aceptar. Devuelve la cuota inicial que se guarda:
+ * la pagada, que debe cubrir al menos el 30 % del total definitivo.
+ */
+async function validarCredito(db, { clienteId, total, cuotaMinima, cuota, esPortal }) {
+  const abierto = await clientesModel.creditoAbierto(db, clienteId);
+  if (abierto) {
+    throw new HttpError(422, `El cliente ya tiene el crédito ${abierto} abierto: solo se permite uno a la vez.`);
+  }
+  const pendiente = await solicitudesCreditoModel.pendienteDeCliente(db, clienteId);
+  if (pendiente) {
+    throw new HttpError(422, `El cliente ya tiene la solicitud de crédito ${pendiente} en revisión.`);
+  }
+  if (total > CUPO_CARTERA) {
+    throw new HttpError(422, `El total (${pesos(total)}) supera el cupo de crédito de ${pesos(CUPO_CARTERA)}.`);
+  }
+  if (!cuota?.medioPago) throw new HttpError(422, 'Registra el pago de la cuota inicial (medio de pago).');
+  exigirMedioDelPortal(cuota.medioPago, esPortal);
+  const cuotaInicial = cuota.monto ?? cuotaMinima;
+  if (cuotaInicial < cuotaMinima) {
+    throw new HttpError(
+      422,
+      `La cuota inicial debe ser de al menos ${pesos(cuotaMinima)} (${CUOTA_INICIAL_PORCENTAJE} % del total).`,
+    );
+  }
+  if (cuotaInicial >= total) throw new HttpError(422, 'Si se paga todo de una vez, elige pago de contado.');
+  // En efectivo se paga en el local; con cualquier otro medio hay pantallazo
+  if (cuota.medioPago !== 'Efectivo' && !cuota.comprobante) {
+    throw new HttpError(422, 'Adjunta el comprobante del pago de la cuota inicial.');
+  }
+  return cuotaInicial;
+}
+
+/**
+ * POST /portal/cotizaciones/:numero/aceptar (cliente) y
+ * POST /cotizaciones/:numero/aceptar (asesor, por el cliente en el local).
+ *
+ * Solo una cotización formal vigente. De contado, queda la consignación en
+ * revisión; a crédito se suma el interés del plazo y se abre la solicitud
+ * de crédito por lo que se financia (el 70 % o menos).
+ */
+export async function aceptar(req, res) {
+  const datos = req.validado.body;
+  const clienteSesion = clienteDeSesion(req);
+  const esPortal = Boolean(clienteSesion);
+  const esCredito = datos.metodoPago === 'Crédito';
+  const plazoDias = esCredito ? datos.plazoDias : 0;
+  if (esCredito && !PLAZOS_CREDITO.includes(plazoDias)) {
+    throw new HttpError(422, `El plazo debe ser de ${PLAZOS_CREDITO.join(', ')} días.`);
+  }
+
+  await enTransaccion(async (db) => {
+    const cotizacion = await cotizacionesModel.buscarPorNumero(
+      req.params.numero,
+      { clienteId: clienteSesion, bloquear: 'c' },
+      db,
+    );
+    if (cotizacion.estado !== 'Pendiente') {
+      throw new HttpError(422, `La cotización está "${cotizacion.estado}": ya no se puede aceptar.`);
+    }
+    const motivos = {
+      Solicitud: 'Todavía estamos confirmando los precios: aún no hay cotización formal para aceptar.',
+      Aceptada: 'Esta cotización ya fue aceptada.',
+      Vencida: 'La cotización venció: pide que te la vuelvan a cotizar con precios actualizados.',
+    };
+    if (motivos[cotizacion.etapa]) throw new HttpError(422, motivos[cotizacion.etapa]);
+
+    const { interes, total, cuotaMinima } = calcularTotales(cotizacion.subtotal, datos.metodoPago, plazoDias);
+    const pares = [
+      ['metodo_pago', datos.metodoPago],
+      ['plazo_dias', plazoDias],
+      ['interes', interes],
+      ['total', total],
+    ];
+
+    if (esCredito) {
+      const cuotaInicial = await validarCredito(db, {
+        clienteId: cotizacion.clienteId,
+        total,
+        cuotaMinima,
+        cuota: datos.cuotaInicial,
+        esPortal,
+      });
+      pares.push(
+        ['cuota_inicial', cuotaInicial],
+        ['cuota_inicial_medio', datos.cuotaInicial.medioPago],
+        ['cuota_inicial_comprobante', datos.cuotaInicial.comprobante ?? null],
+      );
+      await cotizacionesModel.actualizar(db, cotizacion.id, pares);
+      await solicitudesCreditoModel.crearParaCotizacion(db, {
+        clienteId: cotizacion.clienteId,
+        cotizacionId: cotizacion.id,
+        monto: total - cuotaInicial,
+        plazoDias,
+      });
+    } else {
+      exigirPagoContado(datos.pago, esPortal);
+      await cotizacionesModel.actualizar(db, cotizacion.id, pares);
+      await pagosModel.crear(db, {
+        cotizacionId: cotizacion.id,
+        monto: total,
+        medioPago: datos.pago.medioPago,
+        comprobante: datos.pago.comprobante,
+      });
+    }
+
+    if (esPortal) {
+      const cliente = await avisosPersonal.nombreCliente(db, cotizacion.clienteId);
+      await avisosPersonal.crear(
+        {
+          modulo: 'Pedidos-Cotización',
+          titulo: 'Cotización aceptada',
+          mensaje: `${cliente} aceptó la cotización ${cotizacion.numero} (${esCredito ? `crédito a ${plazoDias} días` : 'de contado'}): revisa el pago.`,
+          enlace: esCredito ? '/admin/solicitudes-credito' : '/admin/pedidos-cotizacion',
+          tipo: 'alerta',
+        },
+        db,
+      );
+    }
+  });
+
+  enviarDocumento(res, await leerCompleta(req, req.params.numero), esPortal);
 }
 
 // ---------------------------------------------------------------------------
@@ -316,16 +464,30 @@ export async function actualizar(req, res) {
     const cambiaEstado = cambios.estado && cambios.estado !== actual.estado;
     if (cambiaEstado) validarTransicion('cotizacion', actual.estado, cambios.estado);
 
+    const soloRechaza =
+      cambios.estado === 'Rechazada' && Object.keys(cambios).every((k) => ['estado', 'motivoCancelacion'].includes(k));
+    const cambiaPedido = cambiaEstado || (cambios.estadoEntrega && cambios.estadoEntrega !== actual.estadoEntrega);
+
+    // ---- Una solicitud o una cotización sin aceptar no es todavía un
+    // pedido: no avanza ni se despacha (solo se puede rechazar)
+    if (actual.etapa !== 'Aceptada' && cambiaPedido && !soloRechaza) {
+      throw new HttpError(
+        422,
+        actual.etapa === 'Solicitud'
+          ? 'Primero confirma los precios con el proveedor y emite la cotización formal.'
+          : 'El cliente todavía no ha aceptado la cotización formal.',
+      );
+    }
+
     // ---- La cotización queda en "Pendiente" hasta que todo su pago esté
     // aprobado: la consignación de contado (o la cuota inicial del crédito)
     // y el de cada servicio de reencauche. Mientras tanto solo se permite
     // rechazarla, salvo con una consignación por revisar.
-    if (actual.pagoEstado === 'En revisión') {
+    if (actual.pagoEstado === 'En revisión' && cambiaPedido) {
       throw new HttpError(422, 'La consignación de esta cotización está pendiente de confirmación: apruébala o recházala primero.');
     }
     const pagoAprobado = !actual.estadoPago || actual.estadoPago === 'Aprobado';
-    const soloRechaza = cambios.estado === 'Rechazada' && Object.keys(cambios).every((k) => ['estado', 'motivoCancelacion'].includes(k));
-    if (!pagoAprobado && !soloRechaza && !esAprobacionDeCredito(actual, cambios)) {
+    if (cambiaPedido && !pagoAprobado && !soloRechaza && !esAprobacionDeCredito(actual, cambios)) {
       throw new HttpError(
         422,
         actual.estadoPago === 'Rechazado'
@@ -340,15 +502,12 @@ export async function actualizar(req, res) {
       throw new HttpError(422, `Es a crédito: apruébala desde "Solicitudes de crédito" (${solicitud.numero}).`);
     }
 
-    // ---- Rechazada: las llantas vuelven al inventario y su solicitud se cierra
-    if (cambiaEstado && cambios.estado === 'Rechazada') {
-      await devolverLineas(db, await cotizacionesModel.lineas(actual.id, db));
-      if (solicitud?.estado === 'Pendiente') {
-        await solicitudesCreditoModel.resolver(db, solicitud.id, {
-          estado: 'Rechazada',
-          motivo: cambios.motivoCancelacion || 'La cotización fue rechazada.',
-        });
-      }
+    // ---- Rechazada: su solicitud de crédito pendiente se cierra
+    if (cambiaEstado && cambios.estado === 'Rechazada' && solicitud?.estado === 'Pendiente') {
+      await solicitudesCreditoModel.resolver(db, solicitud.id, {
+        estado: 'Rechazada',
+        motivo: cambios.motivoCancelacion || 'La cotización fue rechazada.',
+      });
     }
 
     // ---- Guardar lo demás (proveedor, despacho, motivo, estados)
@@ -411,7 +570,7 @@ export async function volverAPagar(req, res) {
   const clienteId = clienteDeSesion(req);
   if (!clienteId) throw new HttpError(403, 'Esta acción es para los clientes del portal.');
   const pago = req.validado.body;
-  exigirPagoContado(pago);
+  exigirPagoContado(pago, true);
 
   await enTransaccion(async (db) => {
     const cotizacion = await cotizacionesModel.buscarPorNumero(req.params.numero, { clienteId, bloquear: 'c' }, db);
@@ -452,8 +611,6 @@ export async function eliminar(req, res) {
     if (actual.estado !== 'Pendiente') {
       throw new HttpError(422, 'Solo se puede eliminar una cotización pendiente. Las demás se rechazan.');
     }
-    // Las llantas vuelven al inventario
-    await devolverLineas(db, await cotizacionesModel.lineas(actual.id, db));
     // Las solicitudes de reencauche que nacieron con la cotización se van con
     // ella (la de crédito se borra sola: ON DELETE CASCADE)
     const solicitudes = await cotizacionesModel.solicitudesDeLineas(db, actual.id);
@@ -461,4 +618,10 @@ export async function eliminar(req, res) {
     for (const id of solicitudes) await solicitudesModel.eliminarPendiente(db, id);
   });
   enviarSinContenido(res);
+}
+
+/** POST /portal/cotizaciones/:numero/aceptar — solo para el cliente dueño de la cotización. */
+export async function aceptarDesdePortal(req, res) {
+  if (!clienteDeSesion(req)) throw new HttpError(403, 'Esta acción es para los clientes del portal.');
+  await aceptar(req, res);
 }

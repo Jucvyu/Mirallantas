@@ -203,6 +203,82 @@ export default function DataTable({
   const puedeEditar = (row) => !readOnly && Boolean(onEdit) && permite(canEdit, row);
   const puedeEliminar = (row) => !readOnly && Boolean(onDelete) && permite(canDelete, row);
 
+  // ---- Piezas de cada fila (las usan la tabla y las tarjetas) ----------
+
+  /** Valores cortos (fechas, números, montos) no se parten en dos líneas. */
+  const esCorto = (valor) => (typeof valor === 'string' || typeof valor === 'number') && String(valor).length <= 18;
+
+  /** Contenido de una celda: estado editable, render a medida o el valor. */
+  const contenidoCelda = (row, col) => {
+    const cambiaEstado = onStatusChange && (!canChangeStatus || canChangeStatus(row));
+    const alCambiarEstado = cambiaEstado ? (v) => ejecutar(() => onStatusChange(row, v)) : undefined;
+    if (col.key === statusKey && statusVariant === 'switch') {
+      return <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />;
+    }
+    if (col.key === statusKey) {
+      return <StatusSelect value={row[col.key]} options={statusOptions} flow={statusFlow} onChange={alCambiarEstado} />;
+    }
+    if (col.render) return col.render(row, { update: updateDe(row) });
+    return row[col.key];
+  };
+
+  /** Botones de una fila: desplegar, acciones a medida, ver, editar y eliminar. */
+  const botonesFila = (row, desplegable, abierta) => (
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 text-slate-400">
+      {desplegable && (
+        <button
+          onClick={() => alternarFila(row.id)}
+          aria-expanded={abierta}
+          className="rounded p-1 hover:text-amber-500"
+          aria-label={abierta ? 'Ocultar el detalle' : 'Desplegar el detalle'}
+          title={abierta ? 'Ocultar' : 'Desplegar'}
+        >
+          <ChevronDown size={15} className={`transition-transform ${abierta ? 'rotate-180' : ''}`} />
+        </button>
+      )}
+      {rowActions?.(row, { update: updateDe(row) })}
+      {canView && (
+        <button
+          onClick={() => setDialog({ mode: 'view', row })}
+          className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
+          aria-label="Ver"
+          title="Ver detalle"
+        >
+          <Eye size={15} />
+        </button>
+      )}
+      {puedeEditar(row) && (
+        <button
+          onClick={() => setDialog({ mode: 'edit', row })}
+          className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
+          aria-label="Editar"
+          title="Editar"
+        >
+          <Pencil size={15} />
+        </button>
+      )}
+      {puedeEliminar(row) && (
+        <button
+          onClick={() => setDialog({ mode: 'delete', row })}
+          className="rounded p-1 hover:text-red-500"
+          aria-label="Eliminar"
+          title="Eliminar"
+        >
+          <Trash2 size={15} />
+        </button>
+      )}
+    </div>
+  );
+
+  /** Lo que se ve cuando no hay filas (cargando o sin resultados). */
+  const sinFilas = cargando ? (
+    <span className="inline-flex items-center gap-2">
+      <LoaderCircle size={15} className="animate-spin" /> Cargando…
+    </span>
+  ) : (
+    'Sin resultados encontrados.'
+  );
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -271,23 +347,22 @@ export default function DataTable({
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        {/* ---- Escritorio: la tabla cabe sin scroll horizontal; el texto
+             largo baja de línea en vez de estirar la columna ---- */}
+        <div className="hidden lg:block">
+          <table className="w-full table-auto text-left text-sm">
             <thead>
-              <tr className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 {columns.map((col) => (
-                  <th key={col.key} className="whitespace-nowrap px-5 py-3">
+                  <th key={col.key} className="px-3 py-3 align-bottom first:pl-5">
                     {col.label}
                   </th>
                 ))}
-                <th className="px-5 py-3 text-right">Acciones</th>
+                <th className="px-3 py-3 pr-5 text-right align-bottom">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {pageRows.map((row) => {
-                // ¿Se puede cambiar el estado de esta fila desde la tabla?
-                const cambiaEstado = onStatusChange && (!canChangeStatus || canChangeStatus(row));
-                const alCambiarEstado = cambiaEstado ? (v) => ejecutar(() => onStatusChange(row, v)) : undefined;
                 const desplegable = expandir?.(row);
                 const abierta = abiertas.has(row.id);
                 return (
@@ -296,69 +371,16 @@ export default function DataTable({
                       className={`border-t border-slate-100 text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/5 dark:text-slate-300 dark:hover:bg-white/[0.03] ${rowClassName?.(row) ?? ''}`}
                     >
                       {columns.map((col) => (
-                        <td key={col.key} className="whitespace-nowrap px-5 py-3.5">
-                          {col.key === statusKey && statusVariant === 'switch' ? (
-                            <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />
-                          ) : col.key === statusKey ? (
-                            <StatusSelect
-                              value={row[col.key]}
-                              options={statusOptions}
-                              flow={statusFlow}
-                              onChange={alCambiarEstado}
-                            />
-                          ) : col.render ? (
-                            col.render(row, { update: updateDe(row) })
-                          ) : (
-                            row[col.key]
-                          )}
+                        <td
+                          key={col.key}
+                          className={`px-3 py-3 align-top first:pl-5 ${
+                            esCorto(row[col.key]) ? 'whitespace-nowrap' : 'break-words [overflow-wrap:anywhere]'
+                          }`}
+                        >
+                          {contenidoCelda(row, col)}
                         </td>
                       ))}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center justify-end gap-1.5 text-slate-400">
-                          {desplegable && (
-                            <button
-                              onClick={() => alternarFila(row.id)}
-                              aria-expanded={abierta}
-                              className="rounded p-1 hover:text-amber-500"
-                              aria-label={abierta ? 'Ocultar el detalle' : 'Desplegar el detalle'}
-                              title={abierta ? 'Ocultar' : 'Desplegar'}
-                            >
-                              <ChevronDown size={15} className={`transition-transform ${abierta ? 'rotate-180' : ''}`} />
-                            </button>
-                          )}
-                          {rowActions?.(row, { update: updateDe(row) })}
-                          {canView && (
-                            <button
-                              onClick={() => setDialog({ mode: 'view', row })}
-                              className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
-                              aria-label="Ver"
-                              title="Ver detalle"
-                            >
-                              <Eye size={15} />
-                            </button>
-                          )}
-                          {puedeEditar(row) && (
-                            <button
-                              onClick={() => setDialog({ mode: 'edit', row })}
-                              className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
-                              aria-label="Editar"
-                              title="Editar"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          )}
-                          {puedeEliminar(row) && (
-                            <button
-                              onClick={() => setDialog({ mode: 'delete', row })}
-                              className="rounded p-1 hover:text-red-500"
-                              aria-label="Eliminar"
-                              title="Eliminar"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      <td className="px-3 py-3 pr-5 align-top">{botonesFila(row, desplegable, abierta)}</td>
                     </tr>
                     {desplegable && abierta && (
                       <tr className="border-t border-slate-100 bg-slate-50/60 dark:border-white/5 dark:bg-white/[0.02]">
@@ -373,19 +395,45 @@ export default function DataTable({
               {pageRows.length === 0 && (
                 <tr>
                   <td colSpan={columns.length + 1} className="px-5 py-10 text-center text-sm text-slate-400">
-                    {cargando ? (
-                      <span className="inline-flex items-center gap-2">
-                        <LoaderCircle size={15} className="animate-spin" /> Cargando…
-                      </span>
-                    ) : (
-                      'Sin resultados encontrados.'
-                    )}
+                    {sinFilas}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* ---- Celular y tableta: una tarjeta por fila, con todas sus
+             columnas (nada se oculta) y sus acciones a la vista ---- */}
+        <ul className="divide-y divide-slate-100 border-t border-slate-100 dark:divide-white/5 dark:border-white/5 lg:hidden">
+          {pageRows.map((row) => {
+            const desplegable = expandir?.(row);
+            const abierta = abiertas.has(row.id);
+            const [principal, ...resto] = columns;
+            return (
+              <li key={row.id} className={`px-4 py-4 text-slate-600 dark:text-slate-300 ${rowClassName?.(row) ?? ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 break-words text-sm font-bold text-slate-800 dark:text-slate-100">
+                    {contenidoCelda(row, principal)}
+                  </div>
+                  {botonesFila(row, desplegable, abierta)}
+                </div>
+                <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2.5 text-sm sm:grid-cols-2">
+                  {resto.map((col) => (
+                    <div key={col.key} className="min-w-0">
+                      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        {col.label}
+                      </dt>
+                      <dd className="mt-0.5 break-words">{contenidoCelda(row, col) ?? '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {desplegable && abierta && <div className="mt-4">{desplegable}</div>}
+              </li>
+            );
+          })}
+          {pageRows.length === 0 && <li className="px-5 py-10 text-center text-sm text-slate-400">{sinFilas}</li>}
+        </ul>
 
         <div className="flex items-center justify-between px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">
           <span>

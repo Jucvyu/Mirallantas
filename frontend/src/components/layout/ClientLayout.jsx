@@ -24,18 +24,20 @@ const perfilSections = [
   },
   {
     title: 'Datos personales',
+    // Orden de identificación del portal: tipo y número de documento,
+    // nombre completo y dirección
     fields: [
-      { key: 'nombre', label: 'Nombre completo', required: true, span: 2 },
       { key: 'tipoDocumento', label: 'Tipo de documento', type: 'select', required: true, options: tiposDocumento },
       { key: 'numeroDocumento', label: 'Número de documento', type: 'number', required: true },
+      { key: 'nombre', label: 'Nombre completo', required: true, span: 2 },
+      { key: 'direccion', label: 'Dirección', span: 2, placeholder: 'Calle 50 #45-12, Medellín' },
       { key: 'correo', label: 'Correo electrónico', type: 'email', required: true },
       { key: 'telefono', label: 'Teléfono', type: 'tel' },
     ],
   },
   {
-    title: 'Facturación y acceso',
+    title: 'Acceso',
     fields: [
-      { key: 'direccion', label: 'Dirección de facturación', span: 2 },
       {
         key: 'password',
         label: 'Nueva contraseña',

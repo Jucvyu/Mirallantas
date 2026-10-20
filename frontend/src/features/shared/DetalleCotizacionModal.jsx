@@ -1,9 +1,15 @@
-import { FileText, Package, Truck, Wrench } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarClock, FileDown, FileText, Package, Truck, Wrench } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
 import { useDetalle } from '../../hooks/useDetalle';
+import { VIGENCIA_COTIZACION_DIAS } from '../../constantes';
+import { formatCOP } from '../../utils/formato';
 import { HistorialPagos } from './PagoConsignacion';
+
+/** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
+const fechaCorta = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '');
 
 /**
  * Detalle integrado de una cotización-pedido.
@@ -15,10 +21,23 @@ import { HistorialPagos } from './PagoConsignacion';
  * se paga a crédito, esas condiciones viven en la cartera.
  *
  * Si el documento llega sin líneas (desde un listado), se las pide a su
- * `servicio` (cotizacionesService o ventasService).
+ * `servicio` (cotizacionesService o ventasService). Para una cotización
+ * muestra también su etapa y vigencia y, si ya es formal, el botón para
+ * descargarla en PDF (`onDescargarPdf`).
  */
-export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, onClose }) {
+export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, onClose, onDescargarPdf }) {
   const { documento: cotizacion, cargando, error } = useDetalle(inicial, servicio);
+  const [errorPdf, setErrorPdf] = useState('');
+  const [descargando, setDescargando] = useState(false);
+  const esCotizacion = Boolean(cotizacion.etapa);
+
+  const descargar = () => {
+    setErrorPdf('');
+    setDescargando(true);
+    Promise.resolve(onDescargarPdf(cotizacion))
+      .catch((e) => setErrorPdf(e.message))
+      .finally(() => setDescargando(false));
+  };
   const lineas = cotizacion.detalle ?? [];
   const productos = lineas.filter((l) => l.tipo !== 'servicio').length;
   const serviciosContados = lineas.length - productos;
@@ -31,23 +50,59 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
       size="lg"
       onClose={onClose}
       footer={(close) => (
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
-        >
-          Cerrar
-        </button>
+        <>
+          {onDescargarPdf && cotizacion.emitidaEn && (
+            <button
+              type="button"
+              onClick={descargar}
+              disabled={descargando}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
+            >
+              <FileDown size={16} /> {descargando ? 'Generando…' : 'Descargar PDF'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
+          >
+            Cerrar
+          </button>
+        </>
       )}
     >
       <div className="space-y-6">
-        <AvisoError mensaje={error} />
+        <AvisoError mensaje={error || errorPdf} />
+
+        {/* ---- Vigencia de la cotización ---- */}
+        {esCotizacion && cotizacion.etapa === 'Solicitud' && (
+          <p className="flex items-start gap-2 rounded-xl border border-amber-400/50 bg-amber-400/10 px-4 py-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+            <CalendarClock size={15} className="mt-px shrink-0" />
+            Solicitud con precios por confirmar con el proveedor. Todavía no es una cotización formal: la
+            vigencia empieza cuando se emita.
+          </p>
+        )}
+        {esCotizacion && cotizacion.emitidaEn && (
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: 'Etapa', valor: <Badge>{cotizacion.etapa}</Badge> },
+              { label: 'Emitida', valor: fechaCorta(cotizacion.emitidaEn) },
+              { label: 'Vence', valor: fechaCorta(cotizacion.venceEn) },
+              { label: 'Vigencia', valor: `${VIGENCIA_COTIZACION_DIAS} días calendario` },
+            ].map(({ label, valor }) => (
+              <div key={label} className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
+                <div className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{valor}</div>
+              </div>
+            ))}
+          </section>
+        )}
 
         {/* ---- Cabecera comercial ---- */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { label: 'Fecha', valor: cotizacion.fecha },
-            { label: 'Método de pago', valor: cotizacion.metodoPago },
+            { label: 'Método de pago', valor: cotizacion.metodoPago || (esCotizacion ? 'Al aceptar' : '') },
             { label: 'Estado', valor: cotizacion.estado },
             { label: 'Entrega', valor: cotizacion.estadoEntrega },
           ].map(({ label, valor }) => (
@@ -100,14 +155,24 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-800 dark:text-slate-100">{l.nombre}</p>
                           <p className="text-xs text-slate-400 dark:text-slate-500">
-                            {l.medida}
-                            {l.solicitud ? ` · ${l.solicitud}` : ''}
+                            {[l.codigo, l.medida, l.solicitud].filter(Boolean).join(' · ')}
                           </p>
+                          {/* Solo el personal recibe el costo confirmado con el proveedor */}
+                          {l.tipo !== 'servicio' && l.costoConfirmadoEn && (
+                            <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              Costo confirmado: {formatCOP(l.costoProveedor)} · {l.proveedorLinea}
+                            </p>
+                          )}
+                          {l.tipo !== 'servicio' && esCotizacion && l.precioSugerido !== null && !l.costoConfirmadoEn && (
+                            <p className="text-[11px] font-medium text-amber-600">Precio pendiente de confirmar con el proveedor</p>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">{l.cantidad}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">{l.unitario}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {l.tipo !== 'servicio' && l.precioUnitarioValor === null ? 'Por confirmar' : l.unitario}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">
                       {l.subtotal}
                     </td>

@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 
 const MODULES = [
   { icon: LayoutGrid, title: 'Dashboard', sub: 'KPIs en tiempo real', tint: 'text-amber-400 bg-amber-400/10' },
-  { icon: Package, title: 'Productos', sub: 'Inventario y catálogo', tint: 'text-blue-400 bg-blue-400/10' },
+  { icon: Package, title: 'Productos', sub: 'Catálogo de llantas', tint: 'text-blue-400 bg-blue-400/10' },
   { icon: FileText, title: 'Pedidos', sub: 'Ventas y cotizaciones', tint: 'text-emerald-400 bg-emerald-400/10' },
   { icon: ShoppingCart, title: 'Compras', sub: 'Órdenes a proveedores', tint: 'text-violet-400 bg-violet-400/10' },
   { icon: Wrench, title: 'Reencauche', sub: 'Gestión completa', tint: 'text-amber-400 bg-amber-400/10' },

@@ -134,11 +134,48 @@ describe('Catálogos', () => {
 });
 
 describe('Productos', () => {
+  const nuevo = (extra = {}) => ({
+    nombre: 'Llanta Prueba Código',
+    categoriaId: 1,
+    marcaId: 1,
+    medidas: ' 205/55 r16 ',
+    precioVenta: 300000,
+    ...extra,
+  });
+
+  test('el servidor genera el código y no acepta uno escrito, ni precio de compra ni stock', async () => {
+    for (const extra of [{ codigo: 'MIO-1' }, { precioCompra: 1 }, { stock: 5 }]) {
+      const r = await e.api('/productos', { metodo: 'POST', token: tokens.admin, cuerpo: nuevo(extra) });
+      assert.equal(r.estado, 422, JSON.stringify(extra));
+    }
+    const [a, b] = await Promise.all([
+      e.api('/productos', { metodo: 'POST', token: tokens.admin, cuerpo: nuevo() }),
+      e.api('/productos', { metodo: 'POST', token: tokens.admin, cuerpo: nuevo({ nombre: 'Otra Llanta' }) }),
+    ]);
+    assert.equal(a.estado, 201, JSON.stringify(a.cuerpo));
+    assert.equal(b.estado, 201);
+    assert.match(a.cuerpo.datos.codigo, /^ML-\d{6}$/);
+    assert.notEqual(a.cuerpo.datos.codigo, b.cuerpo.datos.codigo, 'dos productos creados a la vez no repiten código');
+    assert.equal(a.cuerpo.datos.medidas, '205/55R16', 'la medida se guarda normalizada');
+    assert.ok(!('stock' in a.cuerpo.datos));
+
+    // El código no cambia al editar
+    const editado = await e.api(`/productos/${a.cuerpo.datos.id}`, { metodo: 'PUT', token: tokens.admin, cuerpo: { nombre: 'Nombre nuevo' } });
+    assert.equal(editado.cuerpo.datos.codigo, a.cuerpo.datos.codigo);
+  });
+
   test('el código, el precio de compra y el stock no se editan desde el producto', async () => {
     for (const cuerpo of [{ codigo: 'OTRO-1' }, { precioCompra: 1 }, { stock: 99 }]) {
       const r = await e.api('/productos/1', { metodo: 'PUT', token: tokens.admin, cuerpo });
       assert.equal(r.estado, 422, JSON.stringify(cuerpo));
     }
+  });
+
+  test('las medidas se listan sin repetir', async () => {
+    const r = await e.api('/productos/medidas', { token: tokens.admin });
+    assert.equal(r.estado, 200);
+    assert.ok(r.cuerpo.datos.includes('295/80R22.5'));
+    assert.equal(new Set(r.cuerpo.datos).size, r.cuerpo.datos.length);
   });
 
   test('el precio de venta sí se edita', async () => {
@@ -147,11 +184,14 @@ describe('Productos', () => {
     assert.equal(r.cuerpo.datos.precioVenta, 285000);
   });
 
-  test('el portal solo ve productos activos y nunca el precio de compra', async () => {
+  test('el portal solo ve productos activos, con rango de precio y sin costo, precio exacto ni stock', async () => {
     const r = await e.api('/productos?porPagina=100&activo=false', { token: tokens.maria });
     assert.equal(r.estado, 200);
-    assert.equal(r.cuerpo.total, 10); // 11 productos, 1 inactivo
-    assert.ok(r.cuerpo.datos.every((p) => p.activo && !('precioCompra' in p)));
+    assert.ok(r.cuerpo.datos.every((p) => p.activo && !('precioCompra' in p) && !('precioVenta' in p) && !('stock' in p)));
+    const michelin = r.cuerpo.datos.find((p) => p.id === 1);
+    assert.ok(michelin.precioMinimo > 0 && michelin.precioMaximo >= michelin.precioMinimo);
+    const uno = await e.api('/productos/1', { token: tokens.maria });
+    assert.ok(!('precioCompra' in uno.cuerpo.datos) && !('precioVenta' in uno.cuerpo.datos));
   });
 
   test('filtra por marca y busca por medida', async () => {

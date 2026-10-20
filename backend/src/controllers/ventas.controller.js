@@ -1,12 +1,14 @@
 import { enTransaccion } from '../db.js';
 import { HttpError } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
+import * as clientesModel from '../models/clientes.model.js';
+import * as empresaModel from '../models/empresa.model.js';
 import { aPares } from '../models/listado.model.js';
 import * as ventasModel from '../models/ventas.model.js';
-import { CUOTA_INICIAL_CREDITO, pesos, validarTransicion } from '../reglas.js';
+import { CUOTA_INICIAL_PORCENTAJE, cuotaMinimaDe, pesos, validarTransicion } from '../reglas.js';
 import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
+import { enviarPdfVenta } from '../views/pdf.view.js';
 import { exigirActivo } from './estados.js';
-import { devolverLineas } from './inventario.js';
 
 /**
  * Controlador de ventas.
@@ -35,20 +37,38 @@ export async function obtener(req, res) {
   enviarDocumento(res, await leerCompleta(req, req.params.numero), Boolean(clienteDeSesion(req)));
 }
 
+/**
+ * GET /ventas/:numero/pdf (personal) y GET /portal/ventas/:numero/pdf
+ * (cliente, solo las suyas) — comprobante de la venta en PDF.
+ */
+export async function pdf(req, res) {
+  const venta = await ventasModel.buscarPorNumero(req.params.numero, { clienteId: clienteDeSesion(req) });
+  const [lineas, cliente, empresa] = await Promise.all([
+    ventasModel.lineas(venta.id),
+    clientesModel.paraDocumento(venta.clienteId),
+    empresaModel.obtener(),
+  ]);
+  enviarPdfVenta(res, { empresa, venta, cliente, lineas });
+}
+
 /** POST /ventas — venta directa. */
 export async function crear(req, res) {
   const v = req.validado.body;
   const esCredito = v.metodoPago === 'Crédito';
   const cuotaInicial = esCredito ? (v.cuotaInicial ?? 0) : 0;
 
-  // A crédito, la primera cuota debe cubrir al menos la mitad del total
+  // A crédito, la cuota inicial cubre al menos el 30 % del total (el resto
+  // queda financiado); de contado se paga el 100 %
   if (esCredito) {
-    const minimo = Math.round(v.total * CUOTA_INICIAL_CREDITO);
+    const minimo = cuotaMinimaDe(v.total, v.metodoPago);
     if (cuotaInicial < minimo) {
-      throw new HttpError(422, `La primera cuota debe ser de al menos ${pesos(minimo)} (50 % del total).`);
+      throw new HttpError(
+        422,
+        `La cuota inicial debe ser de al menos ${pesos(minimo)} (${CUOTA_INICIAL_PORCENTAJE} % del total).`,
+      );
     }
+    if (cuotaInicial >= v.total) throw new HttpError(422, 'Si se paga todo de una vez, registra la venta de contado.');
   }
-  if (cuotaInicial > v.total) throw new HttpError(422, 'La cuota inicial no puede superar el total.');
   await exigirActivo('cliente', v.clienteId);
   await exigirActivo('proveedor', v.proveedorId);
 
@@ -66,8 +86,6 @@ export async function actualizar(req, res) {
 
     if (cambios.estado && cambios.estado !== actual.estado) {
       validarTransicion('venta', actual.estado, cambios.estado);
-      // Venta anulada: las llantas vendidas vuelven al inventario
-      if (cambios.estado === 'Anulada') await devolverLineas(db, await ventasModel.lineas(actual.id, db));
     }
     if (cambios.estadoEntrega && cambios.estadoEntrega !== actual.estadoEntrega) {
       validarTransicion('entrega', actual.estadoEntrega, cambios.estadoEntrega);
@@ -76,4 +94,10 @@ export async function actualizar(req, res) {
   });
 
   enviarDocumento(res, await leerCompleta(req, req.params.numero));
+}
+
+/** GET /portal/ventas/:numero/pdf — solo el cliente dueño de la venta. */
+export async function pdfDesdePortal(req, res) {
+  if (!clienteDeSesion(req)) throw new HttpError(403, 'Esta acción es para los clientes del portal.');
+  await pdf(req, res);
 }

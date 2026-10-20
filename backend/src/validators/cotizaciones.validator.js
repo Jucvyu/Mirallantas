@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { ESTADOS_EVIDENCIA, estadosDe } from '../reglas.js';
 import {
   cantidad,
-  fecha,
   idRelacion,
   imagen,
   listadoCon,
@@ -10,6 +9,7 @@ import {
   metodoPago,
   objetoEstricto,
   pesos,
+  pesosPositivos,
   texto,
   textoOpcional,
 } from './comunes.validator.js';
@@ -35,33 +35,53 @@ const lineaServicio = z.object({
   estadoEvidencia: z.enum(ESTADOS_EVIDENCIA).optional(),
 });
 
-/** POST /cotizaciones (asesor o cliente del portal). */
+/**
+ * POST /cotizaciones (asesor o cliente del portal): la solicitud. Solo
+ * productos, cantidades y servicios: no lleva precios, fecha (la pone el
+ * servidor) ni método de pago (se elige al aceptar la cotización formal).
+ */
 export const esquemaNueva = z.object({
   // El asesor elige el cliente; para el portal es el cliente en sesión
   clienteId: idRelacion.optional(),
   proveedorId: idRelacion.nullable().optional(),
-  fecha: fecha.optional(),
-  metodoPago,
-  plazoDias: z.coerce.number().int().optional(),
   direccionEntrega: texto(200),
   lineas: z
     .array(z.discriminatedUnion('tipo', [lineaProducto, lineaServicio]))
     .min(1, 'Agrega al menos un producto o servicio.'),
-  // Pago de contado: con qué paga y la consignación (salvo en efectivo)
-  pago: z
-    .object({
-      medioPago,
-      comprobante: imagen.optional(),
-    })
-    .optional(),
-  // Pago de la cuota inicial (solo a crédito)
-  cuotaInicial: z
-    .object({
-      monto: pesos,
-      medioPago: medioPago.optional(),
-      comprobante: imagen.optional(),
-    })
-    .optional(),
+});
+
+/**
+ * POST /cotizaciones/:numero/emitir — por cada llanta: proveedor, costo que
+ * confirmó y precio de venta definitivo.
+ */
+export const esquemaEmision = z.object({
+  lineas: z
+    .array(
+      z.object({
+        id: idRelacion,
+        proveedorId: idRelacion,
+        costoProveedor: pesosPositivos('Indica el costo que confirmó el proveedor.'),
+        precioUnitario: pesosPositivos('Indica el precio de venta.'),
+      }),
+    )
+    .min(1, 'Confirma el precio de al menos una llanta.'),
+});
+
+/** Pago con su medio y, salvo en efectivo, la consignación. */
+const pagoConComprobante = z.object({
+  medioPago,
+  comprobante: imagen.optional(),
+});
+
+/**
+ * POST /cotizaciones/:numero/aceptar (y /portal/…): contado con su pago, o
+ * crédito con plazo y cuota inicial.
+ */
+export const esquemaAceptacion = z.object({
+  metodoPago,
+  plazoDias: z.coerce.number().int().optional(),
+  pago: pagoConComprobante.optional(),
+  cuotaInicial: pagoConComprobante.extend({ monto: pesos.optional() }).optional(),
 });
 
 /** PATCH /cotizaciones/:numero (solo personal). */

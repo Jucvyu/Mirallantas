@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, FileText, Plus, Search, ShoppingCart, Trash2 } from 'lucide-react';
+import { BadgeCheck, Check, FileText, Plus, Search, ShoppingCart, Trash2, TriangleAlert } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
+import SearchSelect from '../../../components/base/SearchSelect';
 import {
   BORDER_ERR as BORDE_ERR,
   BORDER_OK as BORDE_OK,
@@ -16,6 +17,7 @@ import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { comprasService, productosService, proveedoresService } from '../../../services';
 import { formatCOP as pesos, parseCOP } from '../../../utils/formato';
+import { opcionesEmpresas } from '../../../utils/opciones';
 import SelectorCotizaciones from '../shared/SelectorCotizaciones';
 
 /**
@@ -41,7 +43,8 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
   const proveedores = useRecurso(proveedoresService);
   const { enviando, errorEnvio, setErrorEnvio, enviar } = useEnvio();
 
-  const [proveedor, setProveedor] = useState('');
+  const [proveedorId, setProveedorId] = useState('');
+  const opcionesProveedor = useMemo(() => opcionesEmpresas(proveedores.filas), [proveedores.filas]);
   const [cotizacion, setCotizacion] = useState('');
   const [lineas, setLineas] = useState([]);
   const [query, setQuery] = useState('');
@@ -97,7 +100,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
   // Reglas del formulario: se revisan en vivo mientras el usuario escribe
   const { errores, tocar, validar } = useValidacion(() => {
     const next = {};
-    if (!proveedor) next.proveedor = 'Selecciona el proveedor';
+    if (!proveedorId) next.proveedor = 'Busca y selecciona el proveedor';
     if (lineas.length === 0) next.lineas = 'Agrega al menos un producto a la compra';
     else if (lineas.some((l) => !l.precioCompra)) next.lineas = 'Indica el precio de compra de cada producto';
     return next;
@@ -107,7 +110,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     if (!validar()) return;
 
     // El servicio de compras arma lo que pide la API; el total lo calcula el servidor
-    enviar(() => onSubmit({ proveedor, cotizacion, lineas }, { proveedores: proveedores.filas }), close);
+    enviar(() => onSubmit({ proveedorId, cotizacion, lineas }, { proveedores: proveedores.filas }), close);
   };
 
   return (
@@ -167,31 +170,18 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
             <label htmlFor="co-proveedor" className={LABEL}>
               Proveedor <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <select
-                id="co-proveedor"
-                value={proveedor}
-                onChange={(e) => {
-                  setProveedor(e.target.value);
-                  tocar('proveedor');
-                }}
-                className={`${CAMPO} ${errores.proveedor ? BORDE_ERR : BORDE_OK} cursor-pointer appearance-none pr-10`}
-              >
-                <option value="">Seleccionar...</option>
-                {/* Un proveedor inactivo no puede recibir órdenes nuevas */}
-                {proveedores.filas
-                  .filter((p) => p.activo)
-                  .map((p) => (
-                    <option key={p.id} value={p.nombreRazonSocial}>
-                      {p.nombreRazonSocial}
-                    </option>
-                  ))}
-              </select>
-              <ChevronDown
-                size={16}
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-            </div>
+            <SearchSelect
+              id="co-proveedor"
+              value={proveedorId}
+              options={opcionesProveedor}
+              onChange={(id) => {
+                setProveedorId(id);
+                tocar('proveedor');
+              }}
+              placeholder="Buscar proveedor…"
+              placeholderBusqueda="Razón social o NIT"
+              error={Boolean(errores.proveedor)}
+            />
             {errores.proveedor && <p className="mt-1 text-xs font-medium text-red-500">{errores.proveedor}</p>}
           </div>
         </section>
@@ -310,6 +300,18 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                           )}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">{l.medidas}</p>
+                        {/* ¿El costo se confirmó con el proveedor al emitir la cotización? */}
+                        {l.deCotizacion &&
+                          (l.costoConfirmadoEn ? (
+                            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              <BadgeCheck size={12} /> Precio confirmado el{' '}
+                              {new Date(l.costoConfirmadoEn).toLocaleDateString('es-CO')} con {l.proveedorConfirmado}
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
+                              <TriangleAlert size={12} /> Precio sin confirmar con el proveedor
+                            </p>
+                          ))}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <input
@@ -317,7 +319,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                           value={l.cantidad}
                           onChange={(e) => setCantidad(l.id, soloDigitos(e.target.value))}
                           aria-label={`Cantidad de ${l.nombre}`}
-                          className={`${CAMPO} ${BORDE_OK} w-16 px-2 py-1.5 text-center`}
+                          className={`${CAMPO} ${BORDE_OK} !w-16 !px-2 !py-1.5 text-center`}
                         />
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -327,7 +329,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                           onChange={(e) => setPrecio(l.id, e.target.value)}
                           placeholder="0"
                           aria-label={`Precio de compra de ${l.nombre}`}
-                          className={`${CAMPO} ${l.precioCompra ? BORDE_OK : BORDE_ERR} w-28 px-2 py-1.5 text-right`}
+                          className={`${CAMPO} ${l.precioCompra ? BORDE_OK : BORDE_ERR} !w-28 !px-2 !py-1.5 text-right`}
                         />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-800 dark:text-slate-100">

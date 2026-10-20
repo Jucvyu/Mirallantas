@@ -12,6 +12,7 @@ import {
   marcaHaciaApi,
   productoDesdeApi,
 } from './adaptadores';
+import { api } from './http';
 import { crearServicio } from './recurso';
 import { parseCOP, vacioANull } from '../utils/formato';
 
@@ -41,13 +42,14 @@ export const serviciosService = crearServicio({ ruta: '/servicios', desdeApi: co
 // ---- Productos ----------------------------------------------------------------
 
 /**
- * Formulario de producto → cuerpo de la API. `fila` solo existe al editar:
- * entonces no se envía el código (no cambia) y sí el estado. Las listas de
- * `contexto` sirven para convertir los nombres elegidos en ids.
+ * Formulario de producto → cuerpo de la API. El código nunca se envía: lo
+ * genera el servidor al crear y no cambia. `fila` solo existe al editar
+ * (entonces viaja el estado). Las listas de `contexto` sirven para
+ * convertir los nombres elegidos en ids.
  */
 function productoHaciaApi(v, fila, { categorias, marcas, tipos }) {
   return {
-    ...(fila ? { activo: activoDesdeEstado(v.estado) } : { codigo: v.codigo }),
+    ...(fila ? { activo: activoDesdeEstado(v.estado) } : {}),
     nombre: v.nombre,
     descripcion: vacioANull(v.descripcion),
     categoriaId: idPorNombre(categorias, v.categoria),
@@ -68,6 +70,12 @@ export const productosService = {
   /** Productos que se están vendiendo (el portal y las cotizaciones solo usan estos). */
   async listarActivos() {
     return (await productosBase.listar()).filter((p) => p.activo);
+  },
+
+  /** Medidas registradas en el catálogo, sin repetir (buscador de medidas). */
+  async medidas() {
+    const { datos } = await api('/productos/medidas');
+    return datos;
   },
 
   /** En productos el estado viaja en la edición normal (PUT). */

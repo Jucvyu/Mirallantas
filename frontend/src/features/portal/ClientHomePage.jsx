@@ -104,7 +104,7 @@ export default function ClientHomePage() {
                   <p className="text-xs text-slate-500 dark:text-slate-400">{cot.fecha}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-slate-700 dark:text-slate-200">{cot.total}</span>
+                  <span className="font-mono text-sm text-slate-700 dark:text-slate-200">{cot.etapa === 'Solicitud' ? 'Por confirmar' : cot.total}</span>
                   <Badge>{cot.estado}</Badge>
                 </div>
               </li>

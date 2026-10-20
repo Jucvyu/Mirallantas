@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
@@ -6,9 +7,9 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { categoriasService, marcasService, productosService, tiposVehiculoService } from '../../../services';
 import { formatCOP } from '../../../utils/formato';
 
-// Tabla `producto`. El formulario NO pide precio de compra ni stock: el
-// precio de compra pertenece a cada compra y el stock de un producto nuevo
-// arranca en cero. Ambos se siguen viendo en el listado.
+// Tabla `producto`. El código lo genera el servidor (ML-000001…) y no
+// cambia al editar. El formulario no pide precio de compra (pertenece a
+// cada compra) y el aplicativo no maneja stock.
 const columns = [
   { key: 'codigo', label: 'Código' },
   {
@@ -33,34 +34,33 @@ const columns = [
   { key: 'marca', label: 'Marca' },
   { key: 'medidas', label: 'Medidas' },
   { key: 'precioVenta', label: 'Precio venta', render: (row) => formatCOP(row.precioVenta) },
-  { key: 'stock', label: 'Stock' },
   { key: 'estado', label: 'Estado' },
 ];
 
 /** Formulario: las listas de categorías, marcas y vehículos vienen de la API. */
-function seccionesFormulario({ categorias, marcas, tipos }) {
+function seccionesFormulario({ categorias, marcas, tipos, medidas }) {
   const activos = (lista) => lista.filter((x) => x.activo !== false).map((x) => x.nombre);
   return [
     {
       title: 'Identificación',
       fields: [
-        // Al crear, el asesor escribe el código. Pendiente de decidir el
-        // formato automático (ML-000123); entonces lo generará el servidor.
-        {
-          key: 'codigo',
-          label: 'Código del producto',
-          required: true,
-          placeholder: 'ML-19565R15',
-          only: 'create',
-          hint: 'Letras, números y guiones. No se puede cambiar después.',
-        },
-        // Una vez asignado, el código no cambia
+        // El código lo asigna el servidor al guardar y no cambia
         { key: 'codigo', label: 'Código del producto', only: ['edit', 'view'], soloLectura: true },
         { key: 'nombre', label: 'Nombre', required: true },
         { key: 'descripcion', label: 'Descripción', type: 'textarea', span: 2 },
         { key: 'categoria', label: 'Categoría', type: 'select', required: true, options: activos(categorias), emptyLabel: 'categoría' },
         { key: 'marca', label: 'Marca', type: 'select', required: true, options: activos(marcas), emptyLabel: 'marca' },
-        { key: 'medidas', label: 'Medidas', required: true, placeholder: '195/65R15' },
+        // Buscador de las medidas ya registradas; si es nueva, se escribe
+        {
+          key: 'medidas',
+          label: 'Medidas',
+          type: 'buscador',
+          required: true,
+          options: medidas,
+          permitirNuevo: true,
+          placeholderBusqueda: 'Escribe la medida, p. ej. 195/65R15',
+          hint: 'Busca una medida existente o escribe una nueva.',
+        },
         { key: 'tipoVehiculo', label: 'Tipo de vehículo', type: 'select', options: tipos.map((t) => t.nombre) },
       ],
     },
@@ -102,6 +102,12 @@ export default function ProductosPage() {
 
   // El servicio usa estas listas para enviar los nombres elegidos como ids
   const contexto = { categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas };
+  // Medidas registradas, sin repetir: salen del catálogo ya cargado (no se
+  // vuelven a pedir a la API)
+  const medidas = useMemo(
+    () => [...new Set(productos.filas.map((p) => p.medidas).filter(Boolean))].sort(),
+    [productos.filas],
+  );
 
   return (
     <div>
@@ -117,7 +123,7 @@ export default function ProductosPage() {
         onEdit={(fila, valores) => productos.editar(fila, valores, contexto)}
         onStatusChange={(fila, estado) => productos.ejecutar(() => productosService.cambiarEstado(fila, estado))}
         newLabel="Nuevo producto"
-        formSections={seccionesFormulario({ categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas })}
+        formSections={seccionesFormulario({ categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas, medidas })}
         entityName="producto"
         exportable={false}
         // Un producto con ventas o compras no se borra: se desactiva

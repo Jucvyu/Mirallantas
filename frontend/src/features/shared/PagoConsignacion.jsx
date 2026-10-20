@@ -22,8 +22,10 @@ export const pideComprobante = (medio) => Boolean(medio) && medio !== 'Efectivo'
 /**
  * Campos del pago. `pago` = { medioPago, comprobante } y `onCambio(pago)`.
  * `errores` = { medioPago, comprobante } para mostrar los avisos.
+ * `medios`: los que se ofrecen (el cliente del portal solo efectivo y
+ * transferencia: MEDIOS_PAGO_CLIENTE).
  */
-export function CamposPago({ pago, onCambio, errores = {} }) {
+export function CamposPago({ pago, onCambio, errores = {}, medios = mediosPago, etiqueta = '¿Cómo vas a pagar?' }) {
   const archivo = useRef(null);
   const [errorArchivo, setErrorArchivo] = useState('');
 
@@ -45,7 +47,7 @@ export function CamposPago({ pago, onCambio, errores = {} }) {
     <div className="space-y-3">
       <div>
         <label className={LABEL} htmlFor="pago-medio">
-          ¿Cómo vas a pagar? <span className="text-red-500">*</span>
+          {etiqueta} <span className="text-red-500">*</span>
         </label>
         <div className="relative">
           <select
@@ -55,7 +57,7 @@ export function CamposPago({ pago, onCambio, errores = {} }) {
             className={`${INPUT} ${errores.medioPago ? BORDER_ERR : BORDER_OK} cursor-pointer appearance-none pr-10`}
           >
             <option value="">Seleccionar...</option>
-            {mediosPago.map((m) => (
+            {medios.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

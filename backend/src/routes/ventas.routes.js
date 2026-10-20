@@ -9,6 +9,7 @@ import { esquemaCambio, esquemaListado, esquemaNueva } from '../validators/venta
  *
  *   GET    /             listado (el portal solo ve las suyas)
  *   GET    /:numero      detalle con sus líneas
+ *   GET    /:numero/pdf  comprobante de la venta en PDF
  *   POST   /             registra una venta directa (sin cotización)
  *   PATCH  /:numero      cambia estado (p. ej. anular), entrega o datos de apoyo
  */
@@ -17,5 +18,6 @@ rutasVentas.use(autenticar, requierePermiso('Ventas'));
 
 rutasVentas.get('/', validar(esquemaListado, 'query'), controlador.listar);
 rutasVentas.get('/:numero', controlador.obtener);
+rutasVentas.get('/:numero/pdf', controlador.pdf);
 rutasVentas.post('/', soloPersonal, validar(esquemaNueva), controlador.crear);
 rutasVentas.patch('/:numero', soloPersonal, validar(esquemaCambio), controlador.actualizar);

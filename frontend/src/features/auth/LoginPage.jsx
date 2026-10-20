@@ -25,12 +25,14 @@ const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const registroSections = [
   {
     title: 'Datos personales',
+    // Orden de identificación del portal: tipo y número de documento,
+    // nombre completo y dirección
     fields: [
-      { key: 'nombre', label: 'Nombre completo', required: true, span: 2 },
       { key: 'tipoDocumento', label: 'Tipo de documento', type: 'select', required: true, options: tiposDocumento },
       { key: 'numeroDocumento', label: 'Número de documento', type: 'number', required: true },
+      { key: 'nombre', label: 'Nombre completo', required: true, span: 2 },
+      { key: 'direccion', label: 'Dirección', span: 2, placeholder: 'Calle 50 #45-12, Medellín' },
       { key: 'telefono', label: 'Teléfono', type: 'tel', required: true },
-      { key: 'direccion', label: 'Dirección' },
     ],
   },
   {
@@ -331,6 +333,7 @@ export default function LoginPage() {
         {/* ---- Recuperación de contraseña: correo → código → contraseña nueva ---- */}
         {dialogo === 'recuperar' && <RecuperarPasswordModal onClose={() => setDialogo(null)} />}
       </div>
+      <Footer />
     </div>
   );
 }

@@ -3,15 +3,19 @@ import { HttpError } from '../errores.js';
 import * as comprasModel from '../models/compras.model.js';
 import { validarTransicion } from '../reglas.js';
 import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
+import * as productosModel from '../models/productos.model.js';
 import { exigirActivo } from './estados.js';
-import { ingresarCompra } from './inventario.js';
 
 /**
  * Controlador de compras al proveedor (solo personal interno).
  *
  * La compra parte de una cotización de origen: trae sus productos y el
  * asesor puede sumar productos adicionales. El precio de cada línea es el
- * acordado en esta compra y queda guardado aunque el producto cambie.
+ * acordado en esta compra y queda guardado aunque el producto cambie. Cada
+ * línea muestra si su costo se confirmó con el proveedor en la cotización.
+ *
+ * El aplicativo no maneja stock: recibir una compra no mueve existencias;
+ * solo actualiza el último costo de compra de cada llanta (dato interno).
  */
 
 /**
@@ -94,12 +98,13 @@ export async function actualizar(req, res) {
       await comprasModel.actualizar(db, actual.id, [['estado_entrega', cambios.estadoEntrega]]);
     }
 
-    // Recibida y entregada: la mercancía entra al inventario (una sola vez)
+    // Recibida y entregada: se guarda el último costo de compra de cada llanta
     const estado = cambios.estado ?? actual.estado;
     const entrega = cambios.estadoEntrega ?? actual.estadoEntrega;
-    if (estado === 'Recibida' && entrega === 'Entregado' && !actual.stockAplicado) {
-      await ingresarCompra(db, await comprasModel.lineas(actual.id, db));
-      await comprasModel.actualizar(db, actual.id, [['stock_aplicado', true]]);
+    if (estado === 'Recibida' && entrega === 'Entregado') {
+      for (const linea of await comprasModel.lineas(actual.id, db)) {
+        await productosModel.actualizarPrecioCompra(db, linea.productoId, linea.precioUnitario);
+      }
     }
   });
 

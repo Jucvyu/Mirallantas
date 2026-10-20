@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, HandCoins, ImagePlus, TriangleAlert, X } from 'luc
 import AvisoError from '../../components/base/AvisoError';
 import Modal from '../../components/base/Modal';
 import { BORDER_ERR, BORDER_OK, INPUT } from '../../components/base/formStyles';
-import { mediosPago } from '../../constantes';
+import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import { useEnvio } from '../../hooks/useEnvio';
 import { portalService } from '../../services';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
@@ -96,7 +96,7 @@ function PagarServicioModal({ servicio, onPagado, onClose }) {
             className={`${INPUT} ${BORDER_OK} mt-1.5 cursor-pointer`}
           >
             <option value="">Seleccionar...</option>
-            {mediosPago.map((m) => (
+            {MEDIOS_PAGO_CLIENTE.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

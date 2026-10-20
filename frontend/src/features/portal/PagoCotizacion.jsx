@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Clock, HandCoins, TriangleAlert } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
+import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import Modal from '../../components/base/Modal';
 import { useEnvio } from '../../hooks/useEnvio';
 import { cotizacionesService } from '../../services';
@@ -37,7 +38,7 @@ function VolverAPagarModal({ cotizacion, onPagado, onClose }) {
     >
       <div className="space-y-4">
         <AvisoError mensaje={errorEnvio} />
-        <CamposPago pago={pago} onCambio={setPago} />
+        <CamposPago pago={pago} onCambio={setPago} medios={MEDIOS_PAGO_CLIENTE} />
       </div>
     </Modal>
   );

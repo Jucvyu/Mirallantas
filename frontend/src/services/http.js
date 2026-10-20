@@ -125,6 +125,33 @@ export async function api(ruta, { metodo = 'GET', cuerpo, cabecerasExtra = {} } 
 }
 
 /**
+ * Descarga un archivo de la API (p. ej. un PDF) y lo guarda en el equipo
+ * con `nombre`. Si la API responde con error, lanza un `ErrorApi` con su
+ * mensaje (así la pantalla lo muestra igual que cualquier otro error).
+ */
+export async function descargarArchivo(ruta, nombre) {
+  const token = leerToken();
+  let respuesta;
+  try {
+    respuesta = await fetch(`${URL_API}${ruta}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ErrorApi(0, 'No hay conexión con el servidor. Revisa que la API esté encendida.');
+  }
+  if (!respuesta.ok) {
+    const datos = await respuesta.json().catch(() => null);
+    throw new ErrorApi(respuesta.status, datos?.error ?? 'No se pudo generar el documento.', [], datos);
+  }
+  const url = URL.createObjectURL(await respuesta.blob());
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
  * Trae TODAS las filas de un listado paginado.
  *
  * La API devuelve máximo 100 filas por página; esta función pide página por

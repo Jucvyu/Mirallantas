@@ -5,7 +5,7 @@ import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
-import { mediosPago } from '../../constantes';
+import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import { usePortal } from '../../context/PortalContext';
 import { useValidacion } from '../../hooks/useValidacion';
 import { useEnvio } from '../../hooks/useEnvio';
@@ -195,7 +195,7 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
                   className={`${INPUT} ${errors.metodo ? BORDER_ERR : BORDER_OK} appearance-none pr-9`}
                 >
                   <option value="">Seleccionar...</option>
-                  {mediosPago.map((m) => (
+                  {MEDIOS_PAGO_CLIENTE.map((m) => (
                     <option key={m} value={m}>
                       {m}
                     </option>

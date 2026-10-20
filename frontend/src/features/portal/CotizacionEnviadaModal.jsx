@@ -6,17 +6,18 @@ const TELEFONO = '+57 310 897 69 43';
 const WHATSAPP = '310 897 6943';
 
 /**
- * Aviso que se muestra al enviar el pedido-cotización.
+ * Aviso que se muestra SOLO cuando la API confirma que la solicitud de
+ * cotización quedó registrada.
  *
- * La cotización no queda valorada en el acto: un asesor la revisa y define
- * el precio, así que aquí se le da al cliente el número al que debe
- * comunicarse para continuar el proceso.
+ * La solicitud no tiene precios todavía: un asesor los confirma con los
+ * proveedores (plazo de respuesta de 24 horas, distinto de los 8 días de
+ * vigencia de la cotización formal). Enviarla no es una compra.
  */
-export default function CotizacionEnviadaModal({ credito = null, onClose }) {
+export default function CotizacionEnviadaModal({ numero, onClose }) {
   return (
     <Modal
-      title="¡Cotización enviada!"
-      subtitle="Ya quedó registrada en el sistema."
+      title="¡Solicitud recibida!"
+      subtitle={numero ? `Solicitud ${numero}` : 'Ya quedó registrada en el sistema.'}
       icon={<CheckCircle2 size={17} />}
       size="md"
       onClose={onClose}
@@ -32,8 +33,14 @@ export default function CotizacionEnviadaModal({ credito = null, onClose }) {
     >
       <div className="space-y-5">
         <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          Tu pedido quedó registrado con los precios del catálogo y las llantas quedaron
-          apartadas. Un asesor lo revisa y se comunica contigo para coordinar la entrega.
+          ¡Tu solicitud de cotización fue recibida correctamente! Estamos verificando los precios vigentes con
+          nuestros proveedores para ofrecerte una cotización actualizada. En un plazo de hasta 24 horas te
+          confirmaremos los precios finales y las condiciones de tu solicitud. Ten en cuenta que el envío de esta
+          solicitud no constituye una compra confirmada.
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Puedes consultar el estado de tu solicitud en "Mis cotizaciones". Si tienes dudas, comunícate con
+          nosotros:
         </p>
 
         {/* ---- Datos de contacto ---- */}
@@ -66,36 +73,6 @@ export default function CotizacionEnviadaModal({ credito = null, onClose }) {
           </div>
         </div>
 
-        {/* ---- Resumen del crédito solicitado ---- */}
-        {credito && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-              Crédito solicitado
-            </p>
-            <dl className="mt-2 space-y-1.5 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-slate-500 dark:text-slate-400">Valor</dt>
-                <dd className="font-bold text-slate-800 dark:text-slate-100">{credito.valor}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-slate-500 dark:text-slate-400">Plazo</dt>
-                <dd className="font-bold text-slate-800 dark:text-slate-100">{credito.plazo} días</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-slate-500 dark:text-slate-400">Cuota inicial abonada</dt>
-                <dd className="font-bold text-emerald-600 dark:text-emerald-400">{credito.inicial}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-slate-500 dark:text-slate-400">Cuota aproximada</dt>
-                <dd className="font-bold text-slate-800 dark:text-slate-100">{credito.cuota}</dd>
-              </div>
-            </dl>
-            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-              Tu solicitud de crédito quedó en revisión. Cuando un asesor la apruebe, el crédito
-              aparecerá en "Mi cartera" y se descontará de tu saldo usable.
-            </p>
-          </div>
-        )}
       </div>
     </Modal>
   );

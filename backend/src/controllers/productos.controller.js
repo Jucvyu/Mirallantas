@@ -4,15 +4,15 @@ import { clienteDeSesion } from '../middleware/auth.js';
 import { aPares } from '../models/listado.model.js';
 import * as productosModel from '../models/productos.model.js';
 import { enviarCatalogo, enviarProducto } from '../views/productos.view.js';
+import { enviarDato } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
 /**
  * Controlador de productos.
  *
- * El código todavía lo escribe el asesor al crear. Está pendiente decidir
- * el formato del código automático (ML-000123 o ML-19565R15-0003); cuando
- * se decida, se generará aquí, en el servidor. Una vez asignado, el código
- * no se puede cambiar.
+ * El código lo genera la base al crear (ML-000001, ML-000002…) y no cambia
+ * al editar. El cliente del portal no recibe el precio de venta exacto ni el
+ * costo: solo el rango de precio orientativo (ver productos.view.js).
  */
 
 /** GET /productos — el portal solo ve los activos, pida lo que pida. */
@@ -25,6 +25,11 @@ export async function listar(req, res) {
     soloActivos: esCliente,
   });
   enviarCatalogo(res, { ...resultado, pagina: filtros.pagina, porPagina: filtros.porPagina }, esCliente);
+}
+
+/** GET /productos/medidas — medidas registradas, para el buscador del formulario. */
+export async function medidas(req, res) {
+  enviarDato(res, await productosModel.medidas());
 }
 
 /** GET /productos/:id — con sus imágenes. */

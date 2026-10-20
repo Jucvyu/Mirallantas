@@ -4,6 +4,7 @@ import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosSolicitudCredito, FLUJO_ESTADOS_SOLICITUD_CREDITO, PLAZOS_CREDITO } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
+import { opcionesClientes } from '../../../utils/opciones';
 import { clientesService, solicitudesCreditoService } from '../../../services';
 import DetalleSolicitudCreditoModal from './DetalleSolicitudCreditoModal';
 
@@ -22,13 +23,14 @@ const columns = [
   { key: 'estado', label: 'Estado' },
 ];
 
-function seccionesFormulario(nombresClientes) {
+function seccionesFormulario(opciones) {
   return [
     {
       title: 'Datos de la solicitud',
       fields: [
         // Al crear se eligen; después solo se consultan
-        { key: 'cliente', label: 'Cliente', type: 'select', required: true, options: nombresClientes, emptyLabel: 'cliente', only: 'create' },
+        // Buscador por nombre o documento: guarda el id real del cliente
+        { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opciones, placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente', only: 'create' },
         { key: 'cliente', label: 'Cliente', only: ['edit', 'view'], soloLectura: true },
         { key: 'monto', label: 'Monto solicitado (COP)', type: 'money', required: true, placeholder: '800.000', only: 'create' },
         { key: 'monto', label: 'Monto solicitado (COP)', only: ['edit', 'view'], soloLectura: true },
@@ -74,7 +76,7 @@ export default function SolicitudesCreditoPage() {
         }
         statusKey="estado"
         newLabel="Nueva solicitud"
-        formSections={seccionesFormulario(clientes.filas.filter((c) => c.activo).map((c) => c.nombreCompleto))}
+        formSections={seccionesFormulario(opcionesClientes(clientes.filas))}
         entityName="solicitud"
         titleKey="cliente"
         statusOptions={estadosSolicitudCredito}

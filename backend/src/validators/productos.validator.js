@@ -21,7 +21,8 @@ const campos = {
   descripcion: textoOpcional(500),
   categoriaId: idRelacion,
   marcaId: idRelacion,
-  medidas: texto(30),
+  // Sin espacios y en mayúsculas: "195/65 r15" y "195/65R15" son la misma medida
+  medidas: texto(30).transform((v) => v.replace(/\s+/g, '').toUpperCase()),
   tipoVehiculoId: idRelacion.nullable().optional(),
   precioVenta: pesos,
   // Foto principal; null la quita
@@ -29,24 +30,14 @@ const campos = {
 };
 
 /**
- * POST /productos. No acepta precio de compra ni stock: el precio de compra
- * pertenece a cada compra y el stock de un producto nuevo arranca en cero.
+ * POST /productos. No acepta código (lo genera el servidor) ni precio de
+ * compra (pertenece a cada compra).
  */
-export const esquemaNuevo = objetoEstricto(
-  {
-    codigo: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(/^[A-Z0-9-]{3,30}$/, 'El código solo admite letras, números y guiones (3 a 30 caracteres).'),
-    ...campos,
-  },
-  'Este campo no se registra en el producto.',
-);
+export const esquemaNuevo = objetoEstricto(campos, 'Este campo no se registra en el producto.');
 
 /**
- * PUT /productos/:id. No acepta `codigo` (no cambia una vez asignado),
- * `precioCompra` ni `stock`.
+ * PUT /productos/:id. No acepta `codigo` (no cambia una vez asignado) ni
+ * `precioCompra`.
  */
 export const esquemaEdicion = objetoEstricto(
   { ...campos, activo: z.boolean() },

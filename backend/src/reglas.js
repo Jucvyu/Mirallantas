@@ -15,8 +15,29 @@ export const INTERES_POR_PLAZO = { 30: 0.03, 60: 0.06, 90: 0.09 };
 
 export const PLAZOS_CREDITO = [30, 60, 90];
 
-/** La primera cuota de una compra a crédito debe cubrir al menos el 50 %. */
-export const CUOTA_INICIAL_CREDITO = 0.5;
+/**
+ * Venta a crédito: el cliente paga una cuota inicial de al menos el 30 %
+ * del total definitivo; el 70 % restante queda financiado. De contado se
+ * paga el 100 %. (No aplica a las compras a proveedores.)
+ */
+export const CUOTA_INICIAL_PORCENTAJE = 30;
+export const CUOTA_INICIAL_CREDITO = CUOTA_INICIAL_PORCENTAJE / 100;
+
+/** Días calendario de vigencia de una cotización formal, desde que se emite. */
+export const VIGENCIA_COTIZACION_DIAS = 8;
+
+/**
+ * Medios con los que paga un cliente desde el portal. En el local el asesor
+ * puede registrar además los demás medios de la tabla medio_pago.
+ */
+export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
+
+/** Lanza 422 si un cliente del portal intenta pagar con otro medio. */
+export function exigirMedioDelCliente(medio) {
+  if (medio && !MEDIOS_PAGO_CLIENTE.includes(medio)) {
+    throw new HttpError(422, `Desde el portal se paga con ${MEDIOS_PAGO_CLIENTE.join(' o ').toLowerCase()}.`);
+  }
+}
 
 /** Cupo máximo de crédito de cada cliente, en pesos. */
 export const CUPO_CARTERA = 2_000_000;
@@ -99,8 +120,17 @@ export function calcularTotales(subtotal, metodoPago, plazoDias) {
   const esCredito = metodoPago === 'Crédito';
   const interes = esCredito ? Math.round(subtotal * (INTERES_POR_PLAZO[plazoDias] ?? 0)) : 0;
   const total = subtotal + interes;
-  const cuotaMinima = esCredito ? Math.round(total * CUOTA_INICIAL_CREDITO) : 0;
+  const cuotaMinima = cuotaMinimaDe(total, metodoPago);
   return { interes, total, cuotaMinima };
+}
+
+/**
+ * Cuota inicial mínima de una venta a crédito: 30 % del total, redondeado
+ * hacia arriba al peso (así nunca queda por debajo del porcentaje).
+ */
+export function cuotaMinimaDe(total, metodoPago) {
+  // Con enteros (× 30 / 100) para no arrastrar errores de los decimales
+  return metodoPago === 'Crédito' ? Math.ceil((total * CUOTA_INICIAL_PORCENTAJE) / 100) : 0;
 }
 
 /** Texto de una cifra en pesos, para los mensajes: 1500000 → "$ 1.500.000". */

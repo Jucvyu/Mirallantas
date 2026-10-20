@@ -84,8 +84,19 @@ export const categoriaHaciaApi = (v) => ({
 
 export const marcaHaciaApi = (v) => ({ nombre: v.nombre, activo: activoDesdeEstado(v.estado) });
 
+/**
+ * Rango de precio orientativo del catálogo del cliente: "$ 260.000 - $ 290.000 COP",
+ * un solo valor si no hay variación, o "Precio por confirmar" si no hay datos.
+ */
+export function rangoPrecioTexto(minimo, maximo) {
+  if (!minimo) return 'Precio por confirmar';
+  if (!maximo || minimo === maximo) return `${formatCOP(minimo)} COP`;
+  return `${formatCOP(minimo)} - ${formatCOP(maximo)} COP`;
+}
+
 export const productoDesdeApi = (f) => ({
   ...f,
+  rangoPrecio: rangoPrecioTexto(f.precioMinimo, f.precioMaximo),
   estado: estadoActivo(f.activo),
   tipoVehiculo: f.tipoVehiculo ?? '',
   // Solo cuenta como foto una imagen real (subida o con URL)
@@ -117,6 +128,7 @@ export const usuarioDesdeApi = conEstado;
  * de reencauche, trae también el estado de esa solicitud.
  */
 export const lineaDesdeApi = (l) => ({
+  lineaId: l.id,
   tipo: l.tipo,
   productoId: l.productoId ?? null,
   servicioId: l.servicioId ?? null,
@@ -126,6 +138,14 @@ export const lineaDesdeApi = (l) => ({
   cantidad: l.cantidad,
   unitario: formatCOPoGuion(l.precioUnitario),
   subtotal: formatCOPoGuion(l.subtotal),
+  precioUnitarioValor: l.precioUnitario ?? null,
+  // Datos internos (solo llegan al personal): confirmación con el proveedor
+  proveedorLineaId: l.proveedorLineaId ?? null,
+  proveedorLinea: l.proveedorLinea ?? '',
+  costoProveedor: l.costoProveedor ?? null,
+  costoConfirmadoEn: l.costoConfirmadoEn ?? null,
+  precioSugerido: l.precioSugerido ?? null,
+  ultimoCosto: l.ultimoCosto ?? null,
   solicitud: l.solicitudServicio ?? '',
   estadoEvidencia: l.estadoEvidencia ?? '',
   foto: l.foto ?? '',
@@ -174,6 +194,13 @@ export const cotizacionDesdeApi = (f) => ({
   pagoEstado: f.pagoEstado ?? null,
   // Pendiente / Aprobado / Rechazado (contado o cuota inicial del crédito)
   estadoPago: f.estadoPago ?? null,
+  // Solicitud / Emitida / Vencida / Aceptada, con las fechas de la cotización formal
+  etapa: f.etapa ?? 'Aceptada',
+  emitidaEn: f.emitidaEn ?? null,
+  venceEn: f.venceEn ?? null,
+  // El método de pago se elige al aceptar la cotización formal
+  metodoPago: f.metodoPago ?? '',
+  subtotalValor: f.subtotal,
   pagos: f.pagos?.map(pagoDesdeApi),
 });
 
@@ -211,6 +238,10 @@ export const compraDesdeApi = (f) => ({
     unitario: formatCOP(l.precioUnitario),
     subtotal: formatCOP(l.subtotal),
     origen: l.origen,
+    // Costo confirmado con el proveedor en la cotización (null = sin confirmar)
+    costoConfirmado: l.costoConfirmado == null ? null : formatCOP(l.costoConfirmado),
+    costoConfirmadoEn: l.costoConfirmadoEn ?? null,
+    proveedorConfirmado: l.proveedorConfirmado ?? '',
   })),
 });
 
