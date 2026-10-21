@@ -54,7 +54,8 @@ export const ESTADOS_EVIDENCIA = ['Pendiente de revisión', 'Apta', 'No apta'];
 export const FLUJOS = {
   cotizacion: {
     Pendiente: ['Aprobada', 'Rechazada'],
-    Aprobada: ['En proceso', 'Rechazada'],
+    // Ya pagada no se cancela: sigue su proceso
+    Aprobada: ['En proceso'],
     'En proceso': ['Completada'],
     Completada: [],
     Rechazada: [],

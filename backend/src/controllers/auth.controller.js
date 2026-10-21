@@ -74,6 +74,9 @@ async function completarInicio(req, res, usuario) {
     });
   }
   await usuariosModel.registrarAcceso(usuario.id, ip);
+  // Una cuenta, un dispositivo: la sesión nueva cierra las demás (sus tokens dejan de servir)
+  await usuariosModel.subirVersionSesion(usuario.id);
+  usuario.version_sesion += 1;
   await eventos.registrar({ tipo: 'inicio_sesion', usuarioId: usuario.id, correo: usuario.correo, ip, agente });
   vista.enviarSesion(res, firmarToken(usuario), usuario, { debeActivar2fa: debeActivar2fa(usuario) });
 }

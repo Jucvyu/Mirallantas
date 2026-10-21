@@ -3,6 +3,7 @@ import { FileText } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import MotivoModal from '../../../components/base/MotivoModal';
 import { estadosSolicitudCredito, FLUJO_ESTADOS_SOLICITUD_CREDITO, PLAZOS_CREDITO } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { opcionesClientes } from '../../../utils/opciones';
@@ -57,6 +58,8 @@ export default function SolicitudesCreditoPage() {
   const solicitudes = useRecurso(solicitudesCreditoService);
   // Solicitud abierta en "Ver detalle"
   const [detalleDe, setDetalleDe] = useState(null);
+  // Solicitud que se va a rechazar (se pide el motivo)
+  const [rechazando, setRechazando] = useState(null);
 
   return (
     <div>
@@ -71,9 +74,11 @@ export default function SolicitudesCreditoPage() {
         onCreate={(valores) => solicitudes.crear(valores, { clientes: clientes.filas })}
         onEdit={solicitudes.editar}
         onDelete={solicitudes.eliminar}
-        // Para rechazar hace falta el motivo: se hace desde "Editar"
+        // Para rechazar hace falta el motivo: se pide en un modal antes de enviar
         onStatusChange={(fila, estado) =>
-          solicitudes.ejecutar(() => solicitudesCreditoService.cambiarEstado(fila, estado))
+          estado === 'Rechazada'
+            ? setRechazando(fila)
+            : solicitudes.ejecutar(() => solicitudesCreditoService.cambiarEstado(fila, estado))
         }
         statusKey="estado"
         newLabel="Nueva solicitud"
@@ -90,6 +95,21 @@ export default function SolicitudesCreditoPage() {
           <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
         )}
       />
+
+      {rechazando && (
+        <MotivoModal
+          title="Rechazar la solicitud de crédito"
+          message={rechazando.cotizacion ? `Su cotización ${rechazando.cotizacion} también quedará rechazada.` : undefined}
+          record={{ title: `${rechazando.id} · ${rechazando.cliente}`, subtitle: `${rechazando.monto} a ${rechazando.plazoDias} días` }}
+          label="Motivo del rechazo"
+          confirmLabel="Rechazar"
+          onConfirm={async (motivo) => {
+            await solicitudesCreditoService.rechazar(rechazando, motivo);
+            await solicitudes.recargar();
+          }}
+          onClose={() => setRechazando(null)}
+        />
+      )}
 
       {detalleDe && (
         <DetalleSolicitudCreditoModal

@@ -103,7 +103,8 @@ export async function api(ruta, { metodo = 'GET', cuerpo, cabecerasExtra = {} } 
 
   if (!respuesta.ok) {
     // Sesión vencida o inválida: se avisa para volver al login
-    if (respuesta.status === 401 && token) {
+    // (salvo al cerrar sesión: ese token ya se iba a descartar)
+    if (respuesta.status === 401 && token && ruta !== '/auth/salir') {
       borrarToken();
       window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA));
     }

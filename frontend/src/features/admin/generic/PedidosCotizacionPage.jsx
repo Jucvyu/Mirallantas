@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { BadgeCheck, Eye, FileDown, HandCoins, Receipt, Signature } from 'lucide-react';
+import { BadgeCheck, Ban, Eye, FileDown, HandCoins, Receipt, Signature } from 'lucide-react';
 import Badge from '../../../components/base/Badge';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import MotivoModal from '../../../components/base/MotivoModal';
 import {
   estadosCotizacion,
   ESTADO_COTIZACION_COMPLETADA,
@@ -51,14 +52,14 @@ const fechaCorta = (f) => (f ? f.slice(0, 10).split('-').reverse().join('/') : '
 const emitible = (row) => row.estado === 'Pendiente' && ['Solicitud', 'Emitida', 'Vencida'].includes(row.etapa);
 
 const columns = [
-  { key: 'id', label: 'Nº Cotización' },
-  { key: 'cliente', label: 'Cliente' },
-  { key: 'fecha', label: 'Fecha' },
+  // Fecha y etapa van debajo del número: así la tabla cabe sin desplazarse de lado
   {
-    key: 'etapa',
-    label: 'Etapa',
+    key: 'id',
+    label: 'Nº Cotización / Etapa',
     render: (row) => (
-      <span className="flex flex-col items-start gap-0.5">
+      <span className="flex flex-col items-start gap-1">
+        <span className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">{row.id}</span>
+        <span className="whitespace-nowrap text-[11px] text-slate-400">{row.fecha}</span>
         <Badge>{row.etapa}</Badge>
         {row.etapa === 'Solicitud' && <span className="text-[10px] font-medium text-amber-600">Precios por confirmar</span>}
         {['Emitida', 'Vencida'].includes(row.etapa) && (
@@ -67,6 +68,7 @@ const columns = [
       </span>
     ),
   },
+  { key: 'cliente', label: 'Cliente' },
   {
     key: 'metodoPago',
     label: 'Método de pago',
@@ -139,6 +141,8 @@ export default function PedidosCotizacionPage() {
   const [emitiendo, setEmitiendo] = useState(null);
   const [aceptando, setAceptando] = useState(null);
   const [errorPdf, setErrorPdf] = useState('');
+  // Cotización que se va a cancelar (se pide el motivo; no se borra)
+  const [cancelando, setCancelando] = useState(null);
 
   const descargarPdf = (row) => {
     setErrorPdf('');
@@ -160,7 +164,12 @@ export default function PedidosCotizacionPage() {
         // NuevoPedidoModal entrega la solicitud (cliente, llantas y servicios)
         onCreate={(datos) => cotizaciones.ejecutar(() => cotizacionesService.crearDesdePanel(datos))}
         onDelete={cotizaciones.eliminar}
-        onStatusChange={(fila, estado) => cotizaciones.ejecutar(() => cotizacionesService.cambiarEstado(fila, estado))}
+        // Cancelarla (Rechazada) pide el motivo antes de enviar
+        onStatusChange={(fila, estado) =>
+          estado === 'Rechazada'
+            ? setCancelando(fila)
+            : cotizaciones.ejecutar(() => cotizacionesService.cambiarEstado(fila, estado))
+        }
         // Cambios desde las celdas: avanzar la entrega
         onRowUpdate={(fila, cambios) => cotizaciones.ejecutar(() => cotizacionesService.actualizar(fila, cambios))}
         statusKey="estado"
@@ -193,6 +202,8 @@ export default function PedidosCotizacionPage() {
         // con una consignación por revisar, primero se revisa
         canChangeStatus={(row) => row.pagoEstado !== 'En revisión'}
         canEdit={(row) => !bloqueada(row)}
+        // Solo se borra una pendiente; las demás se cancelan (quedan Rechazadas)
+        canDelete={(row) => row.estado === 'Pendiente'}
         rowActions={(row) => (
           <>
             <BotonAccion icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
@@ -228,6 +239,15 @@ export default function PedidosCotizacionPage() {
               motivo="Todavía no hay pagos registrados"
               onClick={() => setPagosDe(row)}
             />
+            {/* Se cancela sin borrarla, solo mientras no esté aprobada (pagada) */}
+            <BotonAccion
+              icono={Ban}
+              etiqueta="Cancelar la cotización"
+              tono="peligro"
+              deshabilitado={row.estado !== 'Pendiente'}
+              motivo={row.estado === 'Rechazada' ? 'Ya está cancelada' : 'Ya fue aprobada: no se puede cancelar'}
+              onClick={() => setCancelando(row)}
+            />
             {/* El comprobante solo se emite con la cotización cerrada */}
             <BotonAccion
               icono={Receipt}
@@ -240,6 +260,21 @@ export default function PedidosCotizacionPage() {
           </>
         )}
       />
+
+      {cancelando && (
+        <MotivoModal
+          title="Cancelar la cotización"
+          message="Queda como Rechazada con su motivo; no se borra."
+          record={{ title: `${cancelando.id} · ${cancelando.cliente}`, subtitle: cancelando.total }}
+          label="Motivo de la cancelación"
+          confirmLabel="Cancelar cotización"
+          onConfirm={async (motivo) => {
+            await cotizacionesService.actualizar(cancelando, { estado: 'Rechazada', motivoCancelacion: motivo });
+            await cotizaciones.recargar();
+          }}
+          onClose={() => setCancelando(null)}
+        />
+      )}
 
       {errorPdf && (
         <p role="alert" className="mt-3 rounded-lg border border-red-400/50 bg-red-500/5 px-3 py-2 text-sm text-red-600">

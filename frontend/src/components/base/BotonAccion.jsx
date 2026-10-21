@@ -27,7 +27,7 @@ export default function BotonAccion({ icono: Icono, etiqueta, onClick, tono = 'n
       disabled={deshabilitado}
       aria-label={titulo}
       title={titulo}
-      className={`shrink-0 rounded p-1 transition-colors ${
+      className={`shrink-0 rounded p-0.5 transition-colors ${
         deshabilitado ? 'cursor-not-allowed text-slate-300 dark:text-slate-600' : TONOS[tono]
       }`}
     >
