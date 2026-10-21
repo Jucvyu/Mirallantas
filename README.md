@@ -621,7 +621,7 @@ para clientes reales el dominio es obligatorio.
 
 3. Vuelve a desplegar (las variables de Vite se leen al compilar).
 4. `vercel.json` ya trae las cabeceras de seguridad (CSP, HSTS, anti-iframe). Con la dirección
-   definitiva de la API, cambia en la CSP `connect-src 'self' https:` por
+   definitiva de la API, cambia en la CSP `connect-src 'self' https:` (ya hecho) por
    `connect-src 'self' https://tu-api.onrender.com` para que el sitio solo hable con tu API.
 
 ### 4. Pruebas después de desplegar
