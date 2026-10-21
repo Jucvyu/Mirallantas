@@ -11,6 +11,7 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { cotizacionesService, proveedoresService } from '../../../services';
 import { formatCOP } from '../../../utils/formato';
 import { opcionesEmpresas } from '../../../utils/opciones';
+import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /** "$ 1.250.000" o "1.250.000" → 1250000 */
 const aNumero = (texto) => Number(String(texto ?? '').replace(/\D/g, '')) || 0;
@@ -118,7 +119,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     >
       <div className="space-y-4">
         <AvisoError mensaje={error || errorEnvio} />
-        {cargando && <p className="text-sm text-slate-400">Cargando las llantas de la solicitud…</p>}
+        {cargando && <SkeletonLineas lineas={4} />}
 
         {inicial.etapa === 'Vencida' && (
           <p className="flex items-start gap-2 rounded-lg border border-red-400/50 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400">

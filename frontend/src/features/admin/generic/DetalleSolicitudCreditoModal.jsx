@@ -7,6 +7,7 @@ import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { solicitudesCreditoService } from '../../../services';
+import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /**
  * Detalle de una solicitud de crédito.
@@ -160,7 +161,7 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
                   {lineas.length === 0 && (
                     <tr>
                       <td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-400">
-                        {cargando ? 'Cargando el detalle…' : 'Sin líneas registradas.'}
+                        {cargando ? <SkeletonLineas lineas={3} /> : 'Sin líneas registradas.'}
                       </td>
                     </tr>
                   )}

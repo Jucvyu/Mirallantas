@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Check, LoaderCircle, Package, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { Check, Package, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Dropdown from '../../../components/base/Dropdown';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { productosService } from '../../../services';
+import Skeleton, { SkeletonLineas } from '../../../components/base/Skeleton';
 
 const CAMPO = `${INPUT} ${BORDER_OK} py-2`;
 
@@ -115,15 +116,15 @@ export default function SelectorProductosModal({ yaAgregados = [], onAgregar, on
         <AvisoError mensaje={productos.error} />
 
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          {productos.cargando ? 'Cargando…' : `${filtrados.length} de ${catalogo.length} productos`}
+          {productos.cargando ? <Skeleton className="inline-block h-3 w-28 align-middle" /> : `${filtrados.length} de ${catalogo.length} productos`}
           {elegidos.length > 0 && ` · ${elegidos.length} marcados`}
         </p>
 
         {/* ---- Listado ---- */}
         <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">
           {productos.cargando && (
-            <li className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-400">
-              <LoaderCircle size={15} className="animate-spin" /> Cargando el catálogo…
+            <li className="p-4">
+              <SkeletonLineas lineas={5} />
             </li>
           )}
           {!productos.cargando &&

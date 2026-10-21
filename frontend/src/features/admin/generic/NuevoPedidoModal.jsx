@@ -183,7 +183,7 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
                   value={clienteId}
                   options={opcionesCliente}
                   onChange={elegirCliente}
-                  placeholder={clientes.cargando ? 'Cargando clientes…' : 'Buscar cliente…'}
+                  placeholder="Buscar cliente…"
                   placeholderBusqueda="Nombre o número de documento"
                   error={Boolean(errors.cliente)}
                 />

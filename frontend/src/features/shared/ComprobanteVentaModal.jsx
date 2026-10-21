@@ -4,6 +4,7 @@ import AvisoError from '../../components/base/AvisoError';
 import Modal from '../../components/base/Modal';
 import { useDetalle } from '../../hooks/useDetalle';
 import { useEmpresa } from '../../hooks/useEmpresa';
+import { SkeletonLineas } from '../../components/base/Skeleton';
 
 /**
  * Lo que se muestra mientras la empresa no registre sus datos reales
@@ -182,7 +183,7 @@ export default function ComprobanteVentaModal({
                 {lineas.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-400">
-                      {cargando ? 'Cargando las líneas…' : 'El documento no tiene líneas registradas.'}
+                      {cargando ? <SkeletonLineas lineas={3} /> : 'El documento no tiene líneas registradas.'}
                     </td>
                   </tr>
                 )}

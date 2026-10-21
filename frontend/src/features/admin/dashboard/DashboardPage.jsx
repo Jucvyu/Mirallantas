@@ -4,6 +4,7 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import AvisoError from '../../../components/base/AvisoError';
 import StatCard from '../../../components/base/StatCard';
 import Badge from '../../../components/base/Badge';
+import Skeleton, { SkeletonLineas } from '../../../components/base/Skeleton';
 import { dashboardService } from '../../../services';
 import { formatCOP } from '../../../utils/formato';
 
@@ -96,6 +97,8 @@ export default function DashboardPage() {
     color: COLORES_MARCA[i % COLORES_MARCA.length],
   }));
   const maximoReencauches = Math.max(4, ...reencauches.map((m) => m.reencauches));
+  // Mientras llega la primera respuesta se ven bloques grises en lugar de los datos
+  const primeraCarga = cargando && !datos;
 
   return (
     <div>
@@ -103,7 +106,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Dashboard General</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {mesActual} · {cargando ? 'Actualizando…' : 'Datos al día'}
+            {mesActual} · {cargando ? <Skeleton className="inline-block h-3 w-20 align-middle" /> : 'Datos al día'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -123,9 +126,19 @@ export default function DashboardPage() {
       <AvisoError mensaje={error} className="mt-4" />
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {indicadores.map((stat) => (
-          <StatCard key={stat.id} {...stat} />
-        ))}
+        {primeraCarga
+          ? [0, 1].map((i) => (
+              <div
+                key={i}
+                aria-hidden="true"
+                className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800"
+              >
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-7 w-40" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            ))
+          : indicadores.map((stat) => <StatCard key={stat.id} {...stat} />)}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
@@ -141,6 +154,9 @@ export default function DashboardPage() {
             </span>
           </div>
           <div className="mt-4 h-56 sm:h-64">
+            {primeraCarga ? (
+              <Skeleton className="h-full w-full rounded-lg" />
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={reencauches} margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
@@ -160,6 +176,7 @@ export default function DashboardPage() {
                 <Bar dataKey="reencauches" fill="#FBBF24" radius={[6, 6, 0, 0]} maxBarSize={44} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -167,7 +184,12 @@ export default function DashboardPage() {
         <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ventas por Marca</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">Participación en los últimos 12 meses</p>
-          {marcas.length === 0 ? (
+          {primeraCarga ? (
+            <div className="mt-4 flex flex-col items-center gap-4">
+              <Skeleton className="h-36 w-36 rounded-full" />
+              <SkeletonLineas lineas={3} className="w-full" />
+            </div>
+          ) : marcas.length === 0 ? (
             <p className="py-16 text-center text-sm text-slate-400">Aún no hay ventas de productos en este periodo.</p>
           ) : (
             <>
@@ -216,6 +238,7 @@ export default function DashboardPage() {
             Ver todos
           </a>
         </div>
+        {primeraCarga && <SkeletonLineas lineas={4} className="mt-4" />}
         <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/5">
           {(datos?.ultimosPedidos ?? []).map((pedido) => (
             <li key={pedido.numero} className="flex flex-wrap items-center justify-between gap-2 py-3">

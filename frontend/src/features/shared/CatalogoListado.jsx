@@ -4,6 +4,7 @@ import AvisoError from '../../components/base/AvisoError';
 import Dropdown from '../../components/base/Dropdown';
 import TireThumb from '../../components/base/TireThumb';
 import { BORDER_OK, INPUT } from '../../components/base/formStyles';
+import Skeleton from '../../components/base/Skeleton';
 
 const FILTROS = [
   { key: 'marca', label: 'Marca' },
@@ -44,7 +45,7 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
   return (
     <div>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        {cargando ? 'Cargando el catálogo…' : `${filtrados.length} de ${productos.length} productos`}
+        {cargando ? <Skeleton className="inline-block h-4 w-36 align-middle" /> : `${filtrados.length} de ${productos.length} productos`}
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -75,6 +76,23 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
       </div>
 
       <div className={`mt-4 grid grid-cols-1 gap-4 sm:gap-5 ${columnas}`}>
+        {cargando &&
+          productos.length === 0 &&
+          Array.from({ length: 6 }, (_, i) => (
+            <div
+              key={i}
+              aria-hidden="true"
+              className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-brand-navy-800"
+            >
+              <Skeleton className="h-32 w-full rounded-none" />
+              <div className="space-y-2.5 p-4">
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-2/3" />
+                <Skeleton className="mt-4 h-9 w-full rounded-lg" />
+              </div>
+            </div>
+          ))}
         {filtrados.map((p) => (
           <article
             key={p.id}

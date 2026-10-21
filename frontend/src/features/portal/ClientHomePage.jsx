@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCredito } from '../../context/CreditoContext';
 import { usePortal } from '../../context/PortalContext';
 import { formatCOP } from '../../utils/formato';
+import Skeleton from '../../components/base/Skeleton';
 
 /**
  * Indicadores del inicio, armados con los datos reales del cliente que
@@ -111,9 +112,11 @@ export default function ClientHomePage() {
             ))}
           </ul>
           <p className="pt-3 text-center text-xs text-slate-400 dark:text-slate-600">
-            {cargando
-              ? 'Cargando…'
-              : `Mostrando ${Math.min(4, cotizaciones.length)} de ${cotizaciones.length}`}
+            {cargando ? (
+              <Skeleton className="mx-auto h-3 w-28" />
+            ) : (
+              `Mostrando ${Math.min(4, cotizaciones.length)} de ${cotizaciones.length}`
+            )}
           </p>
         </div>
       </div>

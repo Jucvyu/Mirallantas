@@ -5,6 +5,8 @@ import Dropdown from '../../../components/base/Dropdown';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { cotizacionesService } from '../../../services';
+import { hoyISO } from '../../../utils/formato';
+import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 const CAMPO = `${INPUT} ${BORDER_OK} py-2`;
 
@@ -60,10 +62,12 @@ export default function SelectorCotizaciones({ value, onChange, error, filtro, v
           />
         </div>
 
+        {/* Una cotización no puede tener fecha posterior a hoy (tampoco si se escribe a mano) */}
         <input
           type="date"
           value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
+          max={hoyISO()}
+          onChange={(e) => setFecha(e.target.value > hoyISO() ? hoyISO() : e.target.value)}
           aria-label="Filtrar por fecha"
           className={`${CAMPO} px-3`}
           style={{ width: 'auto' }}
@@ -125,9 +129,14 @@ export default function SelectorCotizaciones({ value, onChange, error, filtro, v
           );
         })}
 
-        {listado.length === 0 && (
+        {listado.length === 0 && cotizaciones.cargando && (
+          <li className="p-4">
+            <SkeletonLineas lineas={4} />
+          </li>
+        )}
+        {listado.length === 0 && !cotizaciones.cargando && (
           <li className="py-8 text-center text-sm text-slate-400">
-            {cotizaciones.cargando ? 'Cargando…' : (vacioLabel ?? 'Ninguna cotización coincide con la búsqueda.')}
+            {vacioLabel ?? 'Ninguna cotización coincide con la búsqueda.'}
           </li>
         )}
       </ul>

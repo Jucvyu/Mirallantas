@@ -4,7 +4,7 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { abonosService, clientesService, nuevaClaveIdempotencia } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
-import { Check, ChevronDown, ImagePlus, LoaderCircle, Wallet, X } from 'lucide-react';
+import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
 import {
@@ -19,6 +19,7 @@ import { mediosPago } from '../../../constantes';
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { formatCOP, parseCOP } from '../../../utils/formato';
+import Skeleton from '../../../components/base/Skeleton';
 
 /**
  * "Nuevo abono" del administrador: un pago sobre una FACTURA.
@@ -207,7 +208,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
                       setCargandoFacturas(true);
                       tocar('cliente');
                     }}
-                    placeholder={clientes.cargando ? 'Cargando clientes…' : 'Buscar cliente…'}
+                    placeholder="Buscar cliente…"
                     placeholderBusqueda="Nombre o número de documento"
                     error={Boolean(errores.cliente)}
                   />
@@ -220,9 +221,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
                   Factura <span className="text-red-500">*</span>
                 </label>
                 {cargandoFacturas ? (
-                  <div className={`${CAMPO} ${BORDE_OK} flex items-center gap-2 text-slate-400`}>
-                    <LoaderCircle size={14} className="animate-spin" /> Cargando facturas…
-                  </div>
+                  <Skeleton className="h-10 w-full rounded-lg" />
                 ) : creditoFijo ? (
                   <div className={`${CAMPO} ${BORDE_OK}`}>{creditoFijo.venta}</div>
                 ) : (

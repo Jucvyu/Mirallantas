@@ -6,6 +6,7 @@ import Modal from '../../components/base/Modal';
 import { useDetalle } from '../../hooks/useDetalle';
 import { VIGENCIA_COTIZACION_DIAS } from '../../constantes';
 import { HistorialPagos } from './PagoConsignacion';
+import { SkeletonLineas } from '../../components/base/Skeleton';
 
 /** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
 const fechaCorta = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '');
@@ -181,7 +182,7 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
                 {lineas.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-400">
-                      {cargando ? 'Cargando las líneas…' : 'La cotización no tiene líneas registradas.'}
+                      {cargando ? <SkeletonLineas lineas={3} /> : 'La cotización no tiene líneas registradas.'}
                     </td>
                   </tr>
                 )}

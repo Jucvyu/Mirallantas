@@ -1,15 +1,34 @@
-import { LoaderCircle } from 'lucide-react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import AccesoDenegadoPage from '../../features/auth/AccesoDenegadoPage';
 import { DosFactoresObligatorio } from '../../features/auth/DosFactores';
 import { pantallaInicial, veElPortal } from '../../permisos';
+import Skeleton, { SkeletonFilas } from './Skeleton';
 
-/** Pantalla breve mientras se comprueba la sesión guardada. */
+/** Silueta gris del panel mientras se comprueba la sesión guardada. */
 function ComprobandoSesion() {
   return (
-    <div className="flex min-h-screen items-center justify-center gap-2 bg-slate-50 text-sm text-slate-500 dark:bg-brand-navy-900 dark:text-slate-400">
-      <LoaderCircle size={16} className="animate-spin" /> Comprobando tu sesión…
+    <div className="flex min-h-screen bg-slate-50 dark:bg-brand-navy-900">
+      <aside className="hidden w-64 shrink-0 space-y-4 border-r border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800 lg:block">
+        <Skeleton className="h-8 w-36" />
+        {Array.from({ length: 7 }, (_, i) => (
+          <Skeleton key={i} className="h-5 w-full" />
+        ))}
+      </aside>
+      <main className="flex-1 space-y-5 p-4 sm:p-6">
+        <Skeleton className="h-7 w-48" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-brand-navy-800">
+          <table className="w-full">
+            <tbody>
+              <SkeletonFilas filas={6} columnas={4} />
+            </tbody>
+          </table>
+        </div>
+      </main>
     </div>
   );
 }

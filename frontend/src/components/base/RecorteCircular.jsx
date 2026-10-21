@@ -17,14 +17,19 @@ const LADO_FINAL = 400;
  *
  * props:
  *   imagen     data URL de la foto que eligió el usuario
+ *   onCambio   (dataUrl) => void   el recorte actual, cada vez que el círculo
+ *              se queda quieto: así el formulario guarda lo que se ve aunque
+ *              no se pulse "Usar esta foto"
  *   onListo    (dataUrl) => void   con la foto ya recortada
  *   onCancelar () => void
  */
-export default function RecorteCircular({ imagen, onListo, onCancelar }) {
+export default function RecorteCircular({ imagen, onCambio, onListo, onCancelar }) {
   const [medidas, setMedidas] = useState(null); // tamaño original y en pantalla
   const [circulo, setCirculo] = useState(null); // { x, y, d } en píxeles de pantalla
   const arrastre = useRef(null);
   const elementoImagen = useRef(null);
+  const avisarCambio = useRef(onCambio);
+  avisarCambio.current = onCambio;
 
   // Al cargar la imagen se calcula cómo cabe completa en el área y se
   // empieza con el círculo más grande posible, centrado.
@@ -80,8 +85,8 @@ export default function RecorteCircular({ imagen, onListo, onCancelar }) {
     return () => document.removeEventListener('keydown', alTeclear);
   });
 
-  /** Dibuja la parte elegida en un canvas y la entrega como JPG. */
-  const confirmar = () => {
+  /** Dibuja la parte elegida en un canvas y la devuelve como JPG. */
+  const recortar = () => {
     const canvas = document.createElement('canvas');
     canvas.width = LADO_FINAL;
     canvas.height = LADO_FINAL;
@@ -99,8 +104,19 @@ export default function RecorteCircular({ imagen, onListo, onCancelar }) {
       LADO_FINAL,
       LADO_FINAL,
     );
-    onListo(canvas.toDataURL('image/jpeg', 0.9));
+    return canvas.toDataURL('image/jpeg', 0.9);
   };
+
+  // Cuando el círculo deja de moverse, el formulario recibe el recorte actual
+  useEffect(() => {
+    if (!circulo) return undefined;
+    const espera = setTimeout(() => avisarCambio.current?.(recortar()), 200);
+    return () => clearTimeout(espera);
+    // recortar() lee el círculo y las medidas de este mismo render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circulo]);
+
+  const confirmar = () => onListo(recortar());
 
   return (
     <div className="rounded-xl border border-slate-200 p-4 dark:border-white/10">

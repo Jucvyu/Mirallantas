@@ -6,6 +6,7 @@ import Modal from '../../../components/base/Modal';
 import { abonosService, creditosService } from '../../../services';
 import ComprobanteAbonoModal from '../../shared/ComprobanteAbonoModal';
 import NuevoAbonoModal from './NuevoAbonoModal';
+import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /**
  * Abonos de un crédito de la cartera.
@@ -110,9 +111,11 @@ export default function HistorialAbonosModal({ credito: inicial, onClose }) {
               Historial de abonos
             </p>
 
-            {historial.length === 0 ? (
+            {historial.length === 0 && cargando ? (
+              <SkeletonLineas lineas={4} className="rounded-xl border border-slate-200 p-4 dark:border-white/10" />
+            ) : historial.length === 0 ? (
               <p className="rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400 dark:border-white/10">
-                {cargando ? 'Cargando…' : 'Este crédito todavía no tiene abonos registrados.'}
+                Este crédito todavía no tiene abonos registrados.
               </p>
             ) : (
               <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">

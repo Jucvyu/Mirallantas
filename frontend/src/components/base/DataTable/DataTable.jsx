@@ -3,7 +3,6 @@ import {
   ChevronDown,
   Download,
   Eye,
-  LoaderCircle,
   Pencil,
   Plus,
   RefreshCw,
@@ -16,6 +15,7 @@ import Dropdown from '../Dropdown';
 import { BORDER_OK, INPUT } from '../formStyles';
 import FormModal from '../FormModal';
 import ConfirmDialog from '../ConfirmDialog';
+import Skeleton, { SkeletonFilas } from '../Skeleton';
 import StatusSelect from '../StatusSelect';
 import StatusSwitch from '../StatusSwitch';
 
@@ -56,7 +56,7 @@ function fallbackSections(columns) {
  *
  * Datos
  *   data         filas a mostrar, cada una con un `id` único
- *   cargando     muestra "Cargando…" mientras llegan los datos
+ *   cargando     muestra filas grises (skeleton) mientras llegan los datos
  *   error        mensaje si no se pudieron cargar
  *   onRecargar   se llama al pulsar el botón de refrescar
  *
@@ -270,14 +270,8 @@ export default function DataTable({
     </div>
   );
 
-  /** Lo que se ve cuando no hay filas (cargando o sin resultados). */
-  const sinFilas = cargando ? (
-    <span className="inline-flex items-center gap-2">
-      <LoaderCircle size={15} className="animate-spin" /> Cargando…
-    </span>
-  ) : (
-    'Sin resultados encontrados.'
-  );
+  /** Mientras llegan las primeras filas se ven bloques grises en su lugar. */
+  const esqueleto = cargando && pageRows.length === 0;
 
   return (
     <div>
@@ -392,10 +386,11 @@ export default function DataTable({
                   </Fragment>
                 );
               })}
-              {pageRows.length === 0 && (
+              {esqueleto && <SkeletonFilas filas={5} columnas={columns.length + 1} />}
+              {!cargando && pageRows.length === 0 && (
                 <tr>
                   <td colSpan={columns.length + 1} className="px-5 py-10 text-center text-sm text-slate-400">
-                    {sinFilas}
+                    Sin resultados encontrados.
                   </td>
                 </tr>
               )}
@@ -432,7 +427,21 @@ export default function DataTable({
               </li>
             );
           })}
-          {pageRows.length === 0 && <li className="px-5 py-10 text-center text-sm text-slate-400">{sinFilas}</li>}
+          {esqueleto &&
+            Array.from({ length: 4 }, (_, i) => (
+              <li key={i} aria-hidden="true" className="space-y-3 px-4 py-4">
+                <Skeleton className="h-4 w-1/2" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-4/5" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </li>
+            ))}
+          {!cargando && pageRows.length === 0 && (
+            <li className="px-5 py-10 text-center text-sm text-slate-400">Sin resultados encontrados.</li>
+          )}
         </ul>
 
         <div className="flex items-center justify-between px-5 py-3.5 text-xs text-slate-500 dark:text-slate-400">

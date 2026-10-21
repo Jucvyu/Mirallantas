@@ -99,7 +99,8 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
       .then((dataUrl) => {
         setErrorArchivo('');
         // La foto de perfil primero se recorta en círculo
-        if (type === 'avatar') setPorRecortar(dataUrl);
+        // (se guarda la foto anterior por si cancela el recorte)
+        if (type === 'avatar') setPorRecortar({ imagen: dataUrl, anterior: value });
         else onChange(key, dataUrl);
       })
       .catch((error) => setErrorArchivo(error.message));
@@ -238,12 +239,18 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
       ) : type === 'avatar' ? (
         porRecortar ? (
           <RecorteCircular
-            imagen={porRecortar}
+            imagen={porRecortar.imagen}
+            // Lo que se ve en el círculo ya es la foto del formulario: "Guardar"
+            // la incluye aunque no se haya pulsado "Usar esta foto"
+            onCambio={(recortada) => onChange(key, recortada)}
             onListo={(recortada) => {
               onChange(key, recortada);
               setPorRecortar(null);
             }}
-            onCancelar={() => setPorRecortar(null)}
+            onCancelar={() => {
+              onChange(key, porRecortar.anterior);
+              setPorRecortar(null);
+            }}
           />
         ) : (
           <div className="flex items-center gap-4">

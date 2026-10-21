@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, KeyRound, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, KeyRound, TriangleAlert } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import AvisoError from '../../components/base/AvisoError';
+import { SkeletonLineas } from '../../components/base/Skeleton';
 import Footer from '../../components/base/Footer';
 import PublicNavbar from '../../components/layout/PublicNavbar';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from '../../components/base/formStyles';
@@ -95,9 +96,7 @@ function Restablecer() {
           </div>
 
           {estado === 'validando' && (
-            <p className="flex items-center gap-2 text-sm text-slate-500">
-              <LoaderCircle size={16} className="animate-spin" /> Revisando el enlace…
-            </p>
+            <SkeletonLineas lineas={3} />
           )}
 
           {estado === 'invalido' && (

@@ -7,6 +7,7 @@ import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { cotizacionesService } from '../../../services';
 import { TarjetaPago } from '../../shared/PagoConsignacion';
+import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /**
  * Consignaciones del pago de contado de una cotización (módulo
@@ -97,7 +98,7 @@ export default function PagosCotizacionModal({ cotizacion: inicial, onResuelto, 
     >
       <div className="space-y-3">
         <AvisoError mensaje={error || errorEnvio} />
-        {cargando && <p className="text-sm text-slate-400">Cargando las consignaciones…</p>}
+        {cargando && <SkeletonLineas lineas={3} />}
         {!cargando && pagos.length === 0 && (
           <p className="text-sm text-slate-400">Esta cotización no tiene consignaciones registradas.</p>
         )}
