@@ -50,7 +50,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [cors](https://github.com/expressjs/cors) | 2 | Permite que solo el frontend autorizado llame a la API. |
 | [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 8 | Limita las solicitudes por IP y los intentos de inicio de sesión (contra fuerza bruta). |
 | [cloudinary](https://cloudinary.com/documentation/node_integration) | 2 | Guarda las imágenes subidas (fotos y comprobantes) fuera de la base. |
-| [Resend](https://resend.com) (API HTTP) | — | Envía el correo con el enlace para recuperar la contraseña (sin librería: `fetch` nativo de Node). |
+| [Brevo](https://brevo.com) (API HTTP) | — | Envía el código para recuperar la contraseña (sin librería: `fetch` nativo de Node; va por HTTPS porque Render gratis bloquea SMTP). |
 | [PDFKit](https://pdfkit.org) | 0.20 | Genera en el servidor la cotización formal y el comprobante de venta en PDF. |
 | `node:crypto` (nativo de Node) | — | Doble factor TOTP y cifrado AES-256-GCM de datos sensibles, sin librerías extra. |
 | [embedded-postgres](https://github.com/leinelissen/embedded-postgres) | 18.4 (dev) | **Solo desarrollo y pruebas**: un PostgreSQL real sin instalar nada. |
@@ -102,8 +102,8 @@ Abre `backend/.env` y completa:
 - `CLAVE_CIFRADO`: otra clave generada igual, **distinta** de `JWT_SECRET` (cifra los secretos
   del doble factor dentro de la base).
 - `CLOUDINARY_URL` (opcional en desarrollo): sin ella las imágenes se guardan dentro de la base.
-- `RESEND_API_KEY`, `CORREO_REMITENTE` y `FRONTEND_URL` (opcionales en desarrollo): sin clave de
-  Resend, el enlace de "¿Olvidaste tu contraseña?" no se envía: aparece en la terminal de la API.
+- `BREVO_API_KEY` y `CORREO_REMITENTE` (opcionales en desarrollo): sin clave de Brevo, el código
+  de "¿Olvidaste tu contraseña?" no se envía: aparece en la terminal de la API.
 
 ### 2. Base de datos: un solo comando
 
@@ -286,7 +286,7 @@ Otras piezas del frontend:
 | Fuerza bruta | 10 intentos por IP cada 15 min y **bloqueo de la cuenta 15 min tras 5 fallos**. Límite general de 300 solicitudes por minuto por IP. |
 | Sesiones robadas o abandonadas | Token de máximo 8 h; **cierre automático tras 30 min sin actividad**; al cerrar sesión, cambiar la contraseña o activar el doble factor, la API invalida todos los tokens anteriores. |
 | Escalada de privilegios | Roles y Usuarios son **solo para el rol Administrador**. El rol Administrador no se edita ni se elimina (lo impide la API y un trigger de la base) y siempre queda al menos un Administrador activo. |
-| Recuperar contraseña | Enlace de un solo uso enviado con Resend: token aleatorio de 256 bits (se guarda solo su huella HMAC), vence en 30 minutos y queda anulado al usarse o al pedir otro. La respuesta es la misma exista o no el correo (no revela cuentas). 5 solicitudes por IP; luego 15 minutos de espera. El token va en el fragmento `#` del enlace (no llega a servidores ni al "Referer") y no sirve como sesión. Al cambiar la contraseña se cierran todas las sesiones. Si Resend rechaza el envío, el enlace se anula y se registra el motivo (sin el token). |
+| Recuperar contraseña | Código de 6 dígitos enviado con Brevo (se guarda solo su huella HMAC), vence en 10 minutos y se anula al pedir otro. 3 intentos para escribirlo; 5 intentos por IP para escribir un correo que exista; al agotarlos, 2 minutos de espera (contados en el servidor). Con el código verificado se escribe la contraseña nueva y su confirmación. Al cambiarla se cierran todas las sesiones. Si Brevo rechaza el envío, se registra el motivo y el usuario ve "No pudimos enviar el código". |
 | Acciones sensibles | Cambiar contraseña o correo pide la contraseña actual; desactivar el doble factor pide contraseña y código. |
 | Datos de otros clientes | Una cuenta del portal solo ve sus cotizaciones, créditos y abonos (404 si pide uno ajeno). |
 | Inyección SQL | Todas las consultas usan parámetros (`$1`, `$2`…); los nombres de tablas y columnas salen del código, nunca de la petición. Hay pruebas que lo verifican. |
@@ -323,7 +323,7 @@ Todas las rutas empiezan por `/api`. Salvo `salud`, `auth/login`, `auth/2fa/veri
 | Módulo | Rutas | Permiso |
 | --- | --- | --- |
 | Sesión | `POST /auth/login`, `POST /auth/2fa/verificar`, `POST /auth/registro`, `POST /auth/salir`, `GET/PUT /auth/yo` | — |
-| Recuperar contraseña | `POST /auth/recuperar/solicitar`, `/validar`, `/restablecer` | pública |
+| Recuperar contraseña | `GET /auth/recuperar/estado`, `POST /auth/recuperar/solicitar`, `/verificar`, `/cambiar` | pública |
 | Catálogo público | `GET /catalogo` (productos activos, sin precios) | pública |
 | Doble factor | `POST /auth/2fa/configurar`, `/auth/2fa/activar`, `/auth/2fa/desactivar` | sesión |
 | Empresa | `GET /empresa` (datos de los comprobantes; se registran directamente en la tabla `empresa`) | sesión |
@@ -534,7 +534,7 @@ Definidos en `frontend/tailwind.config.js` bajo `theme.extend.colors`.
 ## Despliegue
 
 Se despliegan tres piezas, en este orden: **base de datos → API → frontend**, más dos servicios
-externos (Cloudinary para imágenes y Resend para el correo). Cada pieza sale de su carpeta del
+externos (Cloudinary para imágenes y Brevo para el correo). Cada pieza sale de su carpeta del
 monorepo. La configuración recomendada (la que usa el proyecto) es:
 
 | Pieza | Servicio | Carpeta |
@@ -589,28 +589,26 @@ Variables de entorno (en el panel de Render, **nunca** en el código ni en el re
 | `JWT_SECRET` | Nueva, larga (≥ 32) y distinta a la de desarrollo |
 | `CLAVE_CIFRADO` | Nueva, distinta de `JWT_SECRET`. Si se pierde, los usuarios deben reconfigurar el doble factor |
 | `CLOUDINARY_URL` | Cloudinary → *API Keys* → `cloudinary://<api_key>:<api_secret>@<cloud_name>` |
-| `RESEND_API_KEY` | Resend → *API Keys* (permiso de envío) |
-| `CORREO_REMITENTE` | `MiraLlantas <no-responder@tu-dominio.com>`, de un dominio **verificado** en Resend |
-| `FRONTEND_URL` | `https://mirallantas.vercel.app` (arma el enlace del correo; debe ser https) |
+| `BREVO_API_KEY` | Brevo → *SMTP & API → API Keys* |
+| `CORREO_REMITENTE` | `MiraLlantas <tucorreo@gmail.com>`, con un correo **verificado** como remitente en Brevo |
 | `CORS_ORIGINS` | `https://mirallantas.vercel.app` (sin `*` ni `/` final; separa varios con coma) |
 | `EXIGIR_2FA_ADMIN` | `false` (doble factor opcional) o `true` |
 | `APP_TIMEZONE` | `America/Bogota` |
 | `JWT_EXPIRES_IN` | `8h` |
 
 No definas `PORT`: Render lo pone y la API lo usa. La API se niega a arrancar en producción si
-falta Cloudinary, Resend, `FRONTEND_URL` https o si `CORS_ORIGINS` no es https. Comprueba
+falta Cloudinary, Brevo o si `CORS_ORIGINS` no es https. Comprueba
 `https://tu-api.onrender.com/api/salud` → `{"estado":"ok"}`.
 
-**Resend (correo de recuperación)**: crea la cuenta, agrega tu dominio en *Domains* y publica los
-registros DNS que te indica (SPF/DKIM); cuando aparezca como *Verified*, crea la API key. Sin dominio
-verificado, Resend solo permite enviar a tu propio correo de prueba desde `onboarding@resend.dev`:
-para clientes reales el dominio es obligatorio.
+**Brevo (correo de recuperación)**: crea la cuenta gratis (300 correos al día), ve a *Senders, domains
+& IPs → Senders → Add sender* y verifica el correo que usarás como remitente (no hace falta dominio
+propio). Luego crea la clave en *SMTP & API → API Keys*. No uses SMTP: Render gratis bloquea los
+puertos 25, 465 y 587.
 
 ### 3. Frontend (Vercel)
 
 1. En **Settings → General → Root Directory** elige `frontend` (Vercel detecta Vite y usa
-   `frontend/vercel.json`, que también redirige todas las rutas a la app: recargar `/catalogo` o
-   `/restablecer-contrasena` funciona).
+   `frontend/vercel.json`, que también redirige todas las rutas a la app: recargar `/catalogo` funciona).
 2. En **Settings → Environment Variables** agrega (son públicas, nunca secretos):
 
    | Variable | Valor |
@@ -629,8 +627,8 @@ para clientes reales el dominio es obligatorio.
 1. `https://tu-api.onrender.com/api/salud` responde `{"estado":"ok"}`.
 2. En `https://mirallantas.vercel.app`: el menú "Catálogo" muestra las llantas sin iniciar sesión.
 3. Inicia sesión con el Administrador, cambia la contraseña y (recomendado) activa el doble factor.
-4. "¿Olvidaste tu contraseña?" con tu correo: llega el correo de Resend y el enlace abre
-   `https://mirallantas.vercel.app/restablecer-contrasena` (no `localhost`).
+4. "¿Olvidaste tu contraseña?" con tu correo: llega el código de Brevo, se verifica y se crea la
+   contraseña nueva (con su confirmación).
 5. Cliente de prueba: arma el carro, revisa "Solicitar por WhatsApp" (abre WhatsApp con el mensaje)
    y "Enviar solicitud de cotización"; en el panel, emite la cotización, acéptala y registra un abono.
 6. Registra los datos reales de la empresa en la tabla `empresa` (los usan los PDF).

@@ -34,22 +34,16 @@ if (esProduccion && !cloudinaryUrl) {
   throw new Error('Falta CLOUDINARY_URL: en producción las imágenes se guardan en Cloudinary.');
 }
 
-// Correo saliente con Resend (https://resend.com): por ahora solo envía el
-// enlace para recuperar la contraseña. En producción es obligatorio; en
-// desarrollo, sin clave, el enlace se muestra en la consola de la API.
+// Correo saliente con Brevo (https://brevo.com): por ahora solo envía el
+// código para recuperar la contraseña. En producción es obligatorio; en
+// desarrollo, sin clave, el código se muestra en la consola de la API.
 const correo = {
-  resendApiKey: process.env.RESEND_API_KEY ?? '',
-  // Debe ser de un dominio verificado en Resend, p. ej. "MiraLlantas <no-responder@tudominio.com>"
+  brevoApiKey: process.env.BREVO_API_KEY ?? '',
+  // Correo verificado como remitente en Brevo, p. ej. "MiraLlantas <tucorreo@gmail.com>"
   remitente: process.env.CORREO_REMITENTE ?? '',
 };
-if (esProduccion && (!correo.resendApiKey || !correo.remitente)) {
-  throw new Error('Faltan RESEND_API_KEY o CORREO_REMITENTE: en producción se envía el correo de recuperación.');
-}
-
-// Dirección pública del frontend: con ella se arma el enlace del correo
-const frontendUrl = (process.env.FRONTEND_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
-if (esProduccion && !frontendUrl.startsWith('https://')) {
-  throw new Error('En producción FRONTEND_URL debe ser la dirección https del frontend.');
+if (esProduccion && (!correo.brevoApiKey || !correo.remitente)) {
+  throw new Error('Faltan BREVO_API_KEY o CORREO_REMITENTE: en producción se envía el código de recuperación.');
 }
 
 const corsOrigenes = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
@@ -81,7 +75,6 @@ export const config = Object.freeze({
   exigir2faAdmin: process.env.EXIGIR_2FA_ADMIN === 'true',
   cloudinaryUrl,
   correo,
-  frontendUrl,
   // Orígenes del frontend autorizados, separados por coma
   corsOrigenes,
   // Zona horaria del negocio: define qué día es "hoy" para fechas y vigencias

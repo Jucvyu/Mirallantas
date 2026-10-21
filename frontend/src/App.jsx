@@ -30,7 +30,6 @@ import ClientLayout from './components/layout/ClientLayout';
 import ClientHomePage from './features/portal/ClientHomePage';
 import CatalogoPage from './features/portal/CatalogoPage';
 import CatalogoPublicoPage from './features/landing/CatalogoPublicoPage';
-import RestablecerContrasenaPage from './features/auth/RestablecerContrasenaPage';
 import ClientPedidosPage from './features/portal/ClientPedidosPage';
 import CarteraPage from './features/portal/CarteraPage';
 
@@ -64,7 +63,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/restablecer-contrasena" element={<RestablecerContrasenaPage />} />
             <Route path="/catalogo" element={<CatalogoPublicoPage />} />
             <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
             <Route path="/cuenta-inactiva" element={<CuentaInactivaPage />} />
