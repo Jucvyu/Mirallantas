@@ -15,7 +15,6 @@ import { CampoCodigo } from './DosFactores';
 import { AYUDA_PASSWORD, errorPassword } from './reglasClave';
 import RecuperarPasswordModal from './RecuperarPasswordModal';
 import SplashScreen from './SplashScreen';
-import Footer from '../../components/base/Footer';
 import PublicNavbar from '../../components/layout/PublicNavbar';
 
 /** Formato mínimo de correo, para no depender de la validación del navegador. */
@@ -333,7 +332,6 @@ export default function LoginPage() {
         {/* ---- Recuperación de contraseña: correo → código → contraseña nueva ---- */}
         {dialogo === 'recuperar' && <RecuperarPasswordModal onClose={() => setDialogo(null)} />}
       </div>
-      <Footer />
     </div>
   );
 }
