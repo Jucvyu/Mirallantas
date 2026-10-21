@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BadgeCheck, Eye, FileDown, HandCoins, Receipt, Signature } from 'lucide-react';
 import Badge from '../../../components/base/Badge';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import {
@@ -194,65 +195,48 @@ export default function PedidosCotizacionPage() {
         canEdit={(row) => !bloqueada(row)}
         rowActions={(row) => (
           <>
-            {emitible(row) && (
-              <button
-                onClick={() => setEmitiendo(row)}
-                className={`rounded p-1 hover:text-amber-500 ${row.etapa === 'Emitida' ? 'text-slate-400' : 'text-amber-500'}`}
-                aria-label={`Confirmar precios de ${row.id}`}
-                title={row.etapa === 'Emitida' ? 'Volver a confirmar precios y emitir' : 'Confirmar precios con el proveedor y emitir'}
-              >
-                <BadgeCheck size={15} />
-              </button>
-            )}
-            {row.etapa === 'Emitida' && row.estado === 'Pendiente' && (
-              <button
-                onClick={() => setAceptando(row)}
-                className="rounded p-1 text-slate-400 hover:text-emerald-600"
-                aria-label={`Registrar la aceptación de ${row.id}`}
-                title="Registrar la aceptación del cliente (en el local)"
-              >
-                <Signature size={15} />
-              </button>
-            )}
-            {row.emitidaEn && (
-              <button
-                onClick={() => descargarPdf(row)}
-                className="rounded p-1 text-slate-400 hover:text-amber-500"
-                aria-label={`Descargar el PDF de ${row.id}`}
-                title="Descargar la cotización en PDF"
-              >
-                <FileDown size={15} />
-              </button>
-            )}
-            {row.pagoEstado && (
-              <button
-                onClick={() => setPagosDe(row)}
-                className={`rounded p-1 hover:text-amber-500 ${row.pagoEstado === 'En revisión' ? 'text-amber-500' : 'text-slate-400'}`}
-                aria-label={`Ver el pago de ${row.id}`}
-                title="Ver pago y consignaciones"
-              >
-                <HandCoins size={15} />
-              </button>
-            )}
-            <button
-              onClick={() => setDetalleDe(row)}
-              className="rounded p-1 text-slate-400 hover:text-amber-500"
-              aria-label={`Ver el detalle de ${row.id}`}
-              title="Ver productos y servicios"
-            >
-              <Eye size={15} />
-            </button>
+            <BotonAccion icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion
+              icono={BadgeCheck}
+              etiqueta={row.etapa === 'Emitida' ? 'Volver a confirmar precios y emitir' : 'Confirmar precios con el proveedor y emitir'}
+              tono={row.etapa === 'Emitida' ? 'acento' : 'destacado'}
+              deshabilitado={!emitible(row)}
+              motivo="Ya fue aceptada o cerrada"
+              onClick={() => setEmitiendo(row)}
+            />
+            <BotonAccion
+              icono={Signature}
+              etiqueta="Registrar la aceptación del cliente (en el local)"
+              tono="acento"
+              deshabilitado={!(row.etapa === 'Emitida' && row.estado === 'Pendiente')}
+              motivo={row.etapa === 'Solicitud' ? 'Primero confirma los precios y emite la cotización' : 'No hay una cotización emitida por aceptar'}
+              onClick={() => setAceptando(row)}
+            />
+            <BotonAccion
+              icono={FileDown}
+              etiqueta="Descargar la cotización en PDF"
+              tono="acento"
+              deshabilitado={!row.emitidaEn}
+              motivo="La cotización todavía no se ha emitido"
+              onClick={() => descargarPdf(row)}
+            />
+            <BotonAccion
+              icono={HandCoins}
+              etiqueta="Ver pago y consignaciones"
+              tono={row.pagoEstado === 'En revisión' ? 'destacado' : 'acento'}
+              deshabilitado={!row.pagoEstado}
+              motivo="Todavía no hay pagos registrados"
+              onClick={() => setPagosDe(row)}
+            />
             {/* El comprobante solo se emite con la cotización cerrada */}
-            {row.estado === ESTADO_COTIZACION_COMPLETADA && (
-              <button
-                onClick={() => setComprobanteDe(row)}
-                className="rounded p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                aria-label={`Generar comprobante de ${row.id}`}
-                title="Generar comprobante de venta"
-              >
-                <Receipt size={15} />
-              </button>
-            )}
+            <BotonAccion
+              icono={Receipt}
+              etiqueta="Generar comprobante de venta"
+              tono="exito"
+              deshabilitado={row.estado !== ESTADO_COTIZACION_COMPLETADA}
+              motivo="La cotización todavía no está completada"
+              onClick={() => setComprobanteDe(row)}
+            />
           </>
         )}
       />

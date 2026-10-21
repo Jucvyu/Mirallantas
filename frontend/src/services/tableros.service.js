@@ -24,7 +24,6 @@ export const portalService = {
     const { datos } = await api('/portal/resumen');
     return {
       esCliente: datos.esCliente,
-      cupoTotal: datos.cupoTotal,
       cotizaciones: datos.cotizaciones.map((c) => ({
         ...cotizacionDesdeApi(c),
         items: c.detalle.reduce((suma, l) => suma + l.cantidad, 0),

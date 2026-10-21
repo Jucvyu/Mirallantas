@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Receipt } from 'lucide-react';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosAbono, FLUJO_ESTADOS_ABONO, mediosPago } from '../../../constantes';
@@ -89,25 +90,16 @@ export default function AbonosPage() {
         canDelete={false}
         rowActions={(row) => (
           <>
-            <button
-              onClick={() => setDetalleDe(row)}
-              className="rounded p-1 text-slate-400 hover:text-amber-500"
-              aria-label={`Ver el detalle de ${row.id}`}
-              title="Ver detalle y consignación"
-            >
-              <FileText size={15} />
-            </button>
+            <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
             {/* El comprobante solo se emite con el abono ya validado */}
-            {row.estado === 'Confirmado' && (
-              <button
-                onClick={() => setComprobanteDe(row)}
-                className="rounded p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                aria-label={`Generar el comprobante de ${row.id}`}
-                title="Generar comprobante del abono"
-              >
-                <Receipt size={15} />
-              </button>
-            )}
+            <BotonAccion
+              icono={Receipt}
+              etiqueta="Generar comprobante del abono"
+              tono="exito"
+              deshabilitado={row.estado !== 'Confirmado'}
+              motivo="El abono todavía no está confirmado"
+              onClick={() => setComprobanteDe(row)}
+            />
           </>
         )}
       />

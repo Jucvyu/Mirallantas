@@ -29,9 +29,6 @@ export const INTERES_POR_PLAZO = { 30: 0.03, 60: 0.06, 90: 0.09 };
 /** Porcentaje de cuota inicial exigido cuando la venta es a crédito. */
 export const CUOTA_INICIAL_CREDITO = 0.5;
 
-/** Cupo de cartera de cada cliente: baja al abrir créditos y sube al abonar. */
-export const CUPO_CARTERA = 2000000;
-
 export const tiposVehiculo = [
   'Turismo',
   'SUV / Camioneta',
@@ -690,7 +687,7 @@ export const clientHomeStats = [
 // El portal trabaja siempre con un cliente en sesión. Se dejan dos juegos
 // de datos para poder probar los dos escenarios de cartera: María, que
 // arrastra un crédito abierto, y Luis, que compra siempre de contado y por
-// tanto tiene el cupo entero disponible.
+// tanto puede solicitar un crédito.
 // -------------------------------------------------------------------------
 
 /** Cliente sin crédito (CLI006), para probar la cartera en limpio. */

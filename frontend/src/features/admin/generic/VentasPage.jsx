@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Ban, Eye, Receipt } from 'lucide-react';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
@@ -190,34 +191,23 @@ export default function VentasPage() {
         ]}
         rowActions={(row, { update }) => (
           <>
-            {row.estado !== 'Anulada' && (
-              <button
-                onClick={() => setAnulando({ row, update })}
-                className="rounded p-1 text-red-500 hover:text-red-600"
-                aria-label={`Anular ${row.id}`}
-                title="Anular la venta"
-              >
-                <Ban size={15} />
-              </button>
-            )}
-            <button
-              onClick={() => setDetalleDe(row)}
-              className="rounded p-1 text-slate-400 hover:text-amber-500"
-              aria-label={`Ver el detalle de ${row.id}`}
-              title="Ver productos y servicios"
-            >
-              <Eye size={15} />
-            </button>
-            {row.estado === 'Completada' && (
-              <button
-                onClick={() => setComprobanteDe(row)}
-                className="rounded p-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                aria-label={`Generar comprobante de ${row.id}`}
-                title="Generar comprobante de venta"
-              >
-                <Receipt size={15} />
-              </button>
-            )}
+            <BotonAccion icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion
+              icono={Receipt}
+              etiqueta="Generar comprobante de venta"
+              tono="exito"
+              deshabilitado={row.estado !== 'Completada'}
+              motivo="La venta todavía no está completada"
+              onClick={() => setComprobanteDe(row)}
+            />
+            <BotonAccion
+              icono={Ban}
+              etiqueta="Anular la venta"
+              tono="peligro"
+              deshabilitado={row.estado === 'Anulada'}
+              motivo="La venta ya está anulada"
+              onClick={() => setAnulando({ row, update })}
+            />
           </>
         )}
       />

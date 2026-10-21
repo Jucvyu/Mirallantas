@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { config } from '../config.js';
 import { esImagenPropia, guardarImagen, problemaDeImagen } from '../utils/imagenes.js';
 
 /**
@@ -76,8 +77,18 @@ export const pesosPositivos = (mensaje) => pesos.refine((v) => v > 0, { error: m
 /** Id de otra tabla (cliente, proveedor…). */
 export const idRelacion = z.coerce.number().int().positive('Selecciona un valor de la lista.');
 
-/** Fecha en formato AAAA-MM-DD, como la entrega un <input type="date">. */
-export const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD.');
+/** Hoy en la zona horaria del negocio, como AAAA-MM-DD (en-CA da ese formato). */
+const hoyNegocio = () => new Intl.DateTimeFormat('en-CA', { timeZone: config.zonaHoraria }).format(new Date());
+
+/**
+ * Fecha en formato AAAA-MM-DD, como la entrega un <input type="date">. No
+ * puede ser posterior a hoy: todas las fechas que se escriben (venta,
+ * recepción de un reencauche) registran algo que ya pasó.
+ */
+export const fecha = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD.')
+  .refine((valor) => valor <= hoyNegocio(), { error: 'La fecha no puede ser posterior a hoy.' });
 
 /** Cantidad de unidades de una línea de detalle. */
 export const cantidad = (maximo = 999) =>

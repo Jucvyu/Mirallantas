@@ -7,10 +7,11 @@ import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import { POOL } from '../models/listado.model.js';
 import * as solicitudesModel from '../models/solicitudesCredito.model.js';
-import { CUPO_CARTERA, pesos, validarTransicion } from '../reglas.js';
+import { validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirSinCreditoAbierto } from './creditos.controller.js';
 import { exigirActivo } from './estados.js';
+import { generarCompras, registrarVentaPagada } from './documentosAutomaticos.js';
 
 /**
  * Controlador de solicitudes de crédito.
@@ -42,11 +43,8 @@ export async function crear(req, res) {
   if (!clienteId) throw new HttpError(422, 'Selecciona el cliente.');
 
   await exigirActivo('cliente', clienteId);
-  // El monto no puede superar el saldo usable: sin crédito abierto y dentro del cupo
+  // Sin tope de monto: solo se exige no tener otro crédito abierto
   await exigirSinCreditoAbierto(POOL, clienteId);
-  if (datos.monto > CUPO_CARTERA) {
-    throw new HttpError(422, `El monto supera el cupo de crédito (${pesos(CUPO_CARTERA)}).`);
-  }
 
   const numero = await solicitudesModel.crear({ clienteId, monto: datos.monto, plazoDias: datos.plazoDias });
   enviarDato(res, await solicitudesModel.buscarPorNumero(numero), 201);
@@ -92,6 +90,9 @@ async function aprobarDeCotizacion(db, solicitud) {
     await creditosModel.descontarSaldo(db, credito.id, cotizacion.cuota_inicial);
   }
   await cotizacionesModel.actualizar(db, cotizacion.id, [['estado', 'Aprobada']]);
+  // Pagó la cuota inicial y se le financió el resto: venta y compra al proveedor
+  await registrarVentaPagada(db, cotizacion.id);
+  await generarCompras(db, cotizacion.id);
 }
 
 /** No aprobar la solicitud de una cotización: la cotización se rechaza. */

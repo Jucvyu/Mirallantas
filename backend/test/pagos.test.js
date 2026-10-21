@@ -113,6 +113,29 @@ describe('Pago de contado de una cotización', () => {
     const cambio = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
     assert.equal(cambio.estado, 200);
   });
+
+  test('pagada, aparece su venta pendiente; aprobada, su compra al proveedor', async () => {
+    const cotizacion = await e.api(`/cotizaciones/${t.numero}`, { token: t.admin });
+    assert.match(cotizacion.cuerpo.datos.venta ?? '', /^VEN-/, 'la venta se registra al aprobar el pago');
+    const venta = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
+    assert.equal(venta.cuerpo.datos.estado, 'Pendiente');
+    assert.equal(venta.cuerpo.datos.total, 280000);
+
+    const compras = await e.api('/compras?porPagina=100', { token: t.admin });
+    const deLaCotizacion = compras.cuerpo.datos.filter((c) => c.cotizacion === t.numero);
+    assert.ok(deLaCotizacion.length >= 1, 'se genera la compra al proveedor');
+    assert.ok(deLaCotizacion.every((c) => c.estado === 'Pendiente'));
+
+    // Volver a pasar por "Aprobada" no duplica nada: completarla deja la misma venta completada
+    for (const estado of ['En proceso', 'Completada']) {
+      const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado } });
+      assert.equal(r.estado, 200, `${estado}: ${JSON.stringify(r.cuerpo)}`);
+    }
+    const completada = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
+    assert.equal(completada.cuerpo.datos.estado, 'Completada');
+    const otra = await e.api('/compras?porPagina=100', { token: t.admin });
+    assert.equal(otra.cuerpo.datos.filter((c) => c.cotizacion === t.numero).length, deLaCotizacion.length);
+  });
 });
 
 describe('Datos que no se repiten entre cuentas', () => {

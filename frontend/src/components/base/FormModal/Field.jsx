@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Check, ChevronDown, ImagePlus, Pipette, TriangleAlert, X } from 'lucide-react';
 import RecorteCircular from '../RecorteCircular';
 import SearchSelect from '../SearchSelect';
+import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
 import {
   BORDER_ERR,
@@ -113,6 +114,8 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     if (type === 'money') return onChange(key, formatoMiles(bruto));
     if (type === 'number') return onChange(key, soloDigitos(bruto));
     if (type === 'tel') return onChange(key, soloTelefono(bruto));
+    // Ninguna fecha del sistema puede ser posterior a hoy (tampoco si se escribe a mano)
+    if (type === 'date') return onChange(key, bruto > hoyISO() ? hoyISO() : bruto);
     return onChange(key, bruto);
   };
 
@@ -415,6 +418,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             // Los numéricos van como texto para poder filtrar lo que se teclea
             type={esNumerico ? 'text' : type}
             inputMode={esNumerico ? 'numeric' : undefined}
+            max={type === 'date' ? hoyISO() : undefined}
             readOnly={readOnly}
             value={value ?? ''}
             placeholder={placeholder}

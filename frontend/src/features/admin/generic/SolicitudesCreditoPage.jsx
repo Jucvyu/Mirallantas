@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosSolicitudCredito, FLUJO_ESTADOS_SOLICITUD_CREDITO, PLAZOS_CREDITO } from '../../../constantes';
@@ -86,14 +87,7 @@ export default function SolicitudesCreditoPage() {
           { key: 'cliente', label: 'Cliente' },
         ]}
         rowActions={(row) => (
-          <button
-            onClick={() => setDetalleDe(row)}
-            className="rounded p-1 text-slate-400 hover:text-amber-500"
-            aria-label={`Ver el detalle de ${row.id}`}
-            title="Ver detalle y consignación"
-          >
-            <FileText size={15} />
-          </button>
+          <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
         )}
       />
 

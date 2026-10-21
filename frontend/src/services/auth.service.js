@@ -32,6 +32,14 @@ export const authService = {
     return { usuario: respuesta.usuario };
   },
 
+  /** Igual que iniciarSesion, con el token que entregó Google. */
+  async iniciarConGoogle(credencial) {
+    const respuesta = await api('/auth/google', { metodo: 'POST', cuerpo: { credencial } });
+    if (respuesta.requiere2fa) return { requiere2fa: true, desafio: respuesta.desafio };
+    guardarToken(respuesta.token);
+    return { usuario: respuesta.usuario };
+  },
+
   /** Segundo paso: el código de la app autenticadora. Devuelve el usuario. */
   async verificarCodigo(desafio, codigo) {
     const { token, usuario } = await api('/auth/2fa/verificar', { metodo: 'POST', cuerpo: { desafio, codigo } });

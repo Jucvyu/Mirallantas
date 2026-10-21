@@ -32,7 +32,7 @@ const BORDE = {
  * y, al terminar, se vuelven a pedir los datos del portal.
  */
 export default function CarteraPage() {
-  const { saldoUsableTexto, comprometidoTexto, cupoTotal, tieneCredito } = useCredito();
+  const { comprometidoTexto, tieneCredito } = useCredito();
   const { abonos, creditos, solicitudesCredito: solicitudes, recargar } = usePortal();
 
   const [abonoDe, setAbonoDe] = useState(null);
@@ -54,16 +54,16 @@ export default function CarteraPage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Mi cartera</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Créditos, abonos y solicitudes · cupo total de $ {cupoTotal.toLocaleString('es-CO')}
+            Créditos, abonos y solicitudes
           </p>
         </div>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          label="SALDO USABLE"
-          value={saldoUsableTexto}
-          sub={tieneCredito ? 'En negativo por tu crédito abierto' : 'Disponible para nuevos créditos'}
+          label="ESTADO DEL CRÉDITO"
+          value={tieneCredito ? 'Crédito abierto' : 'Sin crédito abierto'}
+          sub={tieneCredito ? 'Págalo para poder solicitar otro' : 'Puedes solicitar un crédito'}
           icon="Wallet"
           accent={tieneCredito ? 'red' : 'emerald'}
         />

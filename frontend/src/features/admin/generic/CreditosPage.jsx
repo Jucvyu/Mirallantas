@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Wallet } from 'lucide-react';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
@@ -90,14 +91,7 @@ export default function CreditosPage() {
         ]}
         createModal={({ onSubmit, onClose }) => <NuevoCreditoModal onSubmit={onSubmit} onClose={onClose} />}
         rowActions={(row) => (
-          <button
-            onClick={() => setAbonosDe(row)}
-            className="rounded p-1 text-amber-600 hover:text-amber-700 dark:text-amber-400"
-            aria-label={`Abonos de ${row.id}`}
-            title="Subir abonos y ver el historial"
-          >
-            <Wallet size={15} />
-          </button>
+          <BotonAccion icono={Wallet} etiqueta="Subir abonos y ver el historial" tono="destacado" onClick={() => setAbonosDe(row)} />
         )}
       />
 

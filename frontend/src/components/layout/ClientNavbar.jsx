@@ -8,7 +8,6 @@ import { permisoDeRuta, primerModuloAdmin } from '../../permisos';
 import ThemeToggle from '../base/ThemeToggle';
 import PerfilMenu from './PerfilMenu';
 import NotificacionesMenu from './NotificacionesMenu';
-import SaldoUsableMenu from './SaldoUsableMenu';
 
 const LINKS = [
   { to: '/portal', label: 'Inicio', end: true },
@@ -69,9 +68,6 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
             </Link>
           )}
           <ThemeToggle />
-          {/* Saldo de crédito disponible, con el resumen de la cartera */}
-          <SaldoUsableMenu />
-
           {/* Avisos del asesor (pagos, abonos, créditos) */}
           {/* Si llega un aviso nuevo, se recargan los datos del portal */}
           <NotificacionesMenu onNuevas={recargar} />

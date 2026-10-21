@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import {
   ChevronDown,
+  ChevronUp,
   Download,
   Eye,
   Pencil,
@@ -11,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import AvisoError from '../AvisoError';
+import BotonAccion from '../BotonAccion';
 import Dropdown from '../Dropdown';
 import { BORDER_OK, INPUT } from '../formStyles';
 import FormModal from '../FormModal';
@@ -20,6 +22,10 @@ import StatusSelect from '../StatusSelect';
 import StatusSwitch from '../StatusSwitch';
 
 const PAGE_SIZE = 8;
+
+/** Columna de acciones: fija a la derecha, con el fondo de la tarjeta para tapar lo que pasa por debajo. */
+const CELDA_ACCIONES =
+  'sticky right-0 z-10 bg-white px-3 pr-5 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.15)] dark:bg-brand-navy-800';
 
 /**
  * Artículo que le corresponde al nombre de la entidad, para que los
@@ -202,6 +208,10 @@ export default function DataTable({
   const permite = (regla, row) => (typeof regla === 'function' ? regla(row) : Boolean(regla));
   const puedeEditar = (row) => !readOnly && Boolean(onEdit) && permite(canEdit, row);
   const puedeEliminar = (row) => !readOnly && Boolean(onDelete) && permite(canDelete, row);
+  // El botón aparece si el módulo tiene la acción; si la fila no la permite
+  // (regla por fila), se muestra deshabilitado en vez de desaparecer
+  const muestraEditar = !readOnly && Boolean(onEdit) && canEdit !== false;
+  const muestraEliminar = !readOnly && Boolean(onDelete) && canDelete !== false;
 
   // ---- Piezas de cada fila (las usan la tabla y las tarjetas) ----------
 
@@ -222,50 +232,43 @@ export default function DataTable({
     return row[col.key];
   };
 
-  /** Botones de una fila: desplegar, acciones a medida, ver, editar y eliminar. */
+  /**
+   * Botones de una fila, siempre en una sola línea: desplegar, acciones a
+   * medida, ver, editar y eliminar. Todas las filas muestran los mismos
+   * iconos; los que no aplican a la fila quedan deshabilitados.
+   */
   const botonesFila = (row, desplegable, abierta) => (
-    <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 text-slate-400">
-      {desplegable && (
-        <button
+    <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1">
+      {expandir && (
+        <BotonAccion
+          icono={abierta ? ChevronUp : ChevronDown}
+          etiqueta={abierta ? 'Ocultar el detalle' : 'Desplegar el detalle'}
+          tono="acento"
+          deshabilitado={!desplegable}
+          motivo="No tiene detalle"
           onClick={() => alternarFila(row.id)}
-          aria-expanded={abierta}
-          className="rounded p-1 hover:text-amber-500"
-          aria-label={abierta ? 'Ocultar el detalle' : 'Desplegar el detalle'}
-          title={abierta ? 'Ocultar' : 'Desplegar'}
-        >
-          <ChevronDown size={15} className={`transition-transform ${abierta ? 'rotate-180' : ''}`} />
-        </button>
+        />
       )}
       {rowActions?.(row, { update: updateDe(row) })}
-      {canView && (
-        <button
-          onClick={() => setDialog({ mode: 'view', row })}
-          className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
-          aria-label="Ver"
-          title="Ver detalle"
-        >
-          <Eye size={15} />
-        </button>
-      )}
-      {puedeEditar(row) && (
-        <button
+      {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" onClick={() => setDialog({ mode: 'view', row })} />}
+      {muestraEditar && (
+        <BotonAccion
+          icono={Pencil}
+          etiqueta="Editar"
+          deshabilitado={!puedeEditar(row)}
+          motivo="Este registro ya no se puede editar"
           onClick={() => setDialog({ mode: 'edit', row })}
-          className="rounded p-1 hover:text-slate-700 dark:hover:text-slate-200"
-          aria-label="Editar"
-          title="Editar"
-        >
-          <Pencil size={15} />
-        </button>
+        />
       )}
-      {puedeEliminar(row) && (
-        <button
+      {muestraEliminar && (
+        <BotonAccion
+          icono={Trash2}
+          etiqueta="Eliminar"
+          tono="peligro"
+          deshabilitado={!puedeEliminar(row)}
+          motivo="Este registro no se puede eliminar"
           onClick={() => setDialog({ mode: 'delete', row })}
-          className="rounded p-1 hover:text-red-500"
-          aria-label="Eliminar"
-          title="Eliminar"
-        >
-          <Trash2 size={15} />
-        </button>
+        />
       )}
     </div>
   );
@@ -341,9 +344,10 @@ export default function DataTable({
           </button>
         </div>
 
-        {/* ---- Escritorio: la tabla cabe sin scroll horizontal; el texto
-             largo baja de línea en vez de estirar la columna ---- */}
-        <div className="hidden lg:block">
+        {/* ---- Escritorio: el texto largo baja de línea en vez de estirar la
+             columna. Si aun así no cabe, la tabla se desplaza de lado y la
+             columna de acciones queda fija a la derecha ---- */}
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full table-auto text-left text-sm">
             <thead>
               <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -352,7 +356,7 @@ export default function DataTable({
                     {col.label}
                   </th>
                 ))}
-                <th className="px-3 py-3 pr-5 text-right align-bottom">Acciones</th>
+                <th className={`${CELDA_ACCIONES} py-3 text-right align-bottom`}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -374,7 +378,7 @@ export default function DataTable({
                           {contenidoCelda(row, col)}
                         </td>
                       ))}
-                      <td className="px-3 py-3 pr-5 align-top">{botonesFila(row, desplegable, abierta)}</td>
+                      <td className={`${CELDA_ACCIONES} py-3 align-top`}>{botonesFila(row, desplegable, abierta)}</td>
                     </tr>
                     {desplegable && abierta && (
                       <tr className="border-t border-slate-100 bg-slate-50/60 dark:border-white/5 dark:bg-white/[0.02]">

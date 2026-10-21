@@ -8,6 +8,7 @@ import * as usuariosModel from '../models/usuarios.model.js';
 import { coincideHuella, huella } from '../utils/cifrado.js';
 import { enviarCorreo, ErrorCorreo } from '../utils/correo.js';
 import { cifrarPassword } from '../utils/contrasenas.js';
+import { plantillaRecuperacion } from '../utils/plantillaRecuperacion.js';
 
 /**
  * "¿Olvidaste tu contraseña?" en tres pasos:
@@ -76,16 +77,7 @@ export async function solicitar(req, res) {
   try {
     await enviarCorreo({
       para: usuario.correo,
-      asunto: 'MiraLlantas · Código para recuperar tu contraseña',
-      texto:
-        `Hola, ${usuario.nombre}.\n\nTu código para recuperar la contraseña es: ${codigo}\n\n` +
-        `Vence en ${recuperacion.MINUTOS_VIGENCIA} minutos. Si no fuiste tú, ignora este correo: ` +
-        'tu contraseña sigue igual.',
-      html:
-        `<p>Hola, ${usuario.nombre.replace(/[<>&"]/g, '')}.</p>` +
-        `<p>Tu código para recuperar la contraseña es:</p>` +
-        `<p style="font-size:28px;font-weight:bold;letter-spacing:6px">${codigo}</p>` +
-        `<p>Vence en ${recuperacion.MINUTOS_VIGENCIA} minutos. Si no fuiste tú, ignora este correo: tu contraseña sigue igual.</p>`,
+      ...plantillaRecuperacion({ nombre: usuario.nombre, codigo, minutos: recuperacion.MINUTOS_VIGENCIA }),
     });
   } catch (error) {
     if (!(error instanceof ErrorCorreo)) throw error;

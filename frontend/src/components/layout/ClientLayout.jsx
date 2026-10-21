@@ -73,9 +73,9 @@ export default function ClientLayout() {
 
 /** Pasa los créditos que llegaron de la API al cálculo del saldo usable. */
 function CarteraDelPortal({ children }) {
-  const { creditos, cupoTotal } = usePortal();
+  const { creditos } = usePortal();
   return (
-    <CreditoProvider creditos={creditos} cupoTotal={cupoTotal}>
+    <CreditoProvider creditos={creditos}>
       {children}
     </CreditoProvider>
   );

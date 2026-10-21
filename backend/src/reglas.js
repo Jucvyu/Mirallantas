@@ -39,9 +39,6 @@ export function exigirMedioDelCliente(medio) {
   }
 }
 
-/** Cupo máximo de crédito de cada cliente, en pesos. */
-export const CUPO_CARTERA = 2_000_000;
-
 /** Servicio que se asume cuando el cliente pide un reencauche. */
 export const SERVICIO_POR_DEFECTO = 'Reencauche';
 

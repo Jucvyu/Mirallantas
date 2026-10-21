@@ -75,6 +75,8 @@ export const config = Object.freeze({
   exigir2faAdmin: process.env.EXIGIR_2FA_ADMIN === 'true',
   cloudinaryUrl,
   correo,
+  // "Iniciar sesión con Google": ID de cliente OAuth (opcional; sin él el botón no aparece)
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
   // Orígenes del frontend autorizados, separados por coma
   corsOrigenes,
   // Zona horaria del negocio: define qué día es "hoy" para fechas y vigencias

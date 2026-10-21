@@ -9,6 +9,7 @@ import {
   esquemaActivar2fa,
   esquemaCambiarRecuperacion,
   esquemaDesactivar2fa,
+  esquemaGoogle,
   esquemaLogin,
   esquemaPerfil,
   esquemaRegistro,
@@ -21,6 +22,7 @@ import {
  * Rutas de sesión (/api/auth).
  *
  *   POST /login             contraseña → token, o desafío si tiene doble factor
+ *   POST /google            token de Google → igual que /login (solo cuentas existentes)
  *   POST /2fa/verificar     desafío + código de 6 dígitos → token
  *   POST /registro          crea una cuenta de cliente desde el login (pública)
  *   POST /salir             cierra la sesión (invalida el token)
@@ -66,6 +68,7 @@ const limiteSensible = rateLimit({
 });
 
 rutasAuth.post('/login', limiteIntentos, validar(esquemaLogin), controlador.iniciarSesion);
+rutasAuth.post('/google', limiteIntentos, validar(esquemaGoogle), controlador.iniciarConGoogle);
 rutasAuth.post('/2fa/verificar', limiteIntentos, validar(esquemaVerificar2fa), controlador.verificarDobleFactor);
 rutasAuth.post('/registro', limiteIntentos, validar(esquemaRegistro), controlador.registrarse);
 

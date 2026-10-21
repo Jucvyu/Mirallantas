@@ -29,7 +29,9 @@ export default function RecorteCircular({ imagen, onCambio, onListo, onCancelar 
   const arrastre = useRef(null);
   const elementoImagen = useRef(null);
   const avisarCambio = useRef(onCambio);
-  avisarCambio.current = onCambio;
+  useEffect(() => {
+    avisarCambio.current = onCambio;
+  });
 
   // Al cargar la imagen se calcula cómo cabe completa en el área y se
   // empieza con el círculo más grande posible, centrado.

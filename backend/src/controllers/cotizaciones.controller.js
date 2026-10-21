@@ -7,18 +7,15 @@ import * as empresaModel from '../models/empresa.model.js';
 import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import { aPares } from '../models/listado.model.js';
 import * as productosModel from '../models/productos.model.js';
-import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as pagosModel from '../models/pagosCotizacion.model.js';
 import * as serviciosModel from '../models/servicios.model.js';
 import * as solicitudesCreditoModel from '../models/solicitudesCredito.model.js';
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
-import * as ventasModel from '../models/ventas.model.js';
 import {
   calcularTotales,
   CUOTA_INICIAL_PORCENTAJE,
-  CUPO_CARTERA,
   exigirMedioDelCliente,
   pesos,
   PLAZOS_CREDITO,
@@ -30,6 +27,7 @@ import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
 import { enviarPdfCotizacion } from '../views/pdf.view.js';
 import { enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
+import { completarVenta, generarCompras, registrarVentaPagada } from './documentosAutomaticos.js';
 
 /**
  * Controlador de cotizaciones-pedido. El flujo comercial tiene tres pasos:
@@ -308,9 +306,6 @@ async function validarCredito(db, { clienteId, total, cuotaMinima, cuota, esPort
   if (pendiente) {
     throw new HttpError(422, `El cliente ya tiene la solicitud de crédito ${pendiente} en revisión.`);
   }
-  if (total > CUPO_CARTERA) {
-    throw new HttpError(422, `El total (${pesos(total)}) supera el cupo de crédito de ${pesos(CUPO_CARTERA)}.`);
-  }
   if (!cuota?.medioPago) throw new HttpError(422, 'Registra el pago de la cuota inicial (medio de pago).');
   exigirMedioDelPortal(cuota.medioPago, esPortal);
   const cuotaInicial = cuota.monto ?? cuotaMinima;
@@ -424,23 +419,6 @@ export async function aceptar(req, res) {
 // ---------------------------------------------------------------------------
 
 /**
- * Crea la venta de una cotización completada, copiando sus líneas. Corre
- * dentro de la misma transacción: si algo falla, la cotización tampoco
- * cambia de estado.
- */
-async function generarVenta(db, cotizacionId) {
-  const cotizacion = await cotizacionesModel.fila(db, cotizacionId);
-  // Solo servicios (que se cobran aparte): no hay venta de productos que registrar
-  if (cotizacion.total <= 0) return;
-  if (await cotizacionesModel.tieneLineasSinPrecio(db, cotizacionId)) {
-    throw new HttpError(422, 'Hay líneas sin precio: no se puede generar la venta.');
-  }
-  const ventaId = await ventasModel.crearDesdeCotizacion(db, cotizacion);
-  // Si la cotización se financió, su crédito queda ligado a la venta
-  await creditosModel.ligarVenta(db, cotizacionId, ventaId);
-}
-
-/**
  * A crédito, la cotización se aprueba desde su solicitud de crédito; aquí
  * solo se deja pasar ese intento para responder con el aviso de dónde hacerlo.
  */
@@ -510,8 +488,13 @@ export async function actualizar(req, res) {
     // ---- Guardar lo demás (proveedor, despacho, motivo, estados)
     await cotizacionesModel.actualizar(db, actual.id, aPares(cambios, cotizacionesModel.COLUMNAS));
 
-    // ---- Al completarla se genera la venta
-    if (cambiaEstado && cambios.estado === 'Completada') await generarVenta(db, actual.id);
+    // ---- Aprobada (ya pagó): queda su venta y se le compra al proveedor.
+    // Completada: su venta también se completa.
+    if (cambiaEstado && cambios.estado === 'Aprobada') {
+      await registrarVentaPagada(db, actual.id);
+      await generarCompras(db, actual.id);
+    }
+    if (cambiaEstado && cambios.estado === 'Completada') await completarVenta(db, actual.id);
   });
 
   enviarDocumento(res, await leerCompleta(req, req.params.numero));
@@ -536,6 +519,8 @@ export async function revisarPago(req, res) {
     if (pago?.estado !== 'En revisión') throw new HttpError(422, 'Esta cotización no tiene un pago por revisar.');
 
     await pagosModel.resolver(db, pago.id, { estado, motivo: estado === 'Rechazado' ? motivo : null });
+    // Pagó de contado: la venta queda registrada enseguida
+    if (estado === 'Aprobado') await registrarVentaPagada(db, cotizacion.id);
     await notificaciones.crear(
       estado === 'Aprobado'
         ? {

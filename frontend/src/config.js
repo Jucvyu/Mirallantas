@@ -25,3 +25,10 @@ export const WHATSAPP_EMPRESA = soloDigitos(import.meta.env.VITE_WHATSAPP_NUMERO
 
 /** Teléfono de la empresa tal como se muestra. */
 export const TELEFONO_EMPRESA = import.meta.env.VITE_TELEFONO_EMPRESA ?? '+57 310 897 69 43';
+
+/**
+ * ID de cliente OAuth de Google para "Continuar con Google" (es público: va
+ * en el botón). Sin él, el botón no aparece. Debe ser el mismo que
+ * GOOGLE_CLIENT_ID de la API.
+ */
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';

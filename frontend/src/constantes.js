@@ -2,7 +2,7 @@
 // Constantes del negocio que usa el frontend.
 //
 // Aquí están los estados y sus flujos, las reglas que se muestran mientras
-// el usuario escribe (interés, cuota inicial, cupo) y las listas que se
+// el usuario escribe (interés, cuota inicial) y las listas que se
 // cargan desde la base al iniciar.
 // Los DATOS (clientes, productos, cotizaciones…) ya no viven en el
 // frontend: se piden a la API.
@@ -55,8 +55,6 @@ export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
 /** Etapas comerciales de una cotización (las calcula la API). */
 export const ETAPAS_COTIZACION = ['Solicitud', 'Emitida', 'Vencida', 'Aceptada'];
 
-/** Cupo máximo de crédito de cada cliente, en pesos. */
-export const CUPO_CARTERA = 2000000;
 
 /** Servicio que se asume cuando el cliente pide un reencauche. */
 export const SERVICIO_POR_DEFECTO = 'Reencauche';

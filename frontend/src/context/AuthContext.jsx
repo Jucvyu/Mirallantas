@@ -43,6 +43,7 @@ const anotarActividad = () => {
  *   usuario            datos del usuario en sesión, o null
  *   cargando           true mientras se valida la sesión guardada
  *   iniciarSesion      (correo, password) → { usuario } | { requiere2fa, desafio }
+ *   iniciarConGoogle   (credencial de Google) → igual que iniciarSesion
  *   verificarCodigo    (desafio, codigo) → usuario
  *   registrarse        (valores del formulario) → usuario (cuenta de cliente)
  *   cerrarSesion       (motivo?)
@@ -121,6 +122,12 @@ export function AuthProvider({ children }) {
     return resultado;
   }, []);
 
+  const iniciarConGoogle = useCallback(async (credencial) => {
+    const resultado = await authService.iniciarConGoogle(credencial);
+    if (resultado.usuario) setUsuario(resultado.usuario);
+    return resultado;
+  }, []);
+
   const verificarCodigo = useCallback(async (desafio, codigo) => {
     const nuevo = await authService.verificarCodigo(desafio, codigo);
     setUsuario(nuevo);
@@ -159,6 +166,7 @@ export function AuthProvider({ children }) {
       usuario,
       cargando,
       iniciarSesion,
+      iniciarConGoogle,
       verificarCodigo,
       registrarse,
       cerrarSesion,
@@ -171,6 +179,7 @@ export function AuthProvider({ children }) {
       usuario,
       cargando,
       iniciarSesion,
+      iniciarConGoogle,
       verificarCodigo,
       registrarse,
       cerrarSesion,

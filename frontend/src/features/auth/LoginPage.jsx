@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { pantallaInicial, puedeAbrir } from '../../permisos';
 import { CODIGO_CUENTA_INACTIVA } from '../../services';
 import { useValidacion } from '../../hooks/useValidacion';
+import BotonGoogle from './BotonGoogle';
 import { CampoCodigo } from './DosFactores';
 import { AYUDA_PASSWORD, errorPassword } from './reglasClave';
 import RecuperarPasswordModal from './RecuperarPasswordModal';
@@ -62,7 +63,7 @@ function validarRegistro(values) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { iniciarSesion, verificarCodigo, registrarse } = useAuth();
+  const { iniciarSesion, iniciarConGoogle, verificarCodigo, registrarse } = useAuth();
   // ?motivo=inactividad: la sesión se cerró sola por falta de uso
   const [parametros] = useSearchParams();
   const porInactividad = parametros.get('motivo') === 'inactividad';
@@ -103,15 +104,17 @@ export default function LoginPage() {
     setEntrando({ to: destino, nombre: usuario.nombre.split(' ')[0] });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validar() || enviando) return;
+  /**
+   * Primer paso del inicio de sesión (con contraseña o con Google): entra,
+   * pide el código del doble factor o muestra el error.
+   */
+  const iniciar = async (pedirInicio) => {
     setEnviando(true);
     setErrorApi('');
     try {
-      const resultado = await iniciarSesion(correo.trim().toLowerCase(), password);
+      const resultado = await pedirInicio();
       if (resultado.requiere2fa) {
-        // La contraseña es correcta, pero falta el código del celular
+        // La identidad es correcta, pero falta el código del celular
         setDesafio(resultado.desafio);
         setPassword('');
       } else {
@@ -127,6 +130,18 @@ export default function LoginPage() {
     } finally {
       setEnviando(false);
     }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validar() || enviando) return;
+    iniciar(() => iniciarSesion(correo.trim().toLowerCase(), password));
+  };
+
+  /** Google devolvió la cuenta elegida: la API la verifica. */
+  const entrarConGoogle = (credencial) => {
+    if (enviando) return;
+    iniciar(() => iniciarConGoogle(credencial));
   };
 
   /** Segundo paso: envía el código de 6 dígitos de la app autenticadora. */
@@ -292,6 +307,9 @@ export default function LoginPage() {
                   {enviando ? 'Ingresando…' : 'Ingresar'} <ArrowRight size={16} />
                 </button>
               </form>
+
+              {/* Solo entra quien ya tiene cuenta con ese correo de Google */}
+              <BotonGoogle onCredencial={entrarConGoogle} deshabilitado={enviando} />
 
               {/* ---- Acciones secundarias ---- */}
               <div className="mt-4 flex items-center justify-between gap-3 text-xs">

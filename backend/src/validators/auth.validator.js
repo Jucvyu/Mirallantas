@@ -12,6 +12,11 @@ import {
 } from './comunes.validator.js';
 
 /** POST /auth/login */
+/** POST /auth/google — el token que Google le entregó al navegador. */
+export const esquemaGoogle = z.object({
+  credencial: z.string({ error: 'Falta la respuesta de Google.' }).min(20).max(4096),
+});
+
 export const esquemaLogin = z.object({
   correo: z.string().trim().toLowerCase().min(1, 'Escribe tu correo.').max(150),
   password: z.string().min(1, 'Escribe tu contraseña.').max(72),

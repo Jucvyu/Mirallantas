@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Ban } from 'lucide-react';
+import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
@@ -75,19 +76,17 @@ export default function ComprasPage() {
         ]}
         createModal={({ onSubmit, onClose }) => <NuevaCompraModal onSubmit={onSubmit} onClose={onClose} />}
         canDelete={false}
-        rowActions={(row, { update }) =>
+        rowActions={(row, { update }) => (
           // Una compra recibida no se toca; una pendiente se puede anular
-          row.estado === 'Pendiente' ? (
-            <button
-              onClick={() => setAnulando({ row, update })}
-              className="rounded p-1 text-red-500 hover:text-red-600"
-              aria-label={`Anular ${row.id}`}
-              title="Anular la orden de compra"
-            >
-              <Ban size={15} />
-            </button>
-          ) : null
-        }
+          <BotonAccion
+            icono={Ban}
+            etiqueta="Anular la orden de compra"
+            tono="peligro"
+            deshabilitado={row.estado !== 'Pendiente'}
+            motivo={`La compra está "${row.estado}"`}
+            onClick={() => setAnulando({ row, update })}
+          />
+        )}
       />
 
       {anulando && (

@@ -88,6 +88,35 @@ export async function crear(db, { proveedorId, cotizacionId, total }) {
   return rows[0];
 }
 
+/** ¿La cotización ya tiene alguna compra (que no esté anulada)? */
+export async function hayDeCotizacion(db, cotizacionId) {
+  const { rows } = await db.query(
+    `SELECT 1 FROM compra WHERE cotizacion_id = $1 AND estado <> 'Anulada' LIMIT 1`,
+    [cotizacionId],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Llantas de una cotización listas para comprarlas: el proveedor con el que
+ * se verificó cada una (o el de la cotización) y su costo conocido (el del
+ * proveedor o, si no se registró, el último costo de compra de la llanta).
+ */
+export async function lineasParaComprar(db, cotizacionId) {
+  const { rows } = await db.query(
+    `SELECT d.producto_id AS "productoId", d.cantidad,
+            COALESCE(d.proveedor_id, c.proveedor_id) AS "proveedorId",
+            COALESCE(d.costo_proveedor, p.precio_compra, 0) AS "precioUnitario"
+       FROM cotizacion_detalle d
+       JOIN cotizacion c ON c.id = d.cotizacion_id
+       JOIN producto p ON p.id = d.producto_id
+      WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
+      ORDER BY d.id`,
+    [cotizacionId],
+  );
+  return rows;
+}
+
 /** Agrega una línea con su precio acordado (queda fijo para esta compra). */
 export async function crearLinea(db, compraId, l) {
   await db.query(

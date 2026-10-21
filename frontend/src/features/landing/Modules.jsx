@@ -17,7 +17,7 @@ const MODULES = [
   { icon: ShoppingCart, title: 'Compras', sub: 'Órdenes a proveedores', tint: 'text-violet-400 bg-violet-400/10' },
   { icon: Wrench, title: 'Reencauche', sub: 'Gestión completa', tint: 'text-amber-400 bg-amber-400/10' },
   { icon: Truck, title: 'Entregas', sub: 'Seguimiento logístico', tint: 'text-red-400 bg-red-400/10' },
-  { icon: CreditCard, title: 'Créditos', sub: 'Cupos y abonos', tint: 'text-cyan-400 bg-cyan-400/10' },
+  { icon: CreditCard, title: 'Créditos', sub: 'Créditos y abonos', tint: 'text-cyan-400 bg-cyan-400/10' },
   { icon: Users, title: 'Usuarios', sub: 'Roles y permisos', tint: 'text-pink-400 bg-pink-400/10' },
 ];
 

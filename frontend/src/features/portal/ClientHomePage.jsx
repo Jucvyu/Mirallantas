@@ -51,7 +51,7 @@ function indicadores(estadisticas) {
 
 export default function ClientHomePage() {
   const { usuario: profile } = useAuth();
-  const { saldoUsableTexto, cupoTotal, tieneCredito } = useCredito();
+  const { comprometidoTexto, tieneCredito } = useCredito();
   const { cotizaciones, estadisticas, esCliente, cargando } = usePortal();
 
   return (
@@ -73,15 +73,11 @@ export default function ClientHomePage() {
         {indicadores(estadisticas).map((stat) => (
           <StatCard key={stat.id} {...stat} />
         ))}
-        {/* Cupo de cartera que le queda disponible al cliente */}
+        {/* Si tiene un crédito abierto, lo que debe; si no, que puede pedir uno */}
         <StatCard
-          label="SALDO USABLE"
-          value={saldoUsableTexto}
-          sub={
-            tieneCredito
-              ? 'En negativo por tu crédito abierto'
-              : `de un cupo de $ ${cupoTotal.toLocaleString('es-CO')}`
-          }
+          label="ESTADO DEL CRÉDITO"
+          value={tieneCredito ? comprometidoTexto : 'Sin crédito abierto'}
+          sub={tieneCredito ? 'Saldo pendiente de tu crédito' : 'Puedes solicitar un crédito'}
           icon="Wallet"
           accent={tieneCredito ? 'red' : 'emerald'}
         />

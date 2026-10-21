@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { CUPO_CARTERA } from '../constantes';
 import { portalService } from '../services';
 
 const PortalContext = createContext(null);
@@ -7,7 +6,6 @@ const PortalContext = createContext(null);
 /** Estado inicial mientras llegan los datos. */
 const VACIO = {
   esCliente: false,
-  cupoTotal: CUPO_CARTERA,
   cotizaciones: [],
   creditos: [],
   abonos: [],

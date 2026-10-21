@@ -75,17 +75,24 @@ export async function crearDirecta(v, db = POOL) {
   return rows[0].numero;
 }
 
+/** Venta que ya nació de la cotización → { id, estado } o undefined. */
+export async function deCotizacion(db, cotizacionId) {
+  const { rows } = await db.query('SELECT id, estado FROM venta WHERE cotizacion_id = $1', [cotizacionId]);
+  return rows[0];
+}
+
 /**
- * Venta de una cotización completada (`c` es la fila de la cotización):
- * copia sus valores y todas sus líneas.
+ * Venta de una cotización (`c` es la fila de la cotización): copia sus
+ * valores y todas sus líneas. Nace "Pendiente" al aprobarse el pago y
+ * "Completada" si la cotización ya se completó.
  */
-export async function crearDesdeCotizacion(db, c) {
+export async function crearDesdeCotizacion(db, c, estado = 'Completada') {
   const { rows } = await db.query(
     `INSERT INTO venta (numero, cliente_id, cotizacion_id, proveedor_id, fecha, metodo_pago,
                         interes, total, cuota_inicial, estado, estado_entrega)
-     VALUES (siguiente_numero('VEN'), $1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, 'Completada', $8)
+     VALUES (siguiente_numero('VEN'), $1, $2, $3, CURRENT_DATE, $4, $5, $6, $7, $9, $8)
      RETURNING id`,
-    [c.cliente_id, c.id, c.proveedor_id, c.metodo_pago, c.interes, c.total, c.cuota_inicial, c.estado_entrega],
+    [c.cliente_id, c.id, c.proveedor_id, c.metodo_pago, c.interes, c.total, c.cuota_inicial, c.estado_entrega, estado],
   );
   await db.query(
     `INSERT INTO venta_detalle (venta_id, tipo, producto_id, servicio_id, descripcion, medida,

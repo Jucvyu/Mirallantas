@@ -589,8 +589,9 @@ Variables de entorno (en el panel de Render, **nunca** en el código ni en el re
 | `JWT_SECRET` | Nueva, larga (≥ 32) y distinta a la de desarrollo |
 | `CLAVE_CIFRADO` | Nueva, distinta de `JWT_SECRET`. Si se pierde, los usuarios deben reconfigurar el doble factor |
 | `CLOUDINARY_URL` | Cloudinary → *API Keys* → `cloudinary://<api_key>:<api_secret>@<cloud_name>` |
-| `BREVO_API_KEY` | Brevo → *SMTP & API → API Keys* |
+| `BREVO_API_KEY` | Brevo → *SMTP & API → API Keys* (permiso solo de *Transactional email*) |
 | `CORREO_REMITENTE` | `MiraLlantas <tucorreo@gmail.com>`, con un correo **verificado** como remitente en Brevo |
+| `GOOGLE_CLIENT_ID` | (Opcional) Google Cloud → *APIs y servicios → Credenciales → ID de cliente OAuth* (aplicación web, origen `https://mirallantas.vercel.app`) |
 | `CORS_ORIGINS` | `https://mirallantas.vercel.app` (sin `*` ni `/` final; separa varios con coma) |
 | `EXIGIR_2FA_ADMIN` | `false` (doble factor opcional) o `true` |
 | `APP_TIMEZONE` | `America/Bogota` |
@@ -616,6 +617,7 @@ puertos 25, 465 y 587.
    | `VITE_API_URL` | `https://tu-api.onrender.com/api` (obligatoria: sin ella la app avisa en vez de llamar a localhost) |
    | `VITE_WHATSAPP_NUMERO` | WhatsApp de la empresa, solo dígitos con indicativo (`573108976943`) |
    | `VITE_TELEFONO_EMPRESA` | Teléfono que se muestra (`+57 310 897 69 43`) |
+   | `VITE_GOOGLE_CLIENT_ID` | (Opcional) ID de cliente OAuth de Google para "Continuar con Google"; el mismo de `GOOGLE_CLIENT_ID` en Render |
 
 3. Vuelve a desplegar (las variables de Vite se leen al compilar).
 4. `vercel.json` ya trae las cabeceras de seguridad (CSP, HSTS, anti-iframe). Con la dirección

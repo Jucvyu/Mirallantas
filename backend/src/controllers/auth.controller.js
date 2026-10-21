@@ -16,6 +16,7 @@ import * as usuariosModel from '../models/usuarios.model.js';
 import { aPares } from '../models/listado.model.js';
 import { cifrar, descifrar } from '../utils/cifrado.js';
 import { cifrarPassword, compararPassword, HASH_RELLENO } from '../utils/contrasenas.js';
+import { correoDeGoogle, googleDisponible } from '../utils/google.js';
 import * as totp from '../utils/totp.js';
 import * as vista from '../views/usuarios.view.js';
 
@@ -96,6 +97,31 @@ export async function iniciarSesion(req, res) {
   }
 
   // Con doble factor, la contraseña sola no basta: se pide el código
+  if (usuario.totp_activo) return vista.enviarDesafio2fa(res, firmarDesafio2fa(usuario));
+  await completarInicio(req, res, usuario);
+}
+
+/**
+ * POST /auth/google — iniciar sesión con Google.
+ *
+ * Solo entra quien ya tiene cuenta con ese mismo correo: tener Gmail no da
+ * acceso. Se aplican las mismas reglas que con contraseña (bloqueo, cuenta
+ * inactiva y doble factor).
+ */
+export async function iniciarConGoogle(req, res) {
+  if (!googleDisponible()) throw new HttpError(503, 'El inicio de sesión con Google no está disponible.');
+  const correo = await correoDeGoogle(req.validado.body.credencial);
+  const usuario = await usuariosModel.buscarCuenta({ correo });
+  if (!usuario) {
+    await eventos.registrar({ tipo: 'inicio_google_sin_cuenta', gravedad: 'Alerta', correo, ...origen(req) });
+    throw new HttpError(404, 'No hay una cuenta con este correo de Google. Regístrate primero o entra con tu contraseña.');
+  }
+  exigirNoBloqueado(usuario);
+  if (!usuariosModel.cuentaHabilitada(usuario)) {
+    await eventos.registrar({ tipo: 'acceso_cuenta_inactiva', gravedad: 'Alerta', usuarioId: usuario.id, correo, ...origen(req) });
+    throw errorCuentaInactiva();
+  }
+
   if (usuario.totp_activo) return vista.enviarDesafio2fa(res, firmarDesafio2fa(usuario));
   await completarInicio(req, res, usuario);
 }

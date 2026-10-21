@@ -1,4 +1,3 @@
-import { CUPO_CARTERA } from '../reglas.js';
 import { enviarDato } from './respuesta.view.js';
 
 /**
@@ -10,7 +9,6 @@ import { enviarDato } from './respuesta.view.js';
 export function enviarResumenVacio(res) {
   enviarDato(res, {
     esCliente: false,
-    cupoTotal: CUPO_CARTERA,
     cotizaciones: [],
     creditos: [],
     abonos: [],
@@ -38,7 +36,6 @@ export function enviarResumen(res, { cotizaciones, lineas, creditos, abonos, sol
 
   enviarDato(res, {
     esCliente: true,
-    cupoTotal: CUPO_CARTERA,
     cotizaciones: conDetalle,
     creditos,
     abonos,
