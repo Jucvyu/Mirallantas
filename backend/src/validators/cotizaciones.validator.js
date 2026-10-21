@@ -51,8 +51,8 @@ export const esquemaNueva = z.object({
 });
 
 /**
- * POST /cotizaciones/:numero/emitir — por cada llanta: proveedor, costo que
- * confirmó y precio de venta definitivo.
+ * POST /cotizaciones/:numero/emitir — por cada llanta: el proveedor con el
+ * que se verificó el precio y el precio de venta definitivo.
  */
 export const esquemaEmision = z.object({
   lineas: z
@@ -60,7 +60,6 @@ export const esquemaEmision = z.object({
       z.object({
         id: idRelacion,
         proveedorId: idRelacion,
-        costoProveedor: pesosPositivos('Indica el costo que confirmó el proveedor.'),
         precioUnitario: pesosPositivos('Indica el precio de venta.'),
       }),
     )

@@ -7,12 +7,8 @@
 // token, se cambia en un solo lugar.
 // =========================================================================
 
-/**
- * Dirección de la API. Se configura con la variable VITE_API_URL en el
- * archivo .env del frontend (ver .env.example). Si no existe, se usa la
- * del servidor local de desarrollo.
- */
-const URL_API = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+// Dirección de la API: VITE_API_URL (ver src/config.js y .env.example)
+import { URL_API } from '../config';
 
 /** Nombre con el que se guarda el token en el navegador. */
 const CLAVE_TOKEN = 'mirallantas-token';
@@ -88,6 +84,8 @@ export async function api(ruta, { metodo = 'GET', cuerpo, cabecerasExtra = {} } 
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
   if (token) cabeceras.Authorization = `Bearer ${token}`;
 
+  // En producción, sin VITE_API_URL no hay a dónde llamar: se avisa claro
+  if (!URL_API) throw new ErrorApi(0, 'La aplicación no tiene configurada la dirección de la API (VITE_API_URL).');
   let respuesta;
   try {
     respuesta = await fetch(`${URL_API}${ruta}`, {

@@ -15,8 +15,8 @@ export const solicitud = (lineas, extra = {}) => ({
 });
 
 /**
- * El asesor confirma los precios de todas las llantas y emite la cotización
- * formal: costo del proveedor 1 al 75 % y precio de venta = el del catálogo.
+ * El asesor verifica las llantas con el proveedor 1 y emite la cotización
+ * formal con el precio de venta sugerido del catálogo.
  */
 export async function emitir(e, tokenAsesor, numero) {
   const detalle = (await e.api(`/cotizaciones/${numero}`, { token: tokenAsesor })).cuerpo.datos.detalle;
@@ -25,7 +25,6 @@ export async function emitir(e, tokenAsesor, numero) {
     .map((l) => ({
       id: l.id,
       proveedorId: 1,
-      costoProveedor: Math.round(l.precioSugerido * 0.75),
       precioUnitario: l.precioSugerido,
     }));
   return e.api(`/cotizaciones/${numero}/emitir`, { metodo: 'POST', token: tokenAsesor, cuerpo: { lineas } });

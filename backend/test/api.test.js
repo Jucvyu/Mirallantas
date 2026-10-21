@@ -79,7 +79,7 @@ describe('Salud y autenticación', () => {
   test('un rol sin el permiso recibe 403', async () => {
     // Secretaría no tiene "Compras" ni "Productos"
     assert.equal((await e.api('/compras', { token: tokens.secretaria })).estado, 403);
-    const r = await e.api('/productos/1', { metodo: 'PUT', token: tokens.secretaria, cuerpo: { precioVenta: 1 } });
+    const r = await e.api('/productos/1', { metodo: 'PUT', token: tokens.secretaria, cuerpo: { nombre: 'Cambio' } });
     assert.equal(r.estado, 403);
   });
 });
@@ -139,12 +139,11 @@ describe('Productos', () => {
     categoriaId: 1,
     marcaId: 1,
     medidas: ' 205/55 r16 ',
-    precioVenta: 300000,
     ...extra,
   });
 
   test('el servidor genera el código y no acepta uno escrito, ni precio de compra ni stock', async () => {
-    for (const extra of [{ codigo: 'MIO-1' }, { precioCompra: 1 }, { stock: 5 }]) {
+    for (const extra of [{ codigo: 'MIO-1' }, { precioCompra: 1 }, { precioVenta: 1 }, { stock: 5 }]) {
       const r = await e.api('/productos', { metodo: 'POST', token: tokens.admin, cuerpo: nuevo(extra) });
       assert.equal(r.estado, 422, JSON.stringify(extra));
     }
@@ -178,20 +177,29 @@ describe('Productos', () => {
     assert.equal(new Set(r.cuerpo.datos).size, r.cuerpo.datos.length);
   });
 
-  test('el precio de venta sí se edita', async () => {
+  test('el catálogo y la gestión de productos no devuelven precios', async () => {
     const r = await e.api('/productos/1', { metodo: 'PUT', token: tokens.admin, cuerpo: { precioVenta: 285000 } });
-    assert.equal(r.estado, 200);
-    assert.equal(r.cuerpo.datos.precioVenta, 285000);
+    assert.equal(r.estado, 422, 'el precio no se edita desde el producto');
+    const admin = await e.api('/productos?porPagina=100', { token: tokens.admin });
+    const sinPrecios = (p) => !['precioVenta', 'precioCompra', 'precioMinimo', 'precioMaximo', 'stock'].some((c) => c in p);
+    assert.ok(admin.cuerpo.datos.every(sinPrecios));
+    assert.ok(sinPrecios((await e.api('/productos/1', { token: tokens.admin })).cuerpo.datos));
   });
 
-  test('el portal solo ve productos activos, con rango de precio y sin costo, precio exacto ni stock', async () => {
+  test('el catálogo público no pide sesión y solo envía datos públicos de productos activos', async () => {
+    const r = await e.api('/catalogo?porPagina=100');
+    assert.equal(r.estado, 200);
+    assert.ok(r.cuerpo.datos.length > 0);
+    const permitidos = ['id', 'codigo', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto'];
+    assert.ok(r.cuerpo.datos.every((p) => Object.keys(p).every((c) => permitidos.includes(c))));
+    const { rows } = await e.db.query('SELECT COUNT(*)::int AS n FROM producto WHERE activo');
+    assert.equal(r.cuerpo.total, rows[0].n, 'solo los activos');
+  });
+
+  test('el portal solo ve productos activos, sin precios, costos ni stock', async () => {
     const r = await e.api('/productos?porPagina=100&activo=false', { token: tokens.maria });
     assert.equal(r.estado, 200);
-    assert.ok(r.cuerpo.datos.every((p) => p.activo && !('precioCompra' in p) && !('precioVenta' in p) && !('stock' in p)));
-    const michelin = r.cuerpo.datos.find((p) => p.id === 1);
-    assert.ok(michelin.precioMinimo > 0 && michelin.precioMaximo >= michelin.precioMinimo);
-    const uno = await e.api('/productos/1', { token: tokens.maria });
-    assert.ok(!('precioCompra' in uno.cuerpo.datos) && !('precioVenta' in uno.cuerpo.datos));
+    assert.ok(r.cuerpo.datos.every((p) => p.activo && !('precioCompra' in p) && !('precioVenta' in p) && !('precioMinimo' in p)));
   });
 
   test('filtra por marca y busca por medida', async () => {

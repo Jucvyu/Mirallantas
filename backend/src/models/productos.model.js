@@ -3,6 +3,12 @@ import { actualizarCampos, POOL } from './listado.model.js';
 
 /**
  * Modelo de productos (tablas `producto` y `producto_imagen`).
+ *
+ * El catálogo y la gestión de productos no muestran precios: las consultas
+ * de este modelo no los devuelven. Las columnas precio_venta y
+ * precio_compra se conservan en la base porque las usan las operaciones
+ * comerciales (precio sugerido al emitir una cotización, último costo de
+ * compra), que los leen con sus propias consultas.
  */
 
 /** Nombres de la API → columnas que se pueden editar. */
@@ -13,39 +19,15 @@ export const COLUMNAS_EDITABLES = {
   marcaId: 'marca_id',
   medidas: 'medidas',
   tipoVehiculoId: 'tipo_vehiculo_id',
-  precioVenta: 'precio_venta',
   activo: 'activo',
 };
-
-/**
- * Rango de precio orientativo para el catálogo del cliente: el menor y el
- * mayor entre el precio de venta actual y los precios a los que se vendió o
- * se cotizó formalmente la llanta en los últimos 180 días. Son precios de
- * venta reales; el costo del proveedor nunca entra en la cuenta.
- */
-const RANGO_PRECIO = `
-  LEFT JOIN LATERAL (
-    SELECT MIN(r.valor) AS minimo, MAX(r.valor) AS maximo
-      FROM (
-        SELECT p.precio_venta AS valor
-        UNION ALL
-        SELECT vd.precio_unitario FROM venta_detalle vd JOIN venta ve ON ve.id = vd.venta_id
-         WHERE vd.producto_id = p.id AND ve.estado <> 'Anulada' AND ve.fecha >= CURRENT_DATE - 180
-        UNION ALL
-        SELECT cd.precio_unitario FROM cotizacion_detalle cd JOIN cotizacion co ON co.id = cd.cotizacion_id
-         WHERE cd.producto_id = p.id AND co.emitida_en >= CURRENT_DATE - 180 AND cd.precio_unitario IS NOT NULL
-      ) r
-     WHERE r.valor > 0
-  ) rango ON TRUE`;
 
 const SELECCION = `
   p.id, p.codigo, p.nombre, p.descripcion, p.medidas,
   p.categoria_id AS "categoriaId", c.nombre AS categoria,
   p.marca_id AS "marcaId", m.nombre AS marca,
   p.tipo_vehiculo_id AS "tipoVehiculoId", tv.nombre AS "tipoVehiculo",
-  p.precio_compra AS "precioCompra", p.precio_venta AS "precioVenta",
-  rango.minimo AS "precioMinimo", rango.maximo AS "precioMaximo",
-  p.activo,
+  c.color AS "colorCategoria", p.activo,
   (SELECT i.url FROM producto_imagen i WHERE i.producto_id = p.id ORDER BY i.orden, i.id LIMIT 1) AS foto`;
 
 const DESDE = `
@@ -79,7 +61,7 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
   const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
   const total = await query(`SELECT COUNT(*)::int AS n ${DESDE} ${where}`, valores);
   const { rows } = await query(
-    `SELECT ${SELECCION} ${DESDE} ${RANGO_PRECIO} ${where}
+    `SELECT ${SELECCION} ${DESDE} ${where}
       ORDER BY p.nombre, p.id
       LIMIT $${valores.length + 1} OFFSET $${valores.length + 2}`,
     [...valores, porPagina, (pagina - 1) * porPagina],
@@ -89,7 +71,7 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
 
 /** Un producto por id, o null. */
 export async function buscarPorId(id) {
-  const { rows } = await query(`SELECT ${SELECCION} ${DESDE} ${RANGO_PRECIO} WHERE p.id = $1`, [id]);
+  const { rows } = await query(`SELECT ${SELECCION} ${DESDE} WHERE p.id = $1`, [id]);
   return rows[0] ?? null;
 }
 
@@ -102,15 +84,16 @@ export async function imagenes(productoId) {
 }
 
 /**
- * Crea un producto (sin precio de compra) y devuelve su id. El código no se
- * envía: lo genera la base (ML-000001…) y la restricción UNIQUE lo protege
- * aunque dos asesores creen productos al mismo tiempo.
+ * Crea un producto y devuelve su id. El código no se envía: lo genera la
+ * base (ML-000001…) y la restricción UNIQUE lo protege aunque dos asesores
+ * creen productos al mismo tiempo. No lleva precio: el de venta se define
+ * en cada cotización y el de compra en cada compra.
  */
 export async function crear(db, p) {
   const { rows } = await db.query(
     `INSERT INTO producto (nombre, descripcion, categoria_id, marca_id, medidas, tipo_vehiculo_id, precio_venta)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-    [p.nombre, p.descripcion ?? null, p.categoriaId, p.marcaId, p.medidas, p.tipoVehiculoId ?? null, p.precioVenta],
+     VALUES ($1, $2, $3, $4, $5, $6, 0) RETURNING id`,
+    [p.nombre, p.descripcion ?? null, p.categoriaId, p.marcaId, p.medidas, p.tipoVehiculoId ?? null],
   );
   return rows[0].id;
 }

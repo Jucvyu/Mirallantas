@@ -34,6 +34,17 @@ export const esquemaActivoCredito = z.strictObject({ activo: z.boolean() });
 
 export const esquemaListadoAbonos = listadoCon(['estado', 'medioPago', 'credito']);
 
+/** GET /abonos/facturas */
+export const esquemaFacturas = z.object({ clienteId: idRelacion.optional() });
+
+/** POST /abonos — abono del asesor sobre una factura (venta a crédito). */
+export const esquemaAbonoFactura = z.object({
+  factura: z.string().trim().regex(/^VEN-\d{4}-\d{3,}$/, 'Selecciona una factura de la lista.'),
+  monto: pesosPositivos('Indica el monto pagado.'),
+  medioPago,
+  comprobante: imagen.nullable().optional(),
+});
+
 /** POST /creditos/:numero/abonos */
 export const esquemaAbono = z.object({
   monto: pesosPositivos('Indica el monto pagado.'),

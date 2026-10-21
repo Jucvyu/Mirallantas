@@ -69,7 +69,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     setCotizacion(c.id);
     tocar('lineas');
     try {
-      setLineas(await comprasService.lineasDeCotizacion(c.id, productos.filas));
+      setLineas(await comprasService.lineasDeCotizacion(c.id));
     } catch (error) {
       setErrorEnvio(error.message);
     }
@@ -82,7 +82,8 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
       if (existente) {
         return prev.map((l) => (l.id === p.id ? { ...l, cantidad: l.cantidad + 1 } : l));
       }
-      return [...prev, { id: p.id, nombre: p.nombre, medidas: p.medidas, precioCompra: p.precioCompra ?? 0, cantidad: 1 }];
+      // El precio de compra lo escribe el asesor: el catálogo no maneja precios
+      return [...prev, { id: p.id, nombre: p.nombre, medidas: p.medidas, precioCompra: 0, cantidad: 1 }];
     });
   };
 
@@ -207,7 +208,6 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
               <thead className="sticky top-0 bg-slate-50 dark:bg-brand-navy-900">
                 <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   <th className="px-4 py-2.5">Producto</th>
-                  <th className="px-4 py-2.5 text-right">Último precio</th>
                   <th className="px-4 py-2.5" />
                 </tr>
               </thead>
@@ -219,9 +219,6 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                       <p className="text-xs text-slate-400 dark:text-slate-500">
                         {p.codigo} · {p.medidas}
                       </p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                      {p.precioCompra ? pesos(p.precioCompra) : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <button
@@ -236,7 +233,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                 ))}
                 {catalogo.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-sm text-slate-400">
+                    <td colSpan={2} className="px-4 py-8 text-center text-sm text-slate-400">
                       Ningún producto coincide con la búsqueda.
                     </td>
                   </tr>
@@ -304,12 +301,12 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                         {l.deCotizacion &&
                           (l.costoConfirmadoEn ? (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              <BadgeCheck size={12} /> Precio confirmado el{' '}
+                              <BadgeCheck size={12} /> Precio verificado el{' '}
                               {new Date(l.costoConfirmadoEn).toLocaleDateString('es-CO')} con {l.proveedorConfirmado}
                             </p>
                           ) : (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
-                              <TriangleAlert size={12} /> Precio sin confirmar con el proveedor
+                              <TriangleAlert size={12} /> Precio sin verificar con el proveedor
                             </p>
                           ))}
                       </td>

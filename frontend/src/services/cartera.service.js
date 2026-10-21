@@ -57,8 +57,29 @@ const abonosBase = crearServicio({ ruta: '/abonos', desdeApi: abonoDesdeApi, hac
 
 export const abonosService = {
   ...abonosBase,
-  /** Un abono nuevo siempre se registra sobre su crédito. */
-  crear: (datos) => creditosService.registrarAbono(datos),
+
+  /**
+   * Facturas (ventas a crédito con saldo) para el buscador del abono.
+   * `clienteId` limita a las de un cliente.
+   */
+  async facturas(clienteId) {
+    const { datos } = await api(`/abonos/facturas${clienteId ? `?clienteId=${encodeURIComponent(clienteId)}` : ''}`);
+    return datos;
+  },
+
+  /**
+   * Abono del asesor sobre una factura: la API lo guarda confirmado y resta
+   * el saldo en la misma operación. La clave evita duplicarlo si el envío
+   * se repite.
+   */
+  async crear({ factura, monto, medioPago, comprobante, claveIdempotencia }) {
+    const { datos } = await api('/abonos', {
+      metodo: 'POST',
+      cuerpo: { factura, monto, medioPago, comprobante: comprobante || null },
+      cabecerasExtra: conClave(claveIdempotencia),
+    });
+    return datos;
+  },
   /**
    * Confirmar o rechazar (al confirmar, la API descuenta el saldo). Al
    * rechazar, `motivo` le explica al cliente por qué debe volver a subirlo.

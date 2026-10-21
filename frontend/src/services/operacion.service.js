@@ -66,14 +66,13 @@ export const cotizacionesService = {
    * los precios se confirman al emitir y el método de pago se elige al
    * aceptar.
    *
-   *   datos: { clienteId, proveedorId, direccion, lineas }
+   *   datos: { clienteId, direccion, lineas }   (direccion = lugar de despacho)
    */
   crearDesdePanel(datos) {
     return api('/cotizaciones', {
       metodo: 'POST',
       cuerpo: {
         clienteId: datos.clienteId,
-        proveedorId: datos.proveedorId || null,
         direccionEntrega: datos.direccion,
         lineas: datos.lineas.map((l) =>
           l.tipo === 'producto'
@@ -85,9 +84,9 @@ export const cotizacionesService = {
   },
 
   /**
-   * El asesor confirma con el proveedor el costo de cada llanta, fija el
-   * precio de venta y emite la cotización formal (vigencia de 8 días).
-   *   lineas: [{ id, proveedorId, costoProveedor, precioUnitario }]
+   * El asesor verifica cada llanta con el proveedor, fija el precio de
+   * venta y emite la cotización formal (vigencia de 8 días).
+   *   lineas: [{ id, proveedorId, precioUnitario }]
    */
   emitir: (numero, lineas) =>
     api(`/cotizaciones/${encodeURIComponent(numero)}/emitir`, { metodo: 'POST', cuerpo: { lineas } }),
@@ -219,27 +218,23 @@ export const comprasService = {
 
   /**
    * Productos de una cotización convertidos en líneas de compra. El precio
-   * propuesto es el costo que se confirmó con el proveedor al emitir la
-   * cotización; si no hay, el último costo de compra conocido (sin
-   * confirmar). Los servicios no se compran: los ejecuta un tercero.
+   * propuesto es el último costo de compra conocido (el asesor lo ajusta) y
+   * cada línea dice si el precio se verificó con el proveedor al emitir la
+   * cotización. Los servicios no se compran: los ejecuta un tercero.
    */
-  async lineasDeCotizacion(numeroCotizacion, productos) {
+  async lineasDeCotizacion(numeroCotizacion) {
     const cotizacion = await cotizacionesService.obtener(numeroCotizacion);
     return cotizacion.detalle
       .filter((l) => l.tipo === 'producto')
-      .map((l) => {
-        const ficha = productos.find((p) => p.id === l.productoId);
-        const confirmado = l.costoConfirmadoEn !== null && l.costoProveedor !== null;
-        return {
-          id: l.productoId,
-          nombre: l.nombre,
-          medidas: l.medida,
-          precioCompra: confirmado ? l.costoProveedor : (ficha?.precioCompra ?? 0),
-          costoConfirmadoEn: confirmado ? l.costoConfirmadoEn : null,
-          proveedorConfirmado: confirmado ? l.proveedorLinea : '',
-          cantidad: l.cantidad,
-          deCotizacion: true,
-        };
-      });
+      .map((l) => ({
+        id: l.productoId,
+        nombre: l.nombre,
+        medidas: l.medida,
+        precioCompra: l.costoProveedor ?? l.ultimoCosto ?? 0,
+        costoConfirmadoEn: l.costoConfirmadoEn,
+        proveedorConfirmado: l.costoConfirmadoEn ? l.proveedorLinea : '',
+        cantidad: l.cantidad,
+        deCotizacion: true,
+      }));
   },
 };

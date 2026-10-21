@@ -84,19 +84,8 @@ export const categoriaHaciaApi = (v) => ({
 
 export const marcaHaciaApi = (v) => ({ nombre: v.nombre, activo: activoDesdeEstado(v.estado) });
 
-/**
- * Rango de precio orientativo del catálogo del cliente: "$ 260.000 - $ 290.000 COP",
- * un solo valor si no hay variación, o "Precio por confirmar" si no hay datos.
- */
-export function rangoPrecioTexto(minimo, maximo) {
-  if (!minimo) return 'Precio por confirmar';
-  if (!maximo || minimo === maximo) return `${formatCOP(minimo)} COP`;
-  return `${formatCOP(minimo)} - ${formatCOP(maximo)} COP`;
-}
-
 export const productoDesdeApi = (f) => ({
   ...f,
-  rangoPrecio: rangoPrecioTexto(f.precioMinimo, f.precioMaximo),
   estado: estadoActivo(f.activo),
   tipoVehiculo: f.tipoVehiculo ?? '',
   // Solo cuenta como foto una imagen real (subida o con URL)

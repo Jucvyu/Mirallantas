@@ -30,3 +30,9 @@ dist-ssr
 .pgdata
 # Copias de seguridad: tienen datos personales, nunca al repositorio
 respaldos
+
+# Claves y certificados
+*.pem
+*.key
+*.p12
+*.pfx

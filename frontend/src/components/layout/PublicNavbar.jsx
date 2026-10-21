@@ -1,5 +1,5 @@
-import { ArrowRight } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { ArrowRight, LayoutGrid } from 'lucide-react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import Logo from '../base/Logo';
 import ThemeToggle from '../base/ThemeToggle';
 
@@ -11,7 +11,7 @@ const LINKS = [
   { href: '/#contacto', label: 'Contacto' },
 ];
 
-/** Menú de la página de inicio y del login. */
+/** Menú de la página de inicio, del catálogo público y del login. */
 export default function PublicNavbar() {
   // En el login no hace falta el botón "Acceder": ya estás ahí
   const { pathname } = useLocation();
@@ -37,6 +37,19 @@ export default function PublicNavbar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          {/* El catálogo se consulta sin iniciar sesión (también en celular) */}
+          <NavLink
+            to="/catalogo"
+            className={({ isActive }) =>
+              `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                isActive
+                  ? 'text-amber-500 dark:text-amber-400'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+              }`
+            }
+          >
+            <LayoutGrid size={15} /> Catálogo
+          </NavLink>
           <ThemeToggle />
           {!enLogin && (
             <Link

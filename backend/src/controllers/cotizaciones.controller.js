@@ -38,10 +38,10 @@ import { exigirActivo } from './estados.js';
  *      llantas y cantidades. No lleva precios ni método de pago: el precio
  *      definitivo se confirma después con el proveedor. Los servicios de
  *      reencauche abren su solicitud de servicio, como siempre.
- *   2. Cotización formal (emitir): el asesor confirma con el proveedor el
- *      costo de cada llanta, fija el precio de venta y la emite. Vence a
- *      los 8 días calendario. Un precio nunca se da por confirmado sin que
- *      el asesor lo registre.
+ *   2. Cotización formal (emitir): el asesor verifica con el proveedor cada
+ *      llanta, fija el precio de venta y la emite. Vence a los 8 días
+ *      calendario. Un precio nunca se da por verificado sin que el asesor
+ *      lo registre.
  *   3. Aceptación (aceptar): dentro de la vigencia, el cliente elige
  *      contado (sube el pago) o crédito (plazo + cuota inicial del 30 %, que
  *      abre su solicitud de crédito). Desde aquí sigue el pedido de siempre.
@@ -63,9 +63,13 @@ async function leerCompleta(req, numero, db) {
   };
 }
 
-/** Desde el portal solo se paga en efectivo (en el local) o por transferencia. */
-function exigirMedioDelPortal(medio, esPortal) {
-  if (esPortal) exigirMedioDelCliente(medio);
+/**
+ * Al aceptar una cotización (desde el portal o en el local) y al volver a
+ * subir su pago solo se admite efectivo o transferencia: tarjeta y "otro"
+ * no están habilitados en este flujo.
+ */
+function exigirMedioDelPortal(medio) {
+  exigirMedioDelCliente(medio);
 }
 
 /** Pago de contado: con qué medio y, salvo en efectivo, con su consignación. */
@@ -265,13 +269,6 @@ export async function emitir(req, res) {
       const datos = confirmadas.find((c) => c.id === linea.id);
       if (!datos) throw new HttpError(422, `Confirma el precio de "${linea.descripcion}" antes de emitir.`);
       await exigirActivo('proveedor', datos.proveedorId, db);
-      // El precio de venta no puede quedar por debajo de lo que cuesta la llanta
-      if (datos.precioUnitario < datos.costoProveedor) {
-        throw new HttpError(
-          422,
-          `El precio de "${linea.descripcion}" (${pesos(datos.precioUnitario)}) es menor que el costo confirmado (${pesos(datos.costoProveedor)}).`,
-        );
-      }
       await cotizacionesModel.confirmarLinea(db, linea.id, { ...datos, usuarioId: req.usuario.id });
       subtotal += datos.precioUnitario * linea.cantidad;
     }

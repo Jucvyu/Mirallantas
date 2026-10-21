@@ -5,11 +5,11 @@ import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { categoriasService, marcasService, productosService, tiposVehiculoService } from '../../../services';
-import { formatCOP } from '../../../utils/formato';
 
 // Tabla `producto`. El código lo genera el servidor (ML-000001…) y no
-// cambia al editar. El formulario no pide precio de compra (pertenece a
-// cada compra) y el aplicativo no maneja stock.
+// cambia al editar. La gestión de productos no maneja precios: el de venta
+// se define en cada cotización y el de compra en cada compra. Tampoco hay
+// stock. Categoría, marca y tipo de vehículo se eligen con buscador.
 const columns = [
   { key: 'codigo', label: 'Código' },
   {
@@ -33,7 +33,6 @@ const columns = [
   { key: 'categoria', label: 'Categoría' },
   { key: 'marca', label: 'Marca' },
   { key: 'medidas', label: 'Medidas' },
-  { key: 'precioVenta', label: 'Precio venta', render: (row) => formatCOP(row.precioVenta) },
   { key: 'estado', label: 'Estado' },
 ];
 
@@ -48,8 +47,8 @@ function seccionesFormulario({ categorias, marcas, tipos, medidas }) {
         { key: 'codigo', label: 'Código del producto', only: ['edit', 'view'], soloLectura: true },
         { key: 'nombre', label: 'Nombre', required: true },
         { key: 'descripcion', label: 'Descripción', type: 'textarea', span: 2 },
-        { key: 'categoria', label: 'Categoría', type: 'select', required: true, options: activos(categorias), emptyLabel: 'categoría' },
-        { key: 'marca', label: 'Marca', type: 'select', required: true, options: activos(marcas), emptyLabel: 'marca' },
+        { key: 'categoria', label: 'Categoría', type: 'buscador', required: true, options: activos(categorias), emptyLabel: 'categoría' },
+        { key: 'marca', label: 'Marca', type: 'buscador', required: true, options: activos(marcas), emptyLabel: 'marca' },
         // Buscador de las medidas ya registradas; si es nueva, se escribe
         {
           key: 'medidas',
@@ -61,22 +60,12 @@ function seccionesFormulario({ categorias, marcas, tipos, medidas }) {
           placeholderBusqueda: 'Escribe la medida, p. ej. 195/65R15',
           hint: 'Busca una medida existente o escribe una nueva.',
         },
-        { key: 'tipoVehiculo', label: 'Tipo de vehículo', type: 'select', options: tipos.map((t) => t.nombre) },
+        { key: 'tipoVehiculo', label: 'Tipo de vehículo', type: 'buscador', options: tipos.map((t) => t.nombre) },
       ],
     },
     {
-      title: 'Precio',
-      fields: [
-        {
-          key: 'precioVenta',
-          label: 'Precio de venta (COP)',
-          type: 'money',
-          required: true,
-          placeholder: '280.000',
-          hint: 'Precio de lista sugerido para las cotizaciones.',
-        },
-        { key: 'estado', label: 'Estado', type: 'select', options: estadosActivo, only: ['edit', 'view'] },
-      ],
+      title: 'Estado',
+      fields: [{ key: 'estado', label: 'Estado', type: 'select', options: estadosActivo, only: ['edit', 'view'] }],
     },
     {
       title: 'Imagen',

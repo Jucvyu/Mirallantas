@@ -3,7 +3,7 @@ import { Plus, Receipt, Wallet } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
 import Modal from '../../../components/base/Modal';
-import { creditosService } from '../../../services';
+import { abonosService, creditosService } from '../../../services';
 import ComprobanteAbonoModal from '../../shared/ComprobanteAbonoModal';
 import NuevoAbonoModal from './NuevoAbonoModal';
 
@@ -47,7 +47,7 @@ export default function HistorialAbonosModal({ credito: inicial, onClose }) {
 
   /** Registra el abono y vuelve a pedir el historial. */
   const registrarAbono = async (datos) => {
-    await creditosService.registrarAbono(datos);
+    await abonosService.crear(datos);
     await cargar();
   };
 

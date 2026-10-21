@@ -65,14 +65,16 @@ export const esquemaPerfil = z
 
 // ---- ¿Olvidaste tu contraseña? ---------------------------------------------------
 
-/** Id de una solicitud de recuperación (UUID). */
-const solicitud = z.uuid({ error: 'La solicitud no es válida. Vuelve a empezar.' });
+/** Token del enlace de recuperación (256 bits en base64url). */
+const tokenRecuperacion = z
+  .string({ error: 'El enlace no es válido. Solicita uno nuevo.' })
+  .regex(/^[A-Za-z0-9_-]{43}$/, 'El enlace no es válido. Solicita uno nuevo.');
 
 /** POST /auth/recuperar/solicitar */
 export const esquemaSolicitarRecuperacion = z.object({ correo });
 
-/** POST /auth/recuperar/verificar */
-export const esquemaVerificarRecuperacion = z.object({ solicitud, codigo: codigo2fa });
+/** POST /auth/recuperar/validar */
+export const esquemaValidarRecuperacion = z.object({ token: tokenRecuperacion });
 
-/** POST /auth/recuperar/cambiar */
-export const esquemaCambiarRecuperacion = z.object({ solicitud, password });
+/** POST /auth/recuperar/restablecer */
+export const esquemaRestablecerRecuperacion = z.object({ token: tokenRecuperacion, password });

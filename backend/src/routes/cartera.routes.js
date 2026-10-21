@@ -5,6 +5,8 @@ import * as solicitudes from '../controllers/solicitudesCredito.controller.js';
 import { autenticar, requierePermiso, soloPersonal } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
 import {
+  esquemaAbonoFactura,
+  esquemaFacturas,
   esquemaAbono,
   esquemaActivoCredito,
   esquemaCambioAbono,
@@ -42,6 +44,9 @@ export const rutasAbonos = Router();
 rutasAbonos.use(autenticar, soloPersonal, requierePermiso('Abonos'));
 
 rutasAbonos.get('/', validar(esquemaListadoAbonos, 'query'), abonos.listar);
+// Facturas (ventas a crédito con saldo) y abono del asesor sobre una de ellas
+rutasAbonos.get('/facturas', validar(esquemaFacturas, 'query'), abonos.facturas);
+rutasAbonos.post('/', validar(esquemaAbonoFactura), abonos.registrarEnFactura);
 rutasAbonos.patch('/:numero', validar(esquemaCambioAbono), abonos.actualizar);
 
 // ---- Solicitudes de crédito (/api/solicitudes-credito) ---------------------------

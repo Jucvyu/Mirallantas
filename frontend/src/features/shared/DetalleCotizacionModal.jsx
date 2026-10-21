@@ -5,7 +5,6 @@ import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
 import { useDetalle } from '../../hooks/useDetalle';
 import { VIGENCIA_COTIZACION_DIAS } from '../../constantes';
-import { formatCOP } from '../../utils/formato';
 import { HistorialPagos } from './PagoConsignacion';
 
 /** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
@@ -157,14 +156,14 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
                           <p className="text-xs text-slate-400 dark:text-slate-500">
                             {[l.codigo, l.medida, l.solicitud].filter(Boolean).join(' · ')}
                           </p>
-                          {/* Solo el personal recibe el costo confirmado con el proveedor */}
+                          {/* Solo el personal recibe con qué proveedor se verificó */}
                           {l.tipo !== 'servicio' && l.costoConfirmadoEn && (
                             <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              Costo confirmado: {formatCOP(l.costoProveedor)} · {l.proveedorLinea}
+                              Precio verificado con {l.proveedorLinea}
                             </p>
                           )}
                           {l.tipo !== 'servicio' && esCotizacion && l.precioSugerido !== null && !l.costoConfirmadoEn && (
-                            <p className="text-[11px] font-medium text-amber-600">Precio pendiente de confirmar con el proveedor</p>
+                            <p className="text-[11px] font-medium text-amber-600">Precio pendiente de verificar con el proveedor</p>
                           )}
                         </div>
                       </div>

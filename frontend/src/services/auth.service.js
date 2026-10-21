@@ -116,28 +116,22 @@ export const authService = {
   },
 
   // ---- ¿Olvidaste tu contraseña? ---------------------------------------------
-  // Los intentos y el bloqueo de 2 minutos los lleva la API (por IP). Si la
-  // API rechaza, el error trae `error.datos` con { intentosRestantes,
-  // bloqueadoHasta, intentosCodigo } para mostrarlos en el modal.
+  // La API envía un enlace de un solo uso al correo. Su respuesta es siempre
+  // la misma, exista o no la cuenta.
 
-  /** Intentos que le quedan a este equipo: { intentosRestantes, bloqueadoHasta }. */
-  estadoRecuperacion() {
-    return api('/auth/recuperar/estado');
-  },
-
-  /** Paso 1: busca el correo y envía el código. Devuelve { solicitud, correo, intentosCodigo }. */
+  /** Pide el enlace. Devuelve { mensaje } (genérico). */
   solicitarRecuperacion(correo) {
     return api('/auth/recuperar/solicitar', { metodo: 'POST', cuerpo: { correo: correo.trim().toLowerCase() } });
   },
 
-  /** Paso 2: revisa el código de 6 dígitos. */
-  verificarCodigoRecuperacion(solicitud, codigo) {
-    return api('/auth/recuperar/verificar', { metodo: 'POST', cuerpo: { solicitud, codigo } });
+  /** ¿El enlace (su token) sigue sirviendo? Lanza un error si venció o ya se usó. */
+  validarEnlaceRecuperacion(token) {
+    return api('/auth/recuperar/validar', { metodo: 'POST', cuerpo: { token } });
   },
 
-  /** Paso 3: guarda la contraseña nueva. */
-  cambiarPasswordRecuperada(solicitud, password) {
-    return api('/auth/recuperar/cambiar', { metodo: 'POST', cuerpo: { solicitud, password } });
+  /** Guarda la contraseña nueva con el token del enlace. */
+  restablecerPassword(token, password) {
+    return api('/auth/recuperar/restablecer', { metodo: 'POST', cuerpo: { token, password } });
   },
 
   /** Olvida el token sin avisar a la API (cuando la API ya lo rechazó). */

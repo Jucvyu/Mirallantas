@@ -50,7 +50,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [cors](https://github.com/expressjs/cors) | 2 | Permite que solo el frontend autorizado llame a la API. |
 | [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 8 | Limita las solicitudes por IP y los intentos de inicio de sesión (contra fuerza bruta). |
 | [cloudinary](https://cloudinary.com/documentation/node_integration) | 2 | Guarda las imágenes subidas (fotos y comprobantes) fuera de la base. |
-| [nodemailer](https://nodemailer.com) | 10 | Envía por correo (SMTP) el código para recuperar la contraseña. |
+| [Resend](https://resend.com) (API HTTP) | — | Envía el correo con el enlace para recuperar la contraseña (sin librería: `fetch` nativo de Node). |
 | [PDFKit](https://pdfkit.org) | 0.20 | Genera en el servidor la cotización formal y el comprobante de venta en PDF. |
 | `node:crypto` (nativo de Node) | — | Doble factor TOTP y cifrado AES-256-GCM de datos sensibles, sin librerías extra. |
 | [embedded-postgres](https://github.com/leinelissen/embedded-postgres) | 18.4 (dev) | **Solo desarrollo y pruebas**: un PostgreSQL real sin instalar nada. |
@@ -99,8 +99,8 @@ Abre `backend/.env` y completa:
 - `CLAVE_CIFRADO`: otra clave generada igual, **distinta** de `JWT_SECRET` (cifra los secretos
   del doble factor dentro de la base).
 - `CLOUDINARY_URL` (opcional en desarrollo): sin ella las imágenes se guardan dentro de la base.
-- `SMTP_*` y `CORREO_REMITENTE` (opcionales en desarrollo): sin ellos, el código de "¿Olvidaste tu
-  contraseña?" no se envía por correo: aparece en la terminal de la API.
+- `RESEND_API_KEY`, `CORREO_REMITENTE` y `FRONTEND_URL` (opcionales en desarrollo): sin clave de
+  Resend, el enlace de "¿Olvidaste tu contraseña?" no se envía: aparece en la terminal de la API.
 
 ### 2. Base de datos: un solo comando
 
@@ -283,7 +283,7 @@ Otras piezas del frontend:
 | Fuerza bruta | 10 intentos por IP cada 15 min y **bloqueo de la cuenta 15 min tras 5 fallos**. Límite general de 300 solicitudes por minuto por IP. |
 | Sesiones robadas o abandonadas | Token de máximo 8 h; **cierre automático tras 30 min sin actividad**; al cerrar sesión, cambiar la contraseña o activar el doble factor, la API invalida todos los tokens anteriores. |
 | Escalada de privilegios | Roles y Usuarios son **solo para el rol Administrador**. El rol Administrador no se edita ni se elimina (lo impide la API y un trigger de la base) y siempre queda al menos un Administrador activo. |
-| Recuperar contraseña | El correo recibe un código de 6 dígitos (se guarda solo su huella HMAC) que vence en 10 min. 5 intentos por IP para escribir un correo registrado y 3 para el código; al agotarlos, la IP espera 2 minutos (lo cuenta la API, recargar no lo reinicia). Al cambiarla se cierran todas las sesiones. ⚠ Decir si un correo existe permite averiguar qué correos están registrados; los intentos limitados lo frenan. |
+| Recuperar contraseña | Enlace de un solo uso enviado con Resend: token aleatorio de 256 bits (se guarda solo su huella HMAC), vence en 30 minutos y queda anulado al usarse o al pedir otro. La respuesta es la misma exista o no el correo (no revela cuentas). 5 solicitudes por IP; luego 15 minutos de espera. El token va en el fragmento `#` del enlace (no llega a servidores ni al "Referer") y no sirve como sesión. Al cambiar la contraseña se cierran todas las sesiones. Si Resend rechaza el envío, el enlace se anula y se registra el motivo (sin el token). |
 | Acciones sensibles | Cambiar contraseña o correo pide la contraseña actual; desactivar el doble factor pide contraseña y código. |
 | Datos de otros clientes | Una cuenta del portal solo ve sus cotizaciones, créditos y abonos (404 si pide uno ajeno). |
 | Inyección SQL | Todas las consultas usan parámetros (`$1`, `$2`…); los nombres de tablas y columnas salen del código, nunca de la petición. Hay pruebas que lo verifican. |
@@ -320,7 +320,8 @@ Todas las rutas empiezan por `/api`. Salvo `salud`, `auth/login`, `auth/2fa/veri
 | Módulo | Rutas | Permiso |
 | --- | --- | --- |
 | Sesión | `POST /auth/login`, `POST /auth/2fa/verificar`, `POST /auth/registro`, `POST /auth/salir`, `GET/PUT /auth/yo` | — |
-| Recuperar contraseña | `GET /auth/recuperar/estado`, `POST /auth/recuperar/solicitar`, `/verificar`, `/cambiar` | pública |
+| Recuperar contraseña | `POST /auth/recuperar/solicitar`, `/validar`, `/restablecer` | pública |
+| Catálogo público | `GET /catalogo` (productos activos, sin precios) | pública |
 | Doble factor | `POST /auth/2fa/configurar`, `/auth/2fa/activar`, `/auth/2fa/desactivar` | sesión |
 | Empresa | `GET /empresa` (datos de los comprobantes; se registran directamente en la tabla `empresa`) | sesión |
 | Listas del sistema | `GET /referencias` (tipos de documento, métodos y medios de pago) | pública |
@@ -366,14 +367,28 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
   cuota inicial cubre al menos el **30 %** del total (redondeado hacia arriba al peso) y el resto se
   financia; de contado se paga el 100 %. Vale para la aceptación de cotizaciones y para las ventas
   directas. No aplica a las compras a proveedores. Cupo máximo de **$ 2.000.000** por cliente.
-- **Medios de pago del portal**: el cliente paga en efectivo o por transferencia (la API rechaza
-  tarjeta u "otro" desde el portal); en el local el asesor puede registrar los demás medios.
-- **Catálogo del cliente**: muestra un **rango de precio orientativo** (el menor y el mayor entre el
-  precio de venta actual y lo que se vendió o cotizó formalmente en los últimos 180 días), o "Precio
-  por confirmar". La API nunca le envía el costo, el precio exacto ni datos internos del proveedor.
+- **Medios de pago**: el cliente paga en efectivo o por transferencia desde el portal, y al
+  **aceptar una cotización** (desde el portal o en el local) solo se admiten esos dos: tarjeta y
+  "otro" quedaron fuera de ese flujo (la API lo exige). Los abonos del asesor conservan todos.
+- **Catálogos y gestión de productos sin precios**: ni el catálogo del cliente, ni el público, ni la
+  pantalla de Productos muestran precios, rangos, costos o stock (la API no los devuelve). Las
+  columnas `precio_venta` y `precio_compra` siguen en la base para las operaciones comerciales: el
+  precio de venta se define al emitir cada cotización y el de compra en cada compra.
+- **Catálogo público**: el menú del landing tiene "Catálogo" (`/catalogo`), sin iniciar sesión;
+  para cotizar se inicia sesión y se usa el carro del portal.
+- **Solicitud por WhatsApp**: en "Mi carro de cotización", "Solicitar por WhatsApp" abre
+  WhatsApp con un mensaje ya escrito (nombre del cliente, lugar de despacho y llantas/servicios
+  con su cantidad; nunca precios ni stock). El cliente decide enviarlo desde WhatsApp: el sistema
+  no lo da por enviado. El número es `VITE_WHATSAPP_NUMERO` (por defecto el que publica el sitio).
+- **Lugar de despacho**: la nueva cotización (panel y portal) carga la dirección registrada del
+  cliente y se puede cambiar solo para esa cotización; se guarda con ella y no modifica la ficha
+  del cliente. Al cambiar de cliente se carga la dirección del nuevo.
 - **Productos**: el código lo genera la base (**ML-000001**, …) con una secuencia y una restricción
-  única; no cambia al editar. El formulario no pide precio de compra ni stock; la medida se elige
-  con un buscador de las medidas ya registradas (o se escribe una nueva, normalizada).
+  única; no cambia al editar. El formulario no pide precios ni stock; la medida, la categoría, la
+  marca y el tipo de vehículo se eligen con buscador.
+- **Buscadores de relaciones**: cliente, proveedor, tercero, rol, categoría, marca, tipo de
+  vehículo, medida y factura se eligen con el mismo componente de búsqueda (`SearchSelect`), que
+  guarda el id real del registro; la API valida que exista y esté activo.
 - **Sin stock**: el aplicativo no maneja existencias (la migración 0010 retiró `producto.stock` y
   `compra.stock_aplicado`). Las cantidades de cotizaciones, ventas y compras se conservan. Recibir
   una compra solo guarda el último costo de compra de cada llanta (dato interno).
@@ -437,9 +452,15 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
   línea); en celular y tableta cada fila se ve como una tarjeta con todas sus columnas.
 - **Al completar una cotización** se genera su venta con las mismas líneas (y su crédito, si lo
   tiene, queda ligado a esa venta).
-- **Abonos**: nacen pendientes; cuando un asesor los confirma baja el saldo del crédito y sube el
-  saldo usable del cliente. Si los rechaza (con motivo), el cliente lo ve en rojo en "Mi cartera"
-  y vuelve a subir el abono.
+- **Abonos del cliente**: nacen pendientes; cuando un asesor los confirma baja el saldo del crédito
+  y sube el saldo usable del cliente. Si los rechaza (con motivo), el cliente lo ve en rojo en "Mi
+  cartera" y vuelve a subir el abono.
+- **Nuevo abono del asesor (por factura)**: la factura es la **venta a crédito** (VEN-…), cuyo
+  crédito guarda el saldo. Se busca el cliente y luego su factura (solo ventas no anuladas con
+  crédito activo y saldo). En una sola transacción, con la factura bloqueada, se valida que el monto
+  sea mayor que cero y no supere el saldo, se guarda el abono **confirmado** y se resta el saldo
+  (si algo falla no queda ninguno). La clave de idempotencia evita duplicarlo por doble envío. Un
+  crédito cuya cotización aún no se completa no tiene factura: ese abono lo sube el cliente.
 - **Estados**: cada documento solo avanza por las transiciones permitidas (`FLUJOS` en `reglas.js`).
 - **Numeración**: consecutivos por tipo y año (`PED-2026-001`, `VEN-2026-001`…), seguros aunque
   se creen varios documentos a la vez.
@@ -509,81 +530,121 @@ Definidos en `frontend/tailwind.config.js` bajo `theme.extend.colors`.
 
 ## Despliegue
 
-Se despliegan tres piezas, en este orden: **base de datos → API → frontend**. Cada una sale de
-su carpeta del monorepo: en el proveedor se conecta el mismo repositorio y se indica la
-**carpeta raíz** (`database/`, `backend/` o `frontend/`). Un ejemplo con servicios que tienen
-plan gratuito (puedes usar otros equivalentes):
+Se despliegan tres piezas, en este orden: **base de datos → API → frontend**, más dos servicios
+externos (Cloudinary para imágenes y Resend para el correo). Cada pieza sale de su carpeta del
+monorepo. La configuración recomendada (la que usa el proyecto) es:
 
-### 1. Base de datos (PostgreSQL administrado: Neon, Render o Supabase)
+| Pieza | Servicio | Carpeta |
+| --- | --- | --- |
+| Base de datos | Supabase (PostgreSQL) | `database/` (se migra desde tu equipo) |
+| API | Render (Web Service de Node) | `backend/` |
+| Frontend | Vercel | `frontend/` |
 
-1. Crea una base PostgreSQL y copia su dirección de conexión (`postgres://usuario:clave@host/base`).
-   **No la abras a internet**: deja que solo la API se conecte (en Render/Neon usa la dirección
-   interna o la lista de IP permitidas) y activa las copias automáticas del proveedor.
-2. Desde tu equipo (en la raíz del proyecto), aplica las migraciones de `database/` (crean
-   las tablas, los roles y los permisos). La variable de la terminal tiene prioridad sobre los
-   archivos `.env`:
-   ```bash
-   DATABASE_URL="postgres://…" npm run migrate
+### 1. Base de datos (Supabase)
+
+1. Crea el proyecto y guarda la clave de la base. Usa una clave solo de letras y números.
+2. **Connect → Session pooler**: copia la dirección (puerto 5432) y agrégale al final
+   `?uselibpqcompat=true&sslmode=require` (Supabase usa su propia entidad certificadora; así la
+   conexión va cifrada). No uses la conexión directa (solo IPv6) ni el "Transaction pooler".
+3. **Project Settings → Data API**: desactívala. La app no la usa y, encendida, publica las tablas
+   con la llave pública de Supabase.
+4. Desde tu equipo, en la raíz del proyecto, aplica las migraciones (la variable de la terminal
+   tiene prioridad sobre los `.env`):
+   ```powershell
+   $env:DATABASE_URL="postgresql://postgres.TUREF:TUCLAVE@aws-0-us-east-1.pooler.supabase.com:5432/postgres?uselibpqcompat=true&sslmode=require"
+   npm run migrate:status
+   npm run migrate
    ```
-   En PowerShell: `$env:DATABASE_URL="postgres://…"; npm run migrate`. También puedes poner esa
-   dirección en `database/.env` (copia de `database/.env.example`, fuera de git).
-3. Crea el primer Administrador (anota la contraseña temporal que muestra):
-   ```bash
-   DATABASE_URL="postgres://…" npm run admin:crear -- --nombre "Nombre" --correo admin@tuempresa.com --documento 123456789
-   ```
-   Cada vez que haya migraciones nuevas, repite el paso 2 **antes** de desplegar la API.
-4. Recomendado: que la API se conecte con un usuario de PostgreSQL que **no** sea el dueño de
-   la base, con permisos solo de `SELECT, INSERT, UPDATE, DELETE` sobre las tablas.
+5. La primera vez, crea el Administrador en la misma ventana:
+   `npm run admin:crear -- --nombre "Nombre" --correo admin@tuempresa.com --documento 123456789`.
+6. Cada vez que haya migraciones nuevas: **copia de seguridad primero** (ver más abajo), luego
+   `npm run migrate` y después despliega la API. Nunca uses `migrate:down` en producción.
 
-### 2. API (Render, Railway o similar · servicio web de Node)
+⚠ `npm run db` solo arranca la base **local**: si tu `backend/.env` apunta a Supabase se niega a
+correr. Para trabajar en local, deja en `backend/.env` la dirección local y usa la de Supabase
+solo en la ventana donde migras.
+
+### 2. API (Render)
+
+Puedes crear el servicio con el archivo `render.yaml` (New → Blueprint) o a mano:
 
 | Configuración | Valor |
 | --- | --- |
-| Carpeta raíz | `backend` |
-| Comando de instalación | `npm ci --omit=dev` |
-| Comando de inicio | `npm start` |
+| Root Directory | `backend` |
+| Build Command | `npm ci --omit=dev` |
+| Start Command | `npm start` |
+| Health Check Path | `/api/salud` |
 
-Variables de entorno (todas en el panel del proveedor, **nunca** en el código):
+Variables de entorno (en el panel de Render, **nunca** en el código ni en el repositorio):
 
 | Variable | Valor |
 | --- | --- |
+| `NODE_VERSION` | `22` |
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | La de la base |
-| `DATABASE_SSL` | `true` (verifica el certificado). Solo si el proveedor no lo permite: `no-verify` |
-| `JWT_SECRET` | Nueva, larga y distinta a la de desarrollo |
+| `DATABASE_URL` | La del Session pooler de Supabase (con `?uselibpqcompat=true&sslmode=require`) |
+| `DATABASE_SSL` | `no-verify` con Supabase (cifra sin validar su entidad propia); `true` con proveedores de certificado público |
+| `JWT_SECRET` | Nueva, larga (≥ 32) y distinta a la de desarrollo |
 | `CLAVE_CIFRADO` | Nueva, distinta de `JWT_SECRET`. Si se pierde, los usuarios deben reconfigurar el doble factor |
-| `CLOUDINARY_URL` | Panel de Cloudinary → *API Keys* → `cloudinary://<api_key>:<api_secret>@<cloud_name>` (obligatoria) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `CORREO_REMITENTE` | Servidor de correo para los códigos de recuperación (obligatorio). Con Gmail usa una *contraseña de aplicación* |
-| `CORS_ORIGINS` | La dirección https del frontend, p. ej. `https://mirallantas.vercel.app` (sin `*`) |
-| `EXIGIR_2FA_ADMIN` | `false` por ahora (doble factor opcional); `true` lo vuelve obligatorio para el Administrador |
+| `CLOUDINARY_URL` | Cloudinary → *API Keys* → `cloudinary://<api_key>:<api_secret>@<cloud_name>` |
+| `RESEND_API_KEY` | Resend → *API Keys* (permiso de envío) |
+| `CORREO_REMITENTE` | `MiraLlantas <no-responder@tu-dominio.com>`, de un dominio **verificado** en Resend |
+| `FRONTEND_URL` | `https://mirallantas.vercel.app` (arma el enlace del correo; debe ser https) |
+| `CORS_ORIGINS` | `https://mirallantas.vercel.app` (sin `*` ni `/` final; separa varios con coma) |
+| `EXIGIR_2FA_ADMIN` | `false` (doble factor opcional) o `true` |
 | `APP_TIMEZONE` | `America/Bogota` |
+| `JWT_EXPIRES_IN` | `8h` |
 
-La API se niega a arrancar en producción si falta alguna de estas o si `CORS_ORIGINS` no es https.
-Comprueba `https://tu-api/api/salud` → `{"estado":"ok"}`.
+No definas `PORT`: Render lo pone y la API lo usa. La API se niega a arrancar en producción si
+falta Cloudinary, Resend, `FRONTEND_URL` https o si `CORS_ORIGINS` no es https. Comprueba
+`https://tu-api.onrender.com/api/salud` → `{"estado":"ok"}`.
+
+**Resend (correo de recuperación)**: crea la cuenta, agrega tu dominio en *Domains* y publica los
+registros DNS que te indica (SPF/DKIM); cuando aparezca como *Verified*, crea la API key. Sin dominio
+verificado, Resend solo permite enviar a tu propio correo de prueba desde `onboarding@resend.dev`:
+para clientes reales el dominio es obligatorio.
 
 ### 3. Frontend (Vercel)
 
-1. Conecta el repositorio en Vercel y en **Root Directory** elige `frontend` (Vercel detecta
-   Vite y usa `frontend/vercel.json`).
-2. En **Settings → Environment Variables** agrega `VITE_API_URL=https://tu-api/api`.
+1. En **Settings → General → Root Directory** elige `frontend` (Vercel detecta Vite y usa
+   `frontend/vercel.json`, que también redirige todas las rutas a la app: recargar `/catalogo` o
+   `/restablecer-contrasena` funciona).
+2. En **Settings → Environment Variables** agrega (son públicas, nunca secretos):
+
+   | Variable | Valor |
+   | --- | --- |
+   | `VITE_API_URL` | `https://tu-api.onrender.com/api` (obligatoria: sin ella la app avisa en vez de llamar a localhost) |
+   | `VITE_WHATSAPP_NUMERO` | WhatsApp de la empresa, solo dígitos con indicativo (`573108976943`) |
+   | `VITE_TELEFONO_EMPRESA` | Teléfono que se muestra (`+57 310 897 69 43`) |
+
 3. Vuelve a desplegar (las variables de Vite se leen al compilar).
-4. `vercel.json` ya trae las cabeceras de seguridad (CSP, HSTS, anti-iframe). Cuando tengas la
-   dirección definitiva de la API, cambia en la CSP `connect-src 'self' https:` por
-   `connect-src 'self' https://tu-api` para que el sitio solo hable con tu API.
-5. SEO: `index.html` trae título, descripción, Open Graph y datos estructurados; `robots.txt`
-   deja indexar la página pública y bloquea `/admin`, `/portal` y `/login`. Con el dominio
-   definitivo, agrega `<link rel="canonical">` y un `sitemap.xml`, y registra el sitio en
-   Google Search Console.
+4. `vercel.json` ya trae las cabeceras de seguridad (CSP, HSTS, anti-iframe). Con la dirección
+   definitiva de la API, cambia en la CSP `connect-src 'self' https:` por
+   `connect-src 'self' https://tu-api.onrender.com` para que el sitio solo hable con tu API.
 
-### 4. Después de desplegar
+### 4. Pruebas después de desplegar
 
-1. Inicia sesión con el Administrador, cambia la contraseña y (recomendado) activa la verificación en dos pasos.
-2. Registra los datos reales de la empresa en la tabla `empresa` (con DBeaver/pgAdmin) y crea el catálogo
-   (el servicio "Reencauche" ya lo crea la migración).
-3. Revisa cada semana la tabla `evento_seguridad` (eventos de gravedad `Alta`).
-4. Si algo falla: en Vercel puedes volver al despliegue anterior con un clic (*Promote to
-   Production*); en la API, redepliega la versión anterior. Antes de migrar la base, saca una
-   copia de seguridad (los proveedores administrados la ofrecen).
+1. `https://tu-api.onrender.com/api/salud` responde `{"estado":"ok"}`.
+2. En `https://mirallantas.vercel.app`: el menú "Catálogo" muestra las llantas sin iniciar sesión.
+3. Inicia sesión con el Administrador, cambia la contraseña y (recomendado) activa el doble factor.
+4. "¿Olvidaste tu contraseña?" con tu correo: llega el correo de Resend y el enlace abre
+   `https://mirallantas.vercel.app/restablecer-contrasena` (no `localhost`).
+5. Cliente de prueba: arma el carro, revisa "Solicitar por WhatsApp" (abre WhatsApp con el mensaje)
+   y "Enviar solicitud de cotización"; en el panel, emite la cotización, acéptala y registra un abono.
+6. Registra los datos reales de la empresa en la tabla `empresa` (los usan los PDF).
+
+### 5. Copias de seguridad y recuperación
+
+- **Supabase** hace copias diarias (*Database → Backups*); en planes pagos hay restauración a un
+  punto en el tiempo.
+- **Copia propia antes de cada migración**, desde tu equipo con la dirección de Supabase:
+  `npm run db:respaldo` (guarda un JSON en `database/respaldos/`, fuera de git: contiene datos
+  personales, guárdalo cifrado).
+- **Restaurar**: crea una base nueva y vacía, aplícale `npm run migrate` y luego
+  `npm run db:restaurar -- respaldos/archivo.json` apuntando a esa base. Comprueba y, si está bien,
+  cambia `DATABASE_URL` en Render a la base restaurada.
+- Si un despliegue falla: en Vercel, *Promote to Production* de la versión anterior; en Render,
+  *Rollback* al despliegue anterior. Una migración ya aplicada no se revierte en producción: se
+  corrige con una migración nueva.
 
 ---
 

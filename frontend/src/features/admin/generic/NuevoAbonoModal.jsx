@@ -1,7 +1,10 @@
-import { useRef, useState } from 'react';
-import { nuevaClaveIdempotencia } from '../../../services';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import SearchSelect from '../../../components/base/SearchSelect';
+import { useRecurso } from '../../../hooks/useRecurso';
+import { abonosService, clientesService, nuevaClaveIdempotencia } from '../../../services';
+import { opcionesClientes } from '../../../utils/opciones';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
-import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
+import { Check, ChevronDown, ImagePlus, LoaderCircle, Wallet, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
 import {
@@ -16,28 +19,29 @@ import { mediosPago } from '../../../constantes';
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { formatCOP, parseCOP } from '../../../utils/formato';
-import SelectorCreditos from '../shared/SelectorCreditos';
 
 /**
- * "Nuevo abono" del administrador.
+ * "Nuevo abono" del administrador: un pago sobre una FACTURA.
  *
- * El crédito al que se aplica el abono se elige de un listado con buscador
- * —igual que la cotización en las compras—, no de un desplegable de
- * códigos; si el modal se abre desde un crédito concreto (`creditoFijo`),
- * ese paso se omite. La fecha es la de hoy y el saldo pendiente se calcula
- * restando el monto al saldo del crédito, así que ninguno se pide.
+ * La factura es la venta a crédito (VEN-…): su crédito guarda el saldo. Se
+ * busca primero el cliente y luego su factura, entre las que de verdad
+ * admiten pagos (no anuladas, con crédito activo y saldo). Si el modal se
+ * abre desde un crédito (`creditoFijo`), la factura es la de ese crédito.
  *
- * La ficha exige validar la consignación antes de aprobar un abono, así
- * que el pantallazo del comprobante es obligatorio cuando el pago entra
- * por transferencia.
- *
- * El abono nace "Pendiente": el saldo del crédito solo baja cuando un
- * asesor lo confirma en el módulo de Abonos.
+ * Al guardar, la API registra el abono como confirmado y resta el saldo en
+ * la misma operación (si algo falla, no queda ninguno de los dos). El monto
+ * no puede superar el saldo; el pantallazo es obligatorio en transferencia.
  */
 export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose }) {
   // Una clave por formulario abierto: si el envío se repite, no se duplica el abono
   const [claveIdempotencia] = useState(nuevaClaveIdempotencia);
-  const [credito, setCredito] = useState(creditoFijo);
+  const clientes = useRecurso(clientesService);
+  const opcionesCliente = useMemo(() => opcionesClientes(clientes.filas), [clientes.filas]);
+  const [clienteId, setClienteId] = useState(creditoFijo?.clienteId ?? '');
+  const [facturas, setFacturas] = useState([]);
+  const [cargandoFacturas, setCargandoFacturas] = useState(Boolean(creditoFijo?.clienteId));
+  const [errorFacturas, setErrorFacturas] = useState('');
+  const [facturaNumero, setFacturaNumero] = useState(creditoFijo?.venta || '');
   const [comprobante, setComprobante] = useState('');
   const archivo = useRef(null);
   const [monto, setMonto] = useState('');
@@ -47,8 +51,33 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
   const [recortado, setRecortado] = useState(false);
   const { enviando, errorEnvio, enviar } = useEnvio();
 
+  // Facturas del cliente elegido (se vuelven a pedir si cambia el cliente)
+  useEffect(() => {
+    if (!clienteId) return undefined;
+    let vigente = true;
+    abonosService
+      .facturas(clienteId)
+      .then((filas) => vigente && setFacturas(filas))
+      .catch((e) => vigente && setErrorFacturas(e.message))
+      .finally(() => vigente && setCargandoFacturas(false));
+    return () => {
+      vigente = false;
+    };
+  }, [clienteId]);
+
+  const factura = facturas.find((f) => f.numero === facturaNumero) ?? null;
+  const opcionesFactura = useMemo(
+    () =>
+      facturas.map((f) => ({
+        valor: f.numero,
+        etiqueta: `${f.numero} · ${f.cliente}`,
+        detalle: `Saldo ${formatCOP(f.saldoPendiente)} · ${f.fecha} · Crédito ${f.credito}`,
+      })),
+    [facturas],
+  );
+
   const valor = parseCOP(monto);
-  const saldoActual = credito ? parseCOP(credito.saldoPendiente) : 0;
+  const saldoActual = factura ? factura.saldoPendiente : 0;
   const saldoNuevo = Math.max(0, saldoActual - valor);
 
   // El pantallazo solo tiene sentido en transferencia: el efectivo se paga
@@ -77,7 +106,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
    */
   const escribirMonto = (texto) => {
     const limpio = formatoMiles(texto);
-    if (credito && parseCOP(limpio) > saldoActual) {
+    if (factura && parseCOP(limpio) > saldoActual) {
       setMonto(formatoMiles(String(saldoActual)));
       setRecortado(true);
     } else {
@@ -90,7 +119,8 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
   // Reglas del formulario: se revisan en vivo mientras el usuario escribe
   const { errores, tocar, validar } = useValidacion(() => {
     const next = {};
-    if (!credito) next.credito = 'Selecciona el crédito que se está abonando';
+    if (!clienteId) next.cliente = 'Busca y selecciona el cliente';
+    if (!factura) next.factura = 'Selecciona la factura que se está pagando';
     if (!valor) next.monto = 'Indica el monto pagado';
     if (!metodo) next.metodo = 'Selecciona el método de pago';
     if (requiereComprobante && !comprobante) next.comprobante = 'Adjunta el comprobante del pago';
@@ -101,10 +131,9 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
   const guardar = (close) => {
     if (!validar()) return;
 
-    // `credito` dice a qué crédito va; el resto es el cuerpo para la API
-    // (POST /api/creditos/:numero/abonos). La fecha la pone el servidor.
+    // POST /api/abonos con la factura; la fecha la pone el servidor
     const datos = {
-      credito: credito.id,
+      factura: factura.numero,
       monto: valor,
       medioPago: metodo,
       comprobante: requiereComprobante ? comprobante : null,
@@ -116,7 +145,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
   return (
     <Modal
       title="Nuevo abono"
-      subtitle="Registra un pago sobre un crédito vigente."
+      subtitle="Registra un pago sobre una factura (venta a crédito) con saldo."
       icon={<Wallet size={17} />}
       size="xl"
       onClose={onClose}
@@ -131,7 +160,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
           </button>
           <button
             type="button"
-            disabled={enviando}
+            disabled={enviando || !factura}
             onClick={() => guardar(close)}
             className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
           >
@@ -143,43 +172,92 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
       <div className="space-y-6">
         <AvisoError mensaje={errorEnvio} />
 
-        {/* ---- Crédito abonado ---- */}
+        {/* ---- Factura que se paga ---- */}
         <section>
           <div className="mb-3 flex items-center gap-3">
-            <span className={SECTION}>Crédito abonado</span>
+            <span className={SECTION}>Factura</span>
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           </div>
 
-          {creditoFijo ? (
-            // Abierto desde la cartera: el crédito ya está decidido
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+          {creditoFijo && !creditoFijo.venta ? (
+            // Un crédito aprobado tiene factura cuando su pedido se completa
+            <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+              Este crédito todavía no tiene factura: la venta se genera cuando su cotización se completa. Hasta
+              entonces, el cliente puede subir sus abonos desde el portal.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-white">{creditoFijo.id}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{creditoFijo.cliente}</p>
+                <label htmlFor="ab-cliente" className={LABEL}>
+                  Cliente <span className="text-red-500">*</span>
+                </label>
+                {creditoFijo ? (
+                  <div className={`${CAMPO} ${BORDE_OK}`}>{creditoFijo.cliente}</div>
+                ) : (
+                  <SearchSelect
+                    id="ab-cliente"
+                    value={clienteId}
+                    options={opcionesCliente}
+                    onChange={(id) => {
+                      // Otra persona: la factura elegida ya no aplica
+                      setClienteId(id);
+                      setFacturaNumero('');
+                      setFacturas([]);
+                      setErrorFacturas('');
+                      setCargandoFacturas(true);
+                      tocar('cliente');
+                    }}
+                    placeholder={clientes.cargando ? 'Cargando clientes…' : 'Buscar cliente…'}
+                    placeholderBusqueda="Nombre o número de documento"
+                    error={Boolean(errores.cliente)}
+                  />
+                )}
+                {errores.cliente && <p className="mt-1 text-xs font-medium text-red-500">{errores.cliente}</p>}
               </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  Saldo pendiente
-                </p>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                  {creditoFijo.saldoPendiente}
-                </p>
+
+              <div>
+                <label htmlFor="ab-factura" className={LABEL}>
+                  Factura <span className="text-red-500">*</span>
+                </label>
+                {cargandoFacturas ? (
+                  <div className={`${CAMPO} ${BORDE_OK} flex items-center gap-2 text-slate-400`}>
+                    <LoaderCircle size={14} className="animate-spin" /> Cargando facturas…
+                  </div>
+                ) : creditoFijo ? (
+                  <div className={`${CAMPO} ${BORDE_OK}`}>{creditoFijo.venta}</div>
+                ) : (
+                  <SearchSelect
+                    id="ab-factura"
+                    value={facturaNumero}
+                    options={opcionesFactura}
+                    onChange={(numero) => {
+                      setFacturaNumero(numero);
+                      const elegida = facturas.find((f) => f.numero === numero);
+                      // El monto escrito antes puede no caber en el saldo de esta factura
+                      if (elegida && parseCOP(monto) > elegida.saldoPendiente) {
+                        setMonto(formatoMiles(String(elegida.saldoPendiente)));
+                        setRecortado(true);
+                      }
+                      tocar('factura');
+                    }}
+                    placeholder={clienteId ? 'Buscar factura…' : 'Primero elige el cliente'}
+                    placeholderBusqueda="Número de la venta (VEN-…)"
+                    error={Boolean(errores.factura)}
+                  />
+                )}
+                {errorFacturas ? (
+                  <p className="mt-1 text-xs font-medium text-red-500">{errorFacturas}</p>
+                ) : errores.factura ? (
+                  <p className="mt-1 text-xs font-medium text-red-500">{errores.factura}</p>
+                ) : (
+                  clienteId &&
+                  !cargandoFacturas &&
+                  facturas.length === 0 && (
+                    <p className="mt-1 text-xs text-slate-400">Este cliente no tiene facturas con saldo pendiente.</p>
+                  )
+                )}
               </div>
             </div>
-          ) : (
-          <SelectorCreditos
-            value={credito?.id ?? ''}
-            onChange={(c) => {
-              setCredito(c);
-              // El monto escrito antes puede no caber en el nuevo crédito
-              if (parseCOP(monto) > parseCOP(c.saldoPendiente)) {
-                setMonto(formatoMiles(String(parseCOP(c.saldoPendiente))));
-                setRecortado(true);
-              }
-              tocar('credito');
-            }}
-            error={errores.credito}
-          />
           )}
         </section>
 
@@ -291,13 +369,13 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
           )}
 
           {/* El saldo no se captura: se muestra ya calculado */}
-          {credito && (
+          {factura && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                   Saldo actual
                 </p>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{credito.saldoPendiente}</p>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{formatCOP(saldoActual)}</p>
               </div>
               <ChevronDown size={16} className="-rotate-90 text-slate-300 dark:text-slate-600" />
               <div className="text-right">

@@ -1,6 +1,7 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import Logo from '../Logo';
+import { TELEFONO_EMPRESA, WHATSAPP_EMPRESA } from '../../../config';
 
 const NAV_LINKS = [
   { label: 'Catálogo de llantas', href: '#catalogo' },
@@ -11,12 +12,12 @@ const NAV_LINKS = [
 
 const CONTACT_ITEMS = [
   { icon: MapPin, text: 'Calle 34 #81-27, Medellín' },
-  { icon: Phone, text: '+57 310 897 69 43' },
+  { icon: Phone, text: TELEFONO_EMPRESA },
   { icon: Mail, text: 'contabilidadmirallantas@gmail.com' },
 ];
 
 const SOCIAL_LINKS = [
-  { icon: FaWhatsapp, label: 'WhatsApp', href: '#', className: 'bg-brand-whatsapp' },
+  { icon: FaWhatsapp, label: 'WhatsApp', href: `https://wa.me/${WHATSAPP_EMPRESA}`, className: 'bg-brand-whatsapp' },
   { icon: FaFacebookF, label: 'Facebook', href: '#', className: 'bg-brand-facebook' },
   { icon: FaInstagram, label: 'Instagram', href: '#', className: 'bg-brand-instagram' },
 ];

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Disc3, Info, Minus, Pencil, Plus, Send, ShoppingCart, Trash2, Wrench, X } from 'lucide-react';
+import { Disc3, Minus, Pencil, Plus, Send, ShoppingCart, Trash2, Wrench, X } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import FormModal from '../../components/base/FormModal';
 import TireThumb from '../../components/base/TireThumb';
-import { BORDER_OK, INPUT, SECTION as SECTION_TEXT, soloDigitos } from '../../components/base/formStyles';
-import { PLAZO_RESPUESTA_HORAS, SERVICIO_POR_DEFECTO } from '../../constantes';
+import { BORDER_ERR, BORDER_OK, INPUT, SECTION as SECTION_TEXT, soloDigitos } from '../../components/base/formStyles';
+import { WHATSAPP_EMPRESA } from '../../config';
+import { enlaceWhatsApp, mensajeCotizacion } from '../../utils/whatsapp';
+import { SERVICIO_POR_DEFECTO } from '../../constantes';
 import { useAuth } from '../../context/AuthContext';
 import { CANTIDAD_MAXIMA, useCart } from '../../context/CartContext';
 import { usePortal } from '../../context/PortalContext';
@@ -19,10 +22,16 @@ import CotizacionEnviadaModal from './CotizacionEnviadaModal';
  * Carro de cotización del cliente (columna derecha del catálogo).
  *
  * Muestra las llantas y servicios elegidos con su cantidad, que se puede
- * cambiar o quitar. No muestra precios, subtotales, totales ni stock:
- * enviar el carro registra una SOLICITUD de cotización; un asesor confirma
- * los precios con los proveedores y emite la cotización formal, que el
- * cliente acepta después eligiendo cómo pagar.
+ * cambiar o quitar, y el lugar de despacho (por defecto la dirección del
+ * perfil; se puede cambiar solo para esta solicitud). No muestra precios,
+ * subtotales, totales ni stock.
+ *
+ * Dos formas de pedir la cotización:
+ *   - "Enviar solicitud": la registra en el sistema; un asesor verifica
+ *     los precios y emite la cotización formal.
+ *   - "Solicitar por WhatsApp": abre WhatsApp con el mensaje escrito (nombre,
+ *     lugar de despacho y productos con cantidades, sin precios). El envío
+ *     lo hace el cliente desde WhatsApp: aquí no se da por enviado.
  *
  * El envío lleva una clave anti-duplicados: un doble clic o un reintento no
  * crea dos solicitudes. El aviso de confirmación solo aparece cuando la API
@@ -42,8 +51,18 @@ export default function PedidoPanel({ onClose = null }) {
   const [enviada, setEnviada] = useState(null);
   const [claveIdempotencia, setClaveIdempotencia] = useState(nuevaClaveIdempotencia);
   const [aviso, setAviso] = useState('');
+  // Lugar de despacho: la dirección del perfil, editable solo para esta solicitud
+  const [lugar, setLugar] = useState(usuario.direccion ?? '');
+  const [lugarTocado, setLugarTocado] = useState(false);
+  const [whatsappAbierto, setWhatsappAbierto] = useState(false);
 
   const vacio = cart.count === 0;
+  const lugarLimpio = lugar.trim();
+  const errorLugar = !lugarLimpio
+    ? 'Indica dónde quieres recibir o recoger el pedido'
+    : lugarLimpio.length > 200
+      ? 'Máximo 200 caracteres'
+      : '';
 
   /** Guarda el servicio del formulario: uno nuevo o los cambios de uno existente. */
   const guardarServicio = (values) => {
@@ -60,15 +79,12 @@ export default function PedidoPanel({ onClose = null }) {
   };
 
   const enviarSolicitud = () => {
-    // La dirección de despacho es la del perfil del cliente
-    if (!usuario.direccion) {
-      setAviso('Agrega tu dirección en "Mi perfil" para saber a dónde despachar el pedido.');
-      return;
-    }
+    setLugarTocado(true);
+    if (errorLugar) return;
     setAviso('');
     enviar(async () => {
       const { datos: solicitud } = await cotizacionesService.crearDesdePortal({
-        direccion: usuario.direccion,
+        direccion: lugarLimpio,
         productos: cart.productos,
         servicios: cart.servicios,
         claveIdempotencia,
@@ -77,6 +93,24 @@ export default function PedidoPanel({ onClose = null }) {
       await recargar();
       setEnviada(solicitud.numero);
     });
+  };
+
+  /**
+   * Abre WhatsApp con el mensaje ya escrito. Solo lo abre: el cliente lo
+   * revisa y lo envía desde WhatsApp, así que aquí no se limpia el carro ni
+   * se dice que se envió.
+   */
+  const solicitarPorWhatsApp = () => {
+    setLugarTocado(true);
+    if (errorLugar) return;
+    const texto = mensajeCotizacion({
+      nombre: usuario.nombre,
+      lugar: lugarLimpio,
+      productos: cart.productos,
+      servicios: cart.servicios,
+    });
+    window.open(enlaceWhatsApp(WHATSAPP_EMPRESA, texto), '_blank', 'noopener,noreferrer');
+    setWhatsappAbierto(true);
   };
 
   /** Al cerrar el aviso, el carro se limpia y se va a "Mis cotizaciones". */
@@ -228,11 +262,20 @@ export default function PedidoPanel({ onClose = null }) {
 
       {/* ================= Envío de la solicitud ================= */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800">
-        <p className={SECTION_TEXT}>Solicitud de cotización</p>
-        <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-          <Info size={14} className="mt-px shrink-0 text-amber-500" />
-          No es una compra: confirmamos los precios con nuestros proveedores y te enviamos la cotización formal en
-          hasta {PLAZO_RESPUESTA_HORAS} horas. Ahí eliges si pagas de contado o a crédito.
+        <label htmlFor="pp-lugar" className={SECTION_TEXT}>
+          Lugar de despacho
+        </label>
+        <input
+          id="pp-lugar"
+          value={lugar}
+          onChange={(e) => setLugar(e.target.value)}
+          onBlur={() => setLugarTocado(true)}
+          placeholder="Calle 50 #45-12, Medellín"
+          aria-invalid={lugarTocado && Boolean(errorLugar)}
+          className={`${INPUT} ${lugarTocado && errorLugar ? BORDER_ERR : BORDER_OK} mt-2`}
+        />
+        <p className={`mt-1 text-xs ${lugarTocado && errorLugar ? 'font-medium text-red-500' : 'text-slate-400 dark:text-slate-500'}`}>
+          {lugarTocado && errorLugar ? errorLugar : 'Viene de tu perfil; cámbialo solo si esta vez es otro lugar.'}
         </p>
 
         <div className="mt-5 space-y-2">
@@ -244,6 +287,18 @@ export default function PedidoPanel({ onClose = null }) {
           >
             <Send size={16} /> {enviando ? 'Enviando…' : 'Enviar solicitud de cotización'}
           </button>
+          <button
+            onClick={solicitarPorWhatsApp}
+            disabled={vacio}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-whatsapp px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <FaWhatsapp size={17} /> Solicitar por WhatsApp
+          </button>
+          {whatsappAbierto && (
+            <p role="status" className="text-xs text-slate-500 dark:text-slate-400">
+              Abrimos WhatsApp con tu mensaje. Revísalo y pulsa enviar allí para que lo recibamos.
+            </p>
+          )}
           <button
             onClick={() => (onClose ? onClose() : navigate('/portal/catalogo'))}
             className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"

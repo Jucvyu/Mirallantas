@@ -110,16 +110,17 @@ export async function lineas(cotizacionId, db = POOL) {
 }
 
 /**
- * Guarda en una línea de producto el costo confirmado con el proveedor
- * (con fecha y usuario) y el precio de venta definitivo.
+ * Guarda en una línea de producto el proveedor con el que se verificó el
+ * precio (con fecha y usuario) y el precio de venta definitivo. El costo
+ * ya no se pide en la emisión: si había uno de antes, se conserva.
  */
-export async function confirmarLinea(db, lineaId, { proveedorId, costoProveedor, precioUnitario, usuarioId }) {
+export async function confirmarLinea(db, lineaId, { proveedorId, precioUnitario, usuarioId }) {
   await db.query(
     `UPDATE cotizacion_detalle
-        SET proveedor_id = $2, costo_proveedor = $3, costo_confirmado_en = now(), costo_confirmado_por = $4,
-            precio_unitario = $5::bigint, subtotal = $5::bigint * cantidad
+        SET proveedor_id = $2, costo_confirmado_en = now(), costo_confirmado_por = $3,
+            precio_unitario = $4::bigint, subtotal = $4::bigint * cantidad
       WHERE id = $1`,
-    [lineaId, proveedorId, costoProveedor, usuarioId, precioUnitario],
+    [lineaId, proveedorId, usuarioId, precioUnitario],
   );
 }
 

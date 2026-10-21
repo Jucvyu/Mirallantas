@@ -2,19 +2,24 @@ import { query } from '../db.js';
 import { actualizarCampos, consultarListado } from './listado.model.js';
 
 /**
- * Modelo de abonos (tabla `abono`). Un abono nace "Pendiente"; el saldo
- * del crédito baja solo cuando un asesor lo confirma.
+ * Modelo de abonos (tabla `abono`). El abono que sube un cliente nace
+ * "Pendiente" (el saldo baja cuando un asesor lo confirma); el que registra
+ * el asesor sobre una factura nace "Confirmado" y baja el saldo en el acto.
+ *
+ * La "factura" de un abono es la venta a crédito: su crédito guarda el
+ * saldo pendiente (credito.venta_id).
  */
 
 const SELECT_ABONO = `
   a.id, a.numero, a.fecha, a.monto, a.medio_pago AS "medioPago",
   a.comprobante_url AS "comprobanteUrl", a.estado, a.motivo_rechazo AS "motivoRechazo",
-  cr.numero AS credito, cl.nombre_completo AS cliente`;
+  cr.numero AS credito, v.numero AS factura, cl.nombre_completo AS cliente`;
 
 const DESDE = `
   FROM abono a
   JOIN credito cr ON cr.id = a.credito_id
-  JOIN cliente cl ON cl.id = cr.cliente_id`;
+  JOIN cliente cl ON cl.id = cr.cliente_id
+  LEFT JOIN venta v ON v.id = cr.venta_id`;
 
 /** Listado → { filas, total } */
 export function listar(parametros) {
@@ -83,4 +88,44 @@ export async function numeroPorClave(db, creditoId, clave) {
 /** Actualiza las columnas indicadas: pares [['columna', valor], …]. */
 export function actualizar(db, id, pares) {
   return actualizarCampos(db, 'abono', id, pares);
+}
+
+// ---- Facturas (ventas a crédito) ---------------------------------------------------
+
+/**
+ * Facturas que admiten abonos: ventas a crédito no anuladas cuyo crédito
+ * está activo y con saldo. `clienteId` limita a las de un cliente.
+ */
+export async function facturasConSaldo({ clienteId } = {}) {
+  const { rows } = await query(
+    `SELECT v.numero, v.fecha, v.total, cl.id AS "clienteId", cl.nombre_completo AS cliente,
+            cl.tipo_documento AS "tipoDocumento", cl.numero_documento AS "numeroDocumento",
+            cr.numero AS credito, cr.saldo_pendiente AS "saldoPendiente"
+       FROM venta v
+       JOIN credito cr ON cr.venta_id = v.id
+       JOIN cliente cl ON cl.id = v.cliente_id
+      WHERE v.estado <> 'Anulada' AND cr.activo AND cr.saldo_pendiente > 0
+        AND ($1::int IS NULL OR v.cliente_id = $1)
+      ORDER BY v.fecha DESC, v.id DESC`,
+    [clienteId ?? null],
+  );
+  return rows;
+}
+
+/**
+ * Factura con su crédito, ambos bloqueados hasta el fin de la transacción:
+ * dos abonos a la vez sobre la misma factura esperan su turno y ninguno
+ * puede dejar el saldo en negativo.
+ */
+export async function facturaBloqueada(db, numeroVenta) {
+  const { rows } = await db.query(
+    `SELECT v.id AS venta_id, v.numero, v.estado, cr.id AS credito_id, cr.numero AS credito,
+            cr.activo, cr.saldo_pendiente, cr.cliente_id
+       FROM venta v
+       JOIN credito cr ON cr.venta_id = v.id
+      WHERE v.numero = $1
+      FOR UPDATE OF v, cr`,
+    [numeroVenta],
+  );
+  return rows[0] ?? null;
 }

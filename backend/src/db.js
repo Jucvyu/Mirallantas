@@ -23,10 +23,20 @@ export const pool = new Pool({
   connectionString: config.databaseUrl,
   ssl: opcionesSsl(config.databaseSsl),
   max: 10,
-  // Cada conexión trabaja en la hora de Colombia (CURRENT_DATE es "hoy"
-  // aquí) y corta cualquier consulta que tarde más de 15 segundos, para que
-  // una petición abusiva no deje la base ocupada.
-  options: `-c timezone=${config.zonaHoraria} -c statement_timeout=15000`,
+});
+
+// Cada conexión nueva trabaja en la hora de Colombia (CURRENT_DATE es "hoy"
+// aquí) y corta cualquier consulta que tarde más de 15 segundos, para que
+// una petición abusiva no deje la base ocupada. Se fija con una consulta (y
+// no con parámetros de arranque) porque los "poolers" de las bases en la
+// nube, como el de Supabase, no siempre los aceptan. pg ejecuta esta consulta
+// antes que cualquier otra del mismo cliente.
+pool.on('connect', (cliente) => {
+  cliente
+    .query("SELECT set_config('TimeZone', $1, false), set_config('statement_timeout', '15000', false)", [
+      config.zonaHoraria,
+    ])
+    .catch((error) => console.error('No se pudo preparar la conexión a la base:', error.message));
 });
 
 /** Atajo para consultas sueltas. */

@@ -1,23 +1,24 @@
 import { enviarDato, enviarLista } from './respuesta.view.js';
 
 /**
- * Vista de productos. Al cliente del portal no se le envía el costo
- * (precio de compra) ni el precio de venta exacto: solo el rango de precio
- * orientativo (precioMinimo – precioMaximo). El precio definitivo se lo da
- * la cotización formal.
+ * Vista de productos. El catálogo y la gestión de productos no llevan
+ * precios ni costos (el modelo no los consulta); el catálogo público,
+ * además, solo envía los datos que ve un visitante.
  */
 
-/** Deja solo los datos públicos si quien pregunta es un cliente del portal. */
-export function paraSesion(producto, esCliente) {
-  if (!esCliente) return producto;
-  const { precioCompra: _costo, precioVenta: _precio, ...publico } = producto;
-  return publico;
+const PUBLICOS = ['id', 'codigo', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto'];
+
+/** Solo los campos públicos de un producto (catálogo sin sesión). */
+const publico = (p) => Object.fromEntries(PUBLICOS.map((campo) => [campo, p[campo] ?? null]));
+
+export function enviarCatalogo(res, { filas, total, pagina, porPagina }) {
+  enviarLista(res, { filas, total, pagina, porPagina });
 }
 
-export function enviarCatalogo(res, { filas, total, pagina, porPagina }, esCliente) {
-  enviarLista(res, { filas: filas.map((p) => paraSesion(p, esCliente)), total, pagina, porPagina });
+export function enviarCatalogoPublico(res, { filas, total, pagina, porPagina }) {
+  enviarLista(res, { filas: filas.map(publico), total, pagina, porPagina });
 }
 
-export function enviarProducto(res, producto, esCliente = false, estado = 200) {
-  enviarDato(res, paraSesion(producto, esCliente), estado);
+export function enviarProducto(res, producto, estado = 200) {
+  enviarDato(res, producto, estado);
 }

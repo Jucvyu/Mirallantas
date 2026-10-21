@@ -8,7 +8,6 @@ import {
   cuotaMinimaDe,
   INTERES_POR_PLAZO,
   MEDIOS_PAGO_CLIENTE,
-  mediosPago,
   PLAZOS_CREDITO,
 } from '../../constantes';
 import { useEnvio } from '../../hooks/useEnvio';
@@ -30,9 +29,10 @@ const fechaCorta = (f) => (f ? f.slice(0, 10).split('-').reverse().join('/') : '
  *             menos el 30 % del total; el resto se financia y queda una
  *             solicitud de crédito para que el asesor la apruebe.
  *
- * Lo usa el cliente desde su portal (`desdePortal`: solo efectivo o
- * transferencia) y el asesor en el local. Los valores de aquí son una vista
- * previa: la API recalcula todo con los precios guardados.
+ * Lo usa el cliente desde su portal (`desdePortal`) y el asesor en el local.
+ * En los dos casos solo se ofrece efectivo o transferencia (tarjeta y
+ * "otro" no aplican a este flujo; la API también lo exige). Los valores de
+ * aquí son una vista previa: la API recalcula todo con los precios guardados.
  */
 export default function AceptarCotizacionModal({ cotizacion, desdePortal = false, onAceptada, onClose }) {
   const { enviando, errorEnvio, enviar } = useEnvio();
@@ -48,7 +48,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
   const total = subtotal + interes;
   const cuotaMinima = esCredito ? cuotaMinimaDe(total) : 0;
   const cuota = cuotaTexto === '' ? cuotaMinima : aNumero(cuotaTexto);
-  const medios = desdePortal ? MEDIOS_PAGO_CLIENTE : mediosPago;
+  const medios = MEDIOS_PAGO_CLIENTE;
 
   // Errores (se muestran después del primer intento)
   const errores = {};

@@ -89,20 +89,17 @@ describe('Solicitud de cotización desde el portal', () => {
   });
 });
 
-describe('Cotización formal: precios confirmados con el proveedor', () => {
-  test('exige el costo confirmado de cada llanta y que el precio no quede por debajo', async () => {
+describe('Cotización formal: precios verificados con el proveedor', () => {
+  test('exige el proveedor y el precio de venta de cada llanta (ya no el costo)', async () => {
     const detalle = (await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin })).cuerpo.datos.detalle;
     const llanta = detalle.find((l) => l.tipo === 'producto');
     t.lineaLuis = llanta.id;
-    assert.equal(llanta.costoConfirmadoEn, null, 'todavía no hay un costo confirmado');
+    assert.equal(llanta.costoConfirmadoEn, null, 'todavía no se ha verificado');
 
     const emitirCon = (lineas) => e.api(`/cotizaciones/${t.cotizacionLuis}/emitir`, { metodo: 'POST', token: t.admin, cuerpo: { lineas } });
     assert.equal((await emitirCon([])).estado, 422);
-    const sinCosto = await emitirCon([{ id: llanta.id, proveedorId: 1, precioUnitario: 280000 }]);
-    assert.equal(sinCosto.estado, 422);
-    const conPerdida = await emitirCon([{ id: llanta.id, proveedorId: 1, costoProveedor: 300000, precioUnitario: 280000 }]);
-    assert.equal(conPerdida.estado, 422);
-    assert.match(conPerdida.cuerpo.error, /menor que el costo/);
+    assert.equal((await emitirCon([{ id: llanta.id, precioUnitario: 280000 }])).estado, 422, 'falta el proveedor');
+    assert.equal((await emitirCon([{ id: llanta.id, proveedorId: 1 }])).estado, 422, 'falta el precio');
   });
 
   test('emitida: guarda los precios, vence a los 8 días y avisa al cliente', async () => {
@@ -114,8 +111,9 @@ describe('Cotización formal: precios confirmados con el proveedor', () => {
     assert.equal(c.total, 560000);
     const linea = c.detalle.find((l) => l.id === t.lineaLuis);
     assert.equal(linea.precioUnitario, 280000);
-    assert.equal(linea.costoProveedor, 210000);
-    assert.ok(linea.costoConfirmadoEn, 'queda la fecha de confirmación');
+    assert.equal(linea.costoProveedor, null, 'no se inventa un costo');
+    assert.equal(linea.proveedorLineaId, 1);
+    assert.ok(linea.costoConfirmadoEn, 'queda la fecha de verificación');
 
     const { rows } = await e.db.query(
       "SELECT vence_en - emitida_en AS dias, emitida_en = CURRENT_DATE AS hoy FROM cotizacion WHERE numero = $1",
@@ -136,10 +134,10 @@ describe('Cotización formal: precios confirmados con el proveedor', () => {
   });
 
   test('si cambia el precio del catálogo, la cotización emitida no cambia', async () => {
-    await e.api('/productos/1', { metodo: 'PUT', token: t.admin, cuerpo: { precioVenta: 999000 } });
+    await e.db.query('UPDATE producto SET precio_venta = 999000 WHERE id = 1');
     const r = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin });
     assert.equal(r.cuerpo.datos.subtotal, 560000);
-    await e.api('/productos/1', { metodo: 'PUT', token: t.admin, cuerpo: { precioVenta: 280000 } });
+    await e.db.query('UPDATE producto SET precio_venta = 280000 WHERE id = 1');
   });
 
   test('genera el PDF de la cotización formal', async () => {
@@ -470,9 +468,8 @@ describe('Compras', () => {
     });
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
     const [confirmada, adicional] = r.cuerpo.datos.detalle;
-    assert.equal(confirmada.costoConfirmado, 210000);
-    assert.ok(confirmada.costoConfirmadoEn);
-    assert.equal(adicional.costoConfirmado, null, 'precio sin confirmar');
+    assert.ok(confirmada.costoConfirmadoEn, 'la llanta se verificó con el proveedor');
+    assert.equal(adicional.costoConfirmadoEn, null, 'precio sin verificar');
   });
 
   test('un cliente del portal no ve compras', async () => {

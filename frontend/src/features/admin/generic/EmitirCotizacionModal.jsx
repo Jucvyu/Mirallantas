@@ -21,14 +21,11 @@ const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CO') : '');
 /**
  * "Confirmar precios y emitir" (Pedidos-Cotización).
  *
- * Por cada llanta de la solicitud el asesor registra:
- *   - el proveedor que la surte,
- *   - el costo que ese proveedor le CONFIRMÓ hoy (no se llena solo con un
- *     costo viejo: el último costo de compra solo se muestra como
- *     referencia),
- *   - el precio de venta definitivo (se sugiere el del catálogo),
- * y marca que verificó el costo. Con todo confirmado, la API emite la
- * cotización formal con vigencia de 8 días calendario.
+ * Por cada llanta de la solicitud el asesor registra el proveedor con el
+ * que verificó el precio y el precio de venta definitivo (se sugiere el del
+ * catálogo, si tiene), y marca que lo verificó hoy. Con todo listo, la API
+ * emite la cotización formal con vigencia de 8 días calendario. El costo
+ * del proveedor ya no se pide aquí.
  */
 export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, onClose }) {
   const { documento, cargando, error } = useDetalle({ ...inicial, detalle: undefined }, cotizacionesService);
@@ -41,9 +38,8 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
 
   const llantas = useMemo(() => (documento.detalle ?? []).filter((l) => l.tipo === 'producto'), [documento.detalle]);
 
-  // Valores de cada línea: lo que escribió el asesor o, si no, lo confirmado
-  // antes (si se re-emite) o el proveedor de la cotización y el precio del
-  // catálogo como sugerencia. El costo nunca se llena con un costo viejo.
+  // Valores de cada línea: lo que escribió el asesor o, si no, lo de antes
+  // (si se re-emite) o el proveedor de la cotización y el precio sugerido.
   const filas = useMemo(
     () =>
       Object.fromEntries(
@@ -51,8 +47,8 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
           l.lineaId,
           {
             proveedorId: l.proveedorLineaId ?? inicial.proveedorId ?? '',
-            costo: l.costoProveedor ? formatoMiles(String(l.costoProveedor)) : '',
-            precio: formatoMiles(String(l.precioUnitarioValor ?? l.precioSugerido ?? '')),
+            // Un precio sugerido en 0 (productos sin precio de lista) se deja vacío
+            precio: formatoMiles(String(l.precioUnitarioValor || l.precioSugerido || '')),
             verificado: false,
             ...ediciones[l.lineaId],
           },
@@ -66,14 +62,11 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
   /** Errores de una línea (se muestran después del primer intento). */
   const erroresDe = (l) => {
     const f = filas[l.lineaId] ?? {};
-    const costo = aNumero(f.costo);
     const precio = aNumero(f.precio);
     const e = {};
     if (!f.proveedorId) e.proveedor = 'Elige el proveedor';
-    if (costo <= 0) e.costo = 'Escribe el costo que confirmó el proveedor';
     if (precio <= 0) e.precio = 'Escribe el precio de venta';
-    else if (costo > 0 && precio < costo) e.precio = 'El precio de venta no puede ser menor que el costo';
-    if (!f.verificado) e.verificado = 'Confirma que verificaste el costo con el proveedor';
+    if (!f.verificado) e.verificado = 'Confirma que verificaste el precio con el proveedor';
     return e;
   };
 
@@ -89,7 +82,6 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
         llantas.map((l) => ({
           id: l.lineaId,
           proveedorId: filas[l.lineaId].proveedorId,
-          costoProveedor: aNumero(filas[l.lineaId].costo),
           precioUnitario: aNumero(filas[l.lineaId].precio),
         })),
       );
@@ -149,11 +141,11 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                 </div>
                 {l.costoConfirmadoEn && (
                   <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-                    Costo confirmado antes el {fecha(l.costoConfirmadoEn)} con {l.proveedorLinea}: vuelve a verificarlo.
+                    Verificado antes el {fecha(l.costoConfirmadoEn)} con {l.proveedorLinea}: vuelve a verificarlo.
                   </p>
                 )}
 
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <span className={LABEL}>Proveedor</span>
                     <SearchSelect
@@ -164,26 +156,6 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                       error={Boolean(e.proveedor)}
                     />
                     {e.proveedor && <p className="mt-1 text-xs text-red-500">{e.proveedor}</p>}
-                  </div>
-                  <div>
-                    <label className={LABEL} htmlFor={`costo-${l.lineaId}`}>
-                      Costo confirmado (c/u)
-                    </label>
-                    <input
-                      id={`costo-${l.lineaId}`}
-                      inputMode="numeric"
-                      value={f.costo ?? ''}
-                      onChange={(ev) => cambiar(l.lineaId, { costo: formatoMiles(ev.target.value) })}
-                      placeholder="Lo que confirmó el proveedor"
-                      className={`${INPUT} ${e.costo ? BORDER_ERR : BORDER_OK}`}
-                    />
-                    {e.costo ? (
-                      <p className="mt-1 text-xs text-red-500">{e.costo}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Último costo de compra: {l.ultimoCosto ? formatCOP(l.ultimoCosto) : 'sin registro'} (referencia, sin confirmar)
-                      </p>
-                    )}
                   </div>
                   <div>
                     <label className={LABEL} htmlFor={`precio-${l.lineaId}`}>
@@ -213,7 +185,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                     onChange={(ev) => cambiar(l.lineaId, { verificado: ev.target.checked })}
                     className="mt-0.5 h-4 w-4 accent-amber-500"
                   />
-                  Verifiqué hoy este costo con el proveedor.
+                  Verifiqué hoy el precio de esta llanta con el proveedor.
                 </label>
                 {e.verificado && <p className="mt-1 text-xs text-red-500">{e.verificado}</p>}
               </li>

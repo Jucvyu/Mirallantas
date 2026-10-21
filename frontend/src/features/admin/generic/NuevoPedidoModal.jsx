@@ -10,8 +10,8 @@ import { PLAZO_RESPUESTA_HORAS, SERVICIO_POR_DEFECTO } from '../../../constantes
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { clientesService, proveedoresService, serviciosService } from '../../../services';
-import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
+import { clientesService, serviciosService } from '../../../services';
+import { opcionesClientes } from '../../../utils/opciones';
 import { servicioInitialValues, servicioSectionsAdmin } from '../../shared/servicioSections';
 import SelectorProductosModal from '../shared/SelectorProductosModal';
 
@@ -21,20 +21,22 @@ const CANTIDAD_MAXIMA = 999;
 /**
  * "Nueva cotización" del asesor: registra la SOLICITUD.
  *
- * Solo se eligen el cliente (con buscador por nombre o documento), las
- * llantas con su cantidad y los servicios de reencauche. No lleva fecha (la
- * pone el servidor), precios, método de pago ni stock: los precios se
- * confirman con el proveedor al emitir la cotización formal, y el método de
- * pago se elige cuando el cliente la acepta.
+ * Solo se eligen el cliente (con buscador por nombre o documento), el
+ * lugar de despacho, las llantas con su cantidad y los servicios de
+ * reencauche. No lleva fecha (la pone el servidor), precios, proveedor,
+ * método de pago ni stock: los precios se verifican con el proveedor al
+ * emitir la cotización formal, y el método de pago se elige al aceptarla.
+ *
+ * El lugar de despacho toma la dirección registrada del cliente elegido y
+ * se puede cambiar solo para esta cotización: no modifica la ficha del
+ * cliente, y una cotización ya guardada conserva el suyo.
  */
 export default function NuevoPedidoModal({ onSubmit, onClose }) {
   const clientes = useRecurso(clientesService);
-  const proveedores = useRecurso(proveedoresService);
   const servicios = useRecurso(serviciosService);
   const { enviando, errorEnvio, enviar } = useEnvio();
 
   const [clienteId, setClienteId] = useState('');
-  const [proveedorId, setProveedorId] = useState('');
   const [direccion, setDireccion] = useState('');
   const [lineas, setLineas] = useState([]);
   const [servicioModal, setServicioModal] = useState(false);
@@ -43,29 +45,28 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
   const [productosModal, setProductosModal] = useState(false);
 
   const opcionesCliente = useMemo(() => opcionesClientes(clientes.filas), [clientes.filas]);
-  const opcionesProveedor = useMemo(() => opcionesEmpresas(proveedores.filas), [proveedores.filas]);
 
-  /** Al elegir el cliente se trae su dirección para el despacho. */
+  /**
+   * Al elegir (o cambiar) el cliente, el lugar de despacho pasa a ser la
+   * dirección registrada de ESE cliente: no se queda la del anterior. Si no
+   * tiene dirección, el campo queda vacío para escribirlo.
+   */
   const elegirCliente = (id) => {
     setClienteId(id);
     const ficha = clientes.filas.find((c) => c.id === id);
-    if (ficha && !direccion) setDireccion(ficha.direccion ?? '');
+    setDireccion(ficha?.direccion ?? '');
     tocar('cliente');
+    tocar('direccion');
   };
 
-  /** Una llanta ya agregada suma una unidad en vez de repetir la línea. */
-  const agregarProducto = (p) => {
+  /** Agrega las llantas elegidas en el selector; las que ya estén no se repiten. */
+  const agregarProductos = (elegidos) => {
     tocar('lineas');
-    setLineas((prev) => {
-      const existente = prev.find((l) => l.tipo === 'producto' && l.productoId === p.id);
-      if (existente) {
-        return prev.map((l) =>
-          l.id === existente.id ? { ...l, cantidad: Math.min(CANTIDAD_MAXIMA, l.cantidad + 1) } : l,
-        );
-      }
-      return [
-        ...prev,
-        {
+    setLineas((prev) => [
+      ...prev,
+      ...elegidos
+        .filter((p) => !prev.some((l) => l.tipo === 'producto' && l.productoId === p.id))
+        .map((p) => ({
           // Identificador propio de la línea (solo para la tabla)
           id: crypto.randomUUID(),
           tipo: 'producto',
@@ -73,11 +74,10 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
           nombre: p.nombre,
           codigo: p.codigo,
           medida: p.medidas,
-          detalle: `${p.codigo} · ${p.marca} · ${p.medidas}`,
+          detalle: `${p.codigo} · ${p.marca} · Medida ${p.medidas}`,
           cantidad: 1,
-        },
-      ];
-    });
+        })),
+    ]);
   };
 
   /**
@@ -122,14 +122,15 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
   const { errores: errors, tocar, validar } = useValidacion(() => {
     const next = {};
     if (!clienteId) next.cliente = 'Busca y selecciona el cliente';
-    if (!direccion.trim()) next.direccion = 'Indica la dirección de despacho';
+    if (!direccion.trim()) next.direccion = 'Indica el lugar de despacho';
+    else if (direccion.trim().length > 200) next.direccion = 'Máximo 200 caracteres';
     if (lineas.length === 0) next.lineas = 'Agrega al menos una llanta o un servicio';
     return next;
   });
 
   const guardar = (close) => {
     if (!validar()) return;
-    enviar(() => onSubmit({ clienteId, proveedorId, direccion, lineas }), close);
+    enviar(() => onSubmit({ clienteId, direccion: direccion.trim(), lineas }), close);
   };
 
   const llantas = lineas.filter((l) => l.tipo === 'producto').length;
@@ -189,23 +190,9 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
                 {errors.cliente && <p className="mt-1 text-xs font-medium text-red-500">{errors.cliente}</p>}
               </div>
 
-              <div>
-                <label htmlFor="np-proveedor" className={LABEL}>
-                  Proveedor sugerido
-                </label>
-                <SearchSelect
-                  id="np-proveedor"
-                  value={proveedorId}
-                  options={opcionesProveedor}
-                  onChange={setProveedorId}
-                  placeholder="Opcional: se confirma al emitir"
-                  placeholderBusqueda="Razón social o NIT"
-                />
-              </div>
-
               <div className="sm:col-span-2">
                 <label htmlFor="np-direccion" className={LABEL}>
-                  Dirección de despacho <span className="text-red-500">*</span>
+                  Lugar de despacho <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="np-direccion"
@@ -217,7 +204,13 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
                   placeholder="Calle 50 #45-12, Medellín"
                   className={`${FIELD} ${errors.direccion ? BORDER_ERR : BORDER_OK}`}
                 />
-                {errors.direccion && <p className="mt-1 text-xs font-medium text-red-500">{errors.direccion}</p>}
+                {errors.direccion ? (
+                  <p className="mt-1 text-xs font-medium text-red-500">{errors.direccion}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                    Se carga la dirección registrada del cliente; puedes cambiarla solo para esta cotización.
+                  </p>
+                )}
               </div>
             </div>
           </section>
@@ -358,7 +351,13 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
         />
       )}
 
-      {productosModal && <SelectorProductosModal onAgregar={agregarProducto} onClose={() => setProductosModal(false)} />}
+      {productosModal && (
+        <SelectorProductosModal
+          yaAgregados={lineas.filter((l) => l.tipo === 'producto').map((l) => l.productoId)}
+          onAgregar={agregarProductos}
+          onClose={() => setProductosModal(false)}
+        />
+      )}
     </>
   );
 }

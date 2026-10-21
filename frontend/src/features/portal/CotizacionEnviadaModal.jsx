@@ -1,9 +1,10 @@
 import { CheckCircle2, MessageCircle, Phone } from 'lucide-react';
 import Modal from '../../components/base/Modal';
 
-// Datos de contacto de la empresa (los mismos del footer de la landing).
-const TELEFONO = '+57 310 897 69 43';
-const WHATSAPP = '310 897 6943';
+import { TELEFONO_EMPRESA as TELEFONO, WHATSAPP_EMPRESA } from '../../config';
+
+// WhatsApp tal como se muestra: sin el indicativo del país
+const WHATSAPP = WHATSAPP_EMPRESA.replace(/^57/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
 
 /**
  * Aviso que se muestra SOLO cuando la API confirma que la solicitud de

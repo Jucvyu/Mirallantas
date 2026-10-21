@@ -34,18 +34,22 @@ if (esProduccion && !cloudinaryUrl) {
   throw new Error('Falta CLOUDINARY_URL: en producción las imágenes se guardan en Cloudinary.');
 }
 
-// Correo saliente (SMTP): envía los códigos para recuperar la contraseña.
-// En producción es obligatorio; en desarrollo, sin él, el código se
-// muestra en la consola de la API.
-const smtp = {
-  host: process.env.SMTP_HOST ?? '',
-  puerto: Number(process.env.SMTP_PORT ?? 587),
-  usuario: process.env.SMTP_USER ?? '',
-  password: process.env.SMTP_PASS ?? '',
+// Correo saliente con Resend (https://resend.com): por ahora solo envía el
+// enlace para recuperar la contraseña. En producción es obligatorio; en
+// desarrollo, sin clave, el enlace se muestra en la consola de la API.
+const correo = {
+  resendApiKey: process.env.RESEND_API_KEY ?? '',
+  // Debe ser de un dominio verificado en Resend, p. ej. "MiraLlantas <no-responder@tudominio.com>"
   remitente: process.env.CORREO_REMITENTE ?? '',
 };
-if (esProduccion && (!smtp.host || !smtp.usuario || !smtp.password || !smtp.remitente)) {
-  throw new Error('Faltan SMTP_HOST, SMTP_USER, SMTP_PASS o CORREO_REMITENTE: en producción se envían correos.');
+if (esProduccion && (!correo.resendApiKey || !correo.remitente)) {
+  throw new Error('Faltan RESEND_API_KEY o CORREO_REMITENTE: en producción se envía el correo de recuperación.');
+}
+
+// Dirección pública del frontend: con ella se arma el enlace del correo
+const frontendUrl = (process.env.FRONTEND_URL ?? 'http://localhost:5173').replace(/\/+$/, '');
+if (esProduccion && !frontendUrl.startsWith('https://')) {
+  throw new Error('En producción FRONTEND_URL debe ser la dirección https del frontend.');
 }
 
 const corsOrigenes = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
@@ -76,7 +80,8 @@ export const config = Object.freeze({
   // Por ahora es opcional (false): cada quien lo activa desde su perfil.
   exigir2faAdmin: process.env.EXIGIR_2FA_ADMIN === 'true',
   cloudinaryUrl,
-  smtp,
+  correo,
+  frontendUrl,
   // Orígenes del frontend autorizados, separados por coma
   corsOrigenes,
   // Zona horaria del negocio: define qué día es "hoy" para fechas y vigencias

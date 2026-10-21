@@ -3,7 +3,7 @@ import { noEncontrado } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import { aPares } from '../models/listado.model.js';
 import * as productosModel from '../models/productos.model.js';
-import { enviarCatalogo, enviarProducto } from '../views/productos.view.js';
+import { enviarCatalogo, enviarCatalogoPublico, enviarProducto } from '../views/productos.view.js';
 import { enviarDato } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
@@ -11,8 +11,8 @@ import { exigirActivo } from './estados.js';
  * Controlador de productos.
  *
  * El código lo genera la base al crear (ML-000001, ML-000002…) y no cambia
- * al editar. El cliente del portal no recibe el precio de venta exacto ni el
- * costo: solo el rango de precio orientativo (ver productos.view.js).
+ * al editar. El catálogo y la gestión de productos no manejan precios: el
+ * precio de venta se define en cada cotización formal.
  */
 
 /** GET /productos — el portal solo ve los activos, pida lo que pida. */
@@ -24,7 +24,17 @@ export async function listar(req, res) {
     activo: filtros.activo === undefined ? undefined : filtros.activo === 'true',
     soloActivos: esCliente,
   });
-  enviarCatalogo(res, { ...resultado, pagina: filtros.pagina, porPagina: filtros.porPagina }, esCliente);
+  enviarCatalogo(res, { ...resultado, pagina: filtros.pagina, porPagina: filtros.porPagina });
+}
+
+/**
+ * GET /catalogo — catálogo público (sin sesión) para el landing: solo
+ * productos activos y solo sus datos públicos.
+ */
+export async function catalogoPublico(req, res) {
+  const filtros = req.validado.query;
+  const resultado = await productosModel.listar({ ...filtros, activo: undefined, soloActivos: true });
+  enviarCatalogoPublico(res, { ...resultado, pagina: filtros.pagina, porPagina: filtros.porPagina });
 }
 
 /** GET /productos/medidas — medidas registradas, para el buscador del formulario. */
@@ -39,7 +49,7 @@ export async function obtener(req, res) {
   if (!producto || (esCliente && !producto.activo)) throw noEncontrado('El producto');
 
   const imagenes = await productosModel.imagenes(producto.id);
-  enviarProducto(res, { ...producto, imagenes }, esCliente);
+  enviarProducto(res, { ...producto, imagenes });
 }
 
 /** POST /productos */
@@ -52,7 +62,7 @@ export async function crear(req, res) {
     await productosModel.guardarFoto(db, nuevoId, foto);
     return nuevoId;
   });
-  enviarProducto(res, await productosModel.buscarPorId(id), false, 201);
+  enviarProducto(res, await productosModel.buscarPorId(id), 201);
 }
 
 /** PUT /productos/:id — también activa o desactiva. */

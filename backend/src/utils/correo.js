@@ -1,37 +1,49 @@
-import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 
 /**
- * Envío de correos (por ahora, el código para recuperar la contraseña).
+ * Envío de correos con Resend (por ahora, solo el enlace para recuperar la
+ * contraseña).
  *
- * Con SMTP configurado (variables SMTP_* del .env) el correo sale de verdad.
- * Sin SMTP (solo desarrollo y pruebas) no se envía nada: el correo queda en
- * `bandejaDesarrollo` y el código se muestra en la consola de la API, para
- * poder probar el flujo sin una cuenta de correo.
+ * Usa la API HTTP oficial de Resend (POST https://api.resend.com/emails) con
+ * la clave RESEND_API_KEY, que solo vive en el servidor. Sin clave (solo en
+ * desarrollo y pruebas) no se envía nada: el correo queda en
+ * `bandejaDesarrollo` y se muestra en la consola de la API, para probar el
+ * flujo sin una cuenta de Resend.
  */
 
-const hayServidor = Boolean(config.smtp.host);
+const URL_RESEND = 'https://api.resend.com/emails';
 
-const transporte = hayServidor
-  ? nodemailer.createTransport({
-      host: config.smtp.host,
-      port: config.smtp.puerto,
-      // 465 usa TLS desde el inicio; 587 empieza en claro y sube a TLS (STARTTLS)
-      secure: config.smtp.puerto === 465,
-      requireTLS: config.smtp.puerto !== 465,
-      auth: { user: config.smtp.usuario, pass: config.smtp.password },
-    })
-  : null;
-
-/** Correos "enviados" sin SMTP (desarrollo y pruebas). */
+/** Correos "enviados" sin Resend (desarrollo y pruebas). */
 export const bandejaDesarrollo = [];
 
-/** Envía un correo: { para, asunto, texto, html }. */
+/** Error de envío. El mensaje es técnico: va a los registros, nunca al usuario. */
+export class ErrorCorreo extends Error {}
+
+/**
+ * Envía un correo: { para, asunto, texto, html }. Lanza ErrorCorreo si
+ * Resend lo rechaza o no responde (10 segundos de espera como máximo).
+ */
 export async function enviarCorreo({ para, asunto, texto, html }) {
-  if (!transporte) {
+  if (!config.correo.resendApiKey) {
     bandejaDesarrollo.push({ para, asunto, texto });
     if (!config.esPrueba) console.log(`\n[correo de desarrollo] Para: ${para}\n${asunto}\n${texto}\n`);
     return;
   }
-  await transporte.sendMail({ from: config.smtp.remitente, to: para, subject: asunto, text: texto, html });
+
+  let respuesta;
+  try {
+    respuesta = await fetch(URL_RESEND, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.correo.resendApiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: config.correo.remitente, to: [para], subject: asunto, text: texto, html }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    throw new ErrorCorreo(`Resend no respondió: ${error.name}`);
+  }
+  if (!respuesta.ok) {
+    // Resend explica el motivo (dominio sin verificar, clave inválida…) sin datos del destinatario
+    const detalle = await respuesta.json().catch(() => ({}));
+    throw new ErrorCorreo(`Resend rechazó el correo (${respuesta.status}): ${detalle.name ?? ''} ${detalle.message ?? ''}`.trim());
+  }
 }

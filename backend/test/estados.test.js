@@ -118,7 +118,6 @@ describe('Estado Inactivo', () => {
         categoriaId: categoria.cuerpo.datos.id,
         marcaId: marca,
         medidas: '295/80R22.5',
-        precioVenta: 100000,
       },
     });
     assert.equal(r.estado, 422);

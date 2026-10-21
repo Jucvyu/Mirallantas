@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Package, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { Check, LoaderCircle, Package, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import AvisoError from '../../../components/base/AvisoError';
 import Dropdown from '../../../components/base/Dropdown';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
@@ -7,8 +8,6 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { productosService } from '../../../services';
 
 const CAMPO = `${INPUT} ${BORDER_OK} py-2`;
-
-const pesos = (n) => `$ ${Number(n || 0).toLocaleString('es-CO')}`;
 
 // Los mismos filtros que el catálogo de llantas del portal del cliente
 const FILTERS = [
@@ -19,17 +18,26 @@ const FILTERS = [
 ];
 
 /**
- * Todos los productos del sistema, con el mismo buscador y los mismos
- * filtros del catálogo de llantas del portal, para agregarlos al detalle
- * de la cotización sin salir del formulario.
+ * Selector de productos de la "Nueva cotización".
+ *
+ * Muestra todos los productos activos del sistema (datos reales de la API,
+ * sin precios) con buscador y filtros. El asesor marca uno o varios y los
+ * agrega de una vez; los que ya están en la cotización aparecen marcados y
+ * no se vuelven a agregar (para cambiar la cantidad se usa el formulario).
+ * Cerrar el modal no borra nada del formulario.
+ *
+ *   yaAgregados  ids de los productos que ya están en la cotización
+ *   onAgregar(productos)  recibe los productos elegidos
  */
-export default function SelectorProductosModal({ onAgregar, onClose }) {
+export default function SelectorProductosModal({ yaAgregados = [], onAgregar, onClose }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState({});
+  const [elegidos, setElegidos] = useState([]);
 
   // Catálogo de la API. Un producto inactivo ya no se ofrece en cotizaciones nuevas
   const productos = useRecurso(productosService);
   const catalogo = useMemo(() => productos.filas.filter((p) => p.activo), [productos.filas]);
+  const enCotizacion = useMemo(() => new Set(yaAgregados), [yaAgregados]);
 
   const options = useMemo(
     () => FILTERS.map((f) => ({ ...f, options: [...new Set(catalogo.map((p) => p[f.key]).filter(Boolean))] })),
@@ -39,28 +47,44 @@ export default function SelectorProductosModal({ onAgregar, onClose }) {
   const filtrados = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalogo.filter((p) => {
-      const coincideTexto =
-        !q || `${p.codigo} ${p.nombre} ${p.marca} ${p.medidas}`.toLowerCase().includes(q);
+      const coincideTexto = !q || `${p.codigo} ${p.nombre} ${p.marca} ${p.medidas}`.toLowerCase().includes(q);
       const coincideFiltros = Object.entries(active).every(([k, v]) => !v?.length || v.includes(p[k]));
       return coincideTexto && coincideFiltros;
     });
   }, [catalogo, query, active]);
 
+  const alternar = (id) => setElegidos((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id]));
+
+  const agregar = (cerrar) => {
+    onAgregar(catalogo.filter((p) => elegidos.includes(p.id)));
+    cerrar();
+  };
+
   return (
     <Modal
       title="Productos"
-      subtitle="Elige del catálogo los productos que van al detalle de la cotización."
+      subtitle="Marca las llantas que van a la cotización."
       icon={<Package size={17} />}
       size="lg"
       onClose={onClose}
-      footer={(close) => (
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
-        >
-          Listo
-        </button>
+      footer={(cerrar) => (
+        <>
+          <button
+            type="button"
+            onClick={cerrar}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => agregar(cerrar)}
+            disabled={elegidos.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size={15} /> Agregar {elegidos.length > 0 ? `(${elegidos.length})` : ''}
+          </button>
+        </>
       )}
     >
       <div className="space-y-4">
@@ -88,54 +112,60 @@ export default function SelectorProductosModal({ onAgregar, onClose }) {
           ))}
         </div>
 
+        <AvisoError mensaje={productos.error} />
+
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          {filtrados.length} de {catalogo.length} productos
+          {productos.cargando ? 'Cargando…' : `${filtrados.length} de ${catalogo.length} productos`}
+          {elegidos.length > 0 && ` · ${elegidos.length} marcados`}
         </p>
 
         {/* ---- Listado ---- */}
-        <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-200 dark:border-white/10">
-          <table className="w-full text-left text-sm">
-            <thead className="sticky top-0 bg-slate-50 dark:bg-brand-navy-900">
-              <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                <th className="px-4 py-2.5">Producto</th>
-                <th className="px-4 py-2.5 text-right">Precio de lista</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtrados.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-t border-slate-100 text-slate-600 dark:border-white/5 dark:text-slate-300"
-                >
-                  <td className="px-4 py-2.5">
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">{p.nombre}</p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">
-                      {p.codigo} · {p.marca} · {p.medidas}
-                    </p>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-right">{pesos(p.precioVenta)}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onAgregar?.(p)}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-bold text-slate-900 hover:bg-amber-300"
-                    >
-                      <Plus size={13} /> Agregar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtrados.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-4 py-8 text-center text-sm text-slate-400">
-                    {productos.cargando ? 'Cargando el catálogo…' : 'Ningún producto coincide con la búsqueda.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ul className="max-h-80 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 dark:divide-white/5 dark:border-white/10">
+          {productos.cargando && (
+            <li className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-400">
+              <LoaderCircle size={15} className="animate-spin" /> Cargando el catálogo…
+            </li>
+          )}
+          {!productos.cargando &&
+            filtrados.map((p) => {
+              const yaEsta = enCotizacion.has(p.id);
+              const marcado = elegidos.includes(p.id);
+              return (
+                <li key={p.id}>
+                  <label
+                    className={`flex items-center gap-3 px-4 py-3 ${
+                      yaEsta ? 'cursor-default opacity-60' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5'
+                    } ${marcado ? 'bg-amber-400/10' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={yaEsta || marcado}
+                      disabled={yaEsta}
+                      onChange={() => alternar(p.id)}
+                      className="h-4 w-4 shrink-0 accent-amber-500"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{p.nombre}</span>
+                      <span className="block text-xs text-slate-400 dark:text-slate-500">
+                        {p.codigo} · {p.marca} · Medida {p.medidas}
+                        {p.tipoVehiculo ? ` · ${p.tipoVehiculo}` : ''}
+                      </span>
+                    </span>
+                    {yaEsta && (
+                      <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Check size={12} /> En la cotización
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          {!productos.cargando && filtrados.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm text-slate-400">
+              {catalogo.length === 0 ? 'Todavía no hay productos registrados.' : 'Ningún producto coincide con la búsqueda.'}
+            </li>
+          )}
+        </ul>
       </div>
     </Modal>
   );

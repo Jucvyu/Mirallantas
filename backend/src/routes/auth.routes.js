@@ -7,14 +7,14 @@ import { autenticar } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
 import {
   esquemaActivar2fa,
-  esquemaCambiarRecuperacion,
+  esquemaRestablecerRecuperacion,
   esquemaDesactivar2fa,
   esquemaLogin,
   esquemaPerfil,
   esquemaRegistro,
   esquemaSolicitarRecuperacion,
   esquemaVerificar2fa,
-  esquemaVerificarRecuperacion,
+  esquemaValidarRecuperacion,
 } from '../validators/auth.validator.js';
 
 /**
@@ -31,10 +31,9 @@ import {
  *   POST /2fa/desactivar    lo desactiva (contraseña + código)
  *
  *   ¿Olvidaste tu contraseña? (públicas)
- *   GET  /recuperar/estado      intentos que le quedan a esta IP
- *   POST /recuperar/solicitar   correo → envía un código de 6 dígitos
- *   POST /recuperar/verificar   código → lo marca como verificado
- *   POST /recuperar/cambiar     contraseña nueva
+ *   POST /recuperar/solicitar    correo → envía un enlace de un solo uso (respuesta genérica)
+ *   POST /recuperar/validar      token del enlace → ¿sigue vigente?
+ *   POST /recuperar/restablecer  token + contraseña nueva
  */
 export const rutasAuth = Router();
 
@@ -76,8 +75,8 @@ rutasAuth.post('/2fa/configurar', autenticar, limiteSensible, controlador.config
 rutasAuth.post('/2fa/activar', autenticar, limiteSensible, validar(esquemaActivar2fa), controlador.activarDobleFactor);
 rutasAuth.post('/2fa/desactivar', autenticar, limiteSensible, validar(esquemaDesactivar2fa), controlador.desactivarDobleFactor);
 
-// Las reglas de intentos (5 correos, 3 códigos, 2 minutos de espera) están en
-// el controlador; este límite general frena el abuso por volumen.
+// El límite de 5 enlaces por IP está en el controlador; este límite general
+// frena el abuso por volumen (también al probar tokens al azar).
 const limiteRecuperacion = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -87,7 +86,6 @@ const limiteRecuperacion = rateLimit({
   skip: () => config.esPrueba,
 });
 
-rutasAuth.get('/recuperar/estado', recuperacion.estado);
 rutasAuth.post('/recuperar/solicitar', limiteRecuperacion, validar(esquemaSolicitarRecuperacion), recuperacion.solicitar);
-rutasAuth.post('/recuperar/verificar', limiteRecuperacion, validar(esquemaVerificarRecuperacion), recuperacion.verificar);
-rutasAuth.post('/recuperar/cambiar', limiteRecuperacion, validar(esquemaCambiarRecuperacion), recuperacion.cambiar);
+rutasAuth.post('/recuperar/validar', limiteRecuperacion, validar(esquemaValidarRecuperacion), recuperacion.validar);
+rutasAuth.post('/recuperar/restablecer', limiteRecuperacion, validar(esquemaRestablecerRecuperacion), recuperacion.restablecer);

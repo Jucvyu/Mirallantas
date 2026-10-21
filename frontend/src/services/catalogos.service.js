@@ -12,9 +12,9 @@ import {
   marcaHaciaApi,
   productoDesdeApi,
 } from './adaptadores';
-import { api } from './http';
+import { api, traerTodo } from './http';
 import { crearServicio } from './recurso';
-import { parseCOP, vacioANull } from '../utils/formato';
+import { vacioANull } from '../utils/formato';
 
 /**
  * Agrega a un servicio de catálogo la operación "activar / desactivar"
@@ -56,7 +56,6 @@ function productoHaciaApi(v, fila, { categorias, marcas, tipos }) {
     marcaId: idPorNombre(marcas, v.marca),
     medidas: v.medidas,
     tipoVehiculoId: idPorNombre(tipos, v.tipoVehiculo),
-    precioVenta: parseCOP(v.precioVenta),
     // La foto solo se envía si cambió (las imágenes pesan)
     foto: imagenCambiada(v.foto, fila?.foto),
   };
@@ -80,4 +79,14 @@ export const productosService = {
 
   /** En productos el estado viaja en la edición normal (PUT). */
   cambiarEstado: (fila, estado) => productosBase.enviar(fila, { activo: estado === 'Activo' }, { metodo: 'PUT' }),
+};
+
+/**
+ * Catálogo público del landing (/api/catalogo): no necesita sesión y solo
+ * trae productos activos con sus datos públicos (sin precios).
+ */
+export const catalogoPublicoService = {
+  async listar() {
+    return (await traerTodo('/catalogo')).map(productoDesdeApi);
+  },
 };

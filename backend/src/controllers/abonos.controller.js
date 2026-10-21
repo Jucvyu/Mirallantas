@@ -1,4 +1,5 @@
 import { enTransaccion } from '../db.js';
+import { claveIdempotencia } from '../middleware/idempotencia.js';
 import { HttpError } from '../errores.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as creditosModel from '../models/creditos.model.js';
@@ -14,6 +15,70 @@ import { enviarDato, enviarLista } from '../views/respuesta.view.js';
  * guarda el motivo y le pide al cliente que vuelva a subir el abono. En
  * los dos casos el cliente recibe una notificación.
  */
+
+/**
+ * GET /abonos/facturas — facturas (ventas a crédito) que admiten abonos,
+ * para el buscador del formulario. ?clienteId= limita a un cliente.
+ */
+export async function facturas(req, res) {
+  enviarDato(res, await abonosModel.facturasConSaldo(req.validado.query));
+}
+
+/**
+ * POST /abonos — el asesor registra un pago sobre una factura.
+ *
+ * En una sola transacción, con la factura y su crédito bloqueados: valida
+ * la factura, que el monto sea mayor que cero y que no supere el saldo,
+ * guarda el abono como "Confirmado" (el dinero ya lo recibió el asesor) y
+ * descuenta el saldo. Si algo falla no queda ni el abono ni el descuento.
+ * La clave de idempotencia evita registrarlo dos veces por un doble envío.
+ */
+export async function registrarEnFactura(req, res) {
+  const datos = req.validado.body;
+  if (datos.medioPago === 'Transferencia' && !datos.comprobante) {
+    throw new HttpError(422, 'Adjunta el comprobante de la transferencia.');
+  }
+  const clave = claveIdempotencia(req);
+  let repetido = false;
+
+  const numero = await enTransaccion(async (db) => {
+    const factura = await abonosModel.facturaBloqueada(db, datos.factura);
+    if (!factura) throw new HttpError(422, 'La factura no existe o no es una venta a crédito.');
+    const existente = clave && (await abonosModel.numeroPorClave(db, factura.credito_id, clave));
+    if (existente) {
+      repetido = true;
+      return existente;
+    }
+    if (factura.estado === 'Anulada') throw new HttpError(422, 'La factura está anulada: no recibe abonos.');
+    if (!factura.activo) throw new HttpError(422, 'El crédito de la factura está inactivo: no recibe abonos por ahora.');
+    if (factura.saldo_pendiente <= 0) throw new HttpError(422, 'La factura ya está pagada.');
+    if (datos.monto > factura.saldo_pendiente) {
+      throw new HttpError(422, `El abono no puede superar el saldo pendiente (${pesos(factura.saldo_pendiente)}).`);
+    }
+    const nuevo = await abonosModel.crear(db, {
+      creditoId: factura.credito_id,
+      monto: datos.monto,
+      medioPago: datos.medioPago,
+      comprobante: datos.medioPago === 'Transferencia' ? datos.comprobante : null,
+      claveIdempotencia: clave,
+      estado: 'Confirmado',
+    });
+    await creditosModel.descontarSaldo(db, factura.credito_id, datos.monto);
+    await notificaciones.crear(
+      {
+        clienteId: factura.cliente_id,
+        titulo: `Abono registrado · ${factura.numero}`,
+        mensaje: `Registramos tu pago de ${pesos(datos.monto)}. Saldo pendiente: ${pesos(factura.saldo_pendiente - datos.monto)}.`,
+        enlace: '/portal/cartera',
+        tipo: 'exito',
+      },
+      db,
+    );
+    return nuevo;
+  });
+
+  enviarDato(res, await abonosModel.buscarPorNumero(numero), repetido ? 200 : 201);
+}
 
 /** GET /abonos */
 export async function listar(req, res) {

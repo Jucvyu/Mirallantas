@@ -51,7 +51,8 @@ function seccionesFormulario(nombresRoles) {
         {
           key: 'rol',
           label: 'Rol',
-          type: 'select',
+          // Buscador del rol (relación con la tabla rol; el nombre es único)
+          type: 'buscador',
           required: true,
           options: nombresRoles,
           emptyLabel: 'rol',
