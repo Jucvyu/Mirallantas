@@ -7,7 +7,7 @@
 // token, se cambia en un solo lugar.
 // =========================================================================
 
-// Dirección de la API: VITE_API_URL (ver src/config.js y .env.example)
+// Dirección de la API: VITE_API_URL (ver src/config.js y frontend/.env)
 import { URL_API } from '../config';
 
 /** Nombre con el que se guarda el token en el navegador. */

@@ -82,7 +82,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   if (!process.env.DATABASE_URL) {
-    console.error('Falta DATABASE_URL. Copia backend/.env.example como backend/.env (o usa database/.env).');
+    console.error('Falta DATABASE_URL. Complétala en backend/.env (o en database/.env).');
     process.exit(1);
   }
   limpiar(process.env.DATABASE_URL)

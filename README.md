@@ -83,12 +83,15 @@ PostgreSQL real solo para desarrollo. Si ya tienes PostgreSQL instalado, tambié
 
 ```bash
 npm run instalar
-cp backend/.env.example backend/.env
 ```
 
 `npm run instalar` instala las tres carpetas (`frontend/`, `backend/` y `database/`) con las
-versiones exactas de sus `package-lock.json`. Los scripts de `database/` leen la misma
-`backend/.env` (o `database/.env` si quieres apuntar a otra base).
+versiones exactas de sus `package-lock.json`.
+
+Hay un `.env` por carpeta: `frontend/.env`, `backend/.env` y `database/.env`. Están en
+`.gitignore` (tienen secretos), así que no vienen al clonar: pídelos a quien mantiene el proyecto
+o créalos con las variables que se listan abajo. Los scripts de `database/` leen primero
+`backend/.env` y después `database/.env`, que tiene prioridad.
 
 Abre `backend/.env` y completa:
 

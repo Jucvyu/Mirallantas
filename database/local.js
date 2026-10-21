@@ -25,7 +25,7 @@ import { migrarArriba } from './migrate.js';
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  console.error('Falta DATABASE_URL. Copia backend/.env.example como backend/.env (o usa database/.env).');
+  console.error('Falta DATABASE_URL. Complétala en backend/.env (o en database/.env).');
   process.exit(1);
 }
 

@@ -26,7 +26,6 @@ dist-ssr
 # Secretos (backend/.env, database/.env, frontend/.env) y datos locales de PostgreSQL
 .env
 .env.*
-!.env.example
 .pgdata
 # Copias de seguridad: tienen datos personales, nunca al repositorio
 respaldos

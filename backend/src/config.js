@@ -12,7 +12,7 @@ const esProduccion = entorno === 'production';
 
 function requerida(nombre) {
   const valor = process.env[nombre];
-  if (!valor) throw new Error(`Falta la variable de entorno ${nombre}. Revisa backend/.env.example.`);
+  if (!valor) throw new Error(`Falta la variable de entorno ${nombre}. Revisa backend/.env.`);
   return valor;
 }
 

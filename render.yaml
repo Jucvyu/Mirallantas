@@ -6,6 +6,8 @@ services:
   - type: web
     name: mirallantas-api
     runtime: node
+    # Plan gratis (sin tarjeta). Sin esta línea Render usa Starter, que es de pago.
+    plan: free
     rootDir: backend
     buildCommand: npm ci --omit=dev
     startCommand: npm start
