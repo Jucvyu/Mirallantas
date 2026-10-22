@@ -255,6 +255,16 @@ export async function recalcularSinAceptar(db, id) {
   );
 }
 
+/** Estado, método de pago y estado de pago (todo lo que se paga) de una cotización. */
+export async function estadoDePago(db, id) {
+  const { rows } = await db.query(
+    `SELECT c.estado, c.metodo_pago AS "metodoPago", ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago"
+       FROM cotizacion c WHERE c.id = $1`,
+    [id],
+  );
+  return rows[0];
+}
+
 /** ¿El precio del reencauche ya está dentro del total de su cotización? */
 export async function servicioIncluido(db, solicitudId) {
   const { rows } = await db.query(

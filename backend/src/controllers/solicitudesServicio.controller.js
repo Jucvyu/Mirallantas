@@ -10,6 +10,7 @@ import * as serviciosModel from '../models/servicios.model.js';
 import { pesos, SERVICIO_POR_DEFECTO, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
+import { aprobarSiPagada } from './documentosAutomaticos.js';
 
 /**
  * Controlador de solicitudes de servicio de reencauche (personal interno).
@@ -168,8 +169,7 @@ export async function revisarPago(req, res) {
     );
 
     // Con todos los pagos aprobados (productos y servicios), la cotización
-    // queda en "Pendiente" con el pago aprobado: lista para que el asesor la
-    // procese. Se avisa al personal de Pedidos-Cotización.
+    // pasa sola a "Aprobada". Se avisa al personal de Pedidos-Cotización.
     if (estado === 'Aprobado') await cotizacionLista(db, actual.id);
   });
 
@@ -178,19 +178,17 @@ export async function revisarPago(req, res) {
 
 /**
  * Si la solicitud viene de una cotización y con este pago quedó todo
- * aprobado, se avisa al personal. La cotización estuvo frenada en
- * "Pendiente" mientras faltaban pagos (la API no la deja avanzar), así que
- * ahora queda en "Pendiente" con el pago aprobado, lista para procesarse.
+ * aprobado, la cotización pasa sola a "Aprobada" y se avisa al personal.
  * Una que ya avanzó (p. ej. a crédito, aprobada con su solicitud) no se toca.
  */
 async function cotizacionLista(db, solicitudId) {
   const cotizacion = await cotizacionesModel.deSolicitudServicio(db, solicitudId);
-  if (cotizacion?.estadoPago !== 'Aprobado' || cotizacion.estado !== 'Pendiente') return;
+  if (!cotizacion || !(await aprobarSiPagada(db, cotizacion.id))) return;
   await avisosPersonal.crear(
     {
       modulo: 'Pedidos-Cotización',
       titulo: 'Pago completo',
-      mensaje: `La cotización ${cotizacion.numero} tiene todo el pago aprobado y quedó en "Pendiente".`,
+      mensaje: `La cotización ${cotizacion.numero} tiene todo el pago aprobado y quedó "Aprobada".`,
       enlace: '/admin/pedidos-cotizacion',
       tipo: 'exito',
     },

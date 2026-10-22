@@ -122,10 +122,10 @@ describe('Pago de un servicio de reencauche', () => {
     assert.equal(aprobado.cuerpo.datos.pagoEstado, 'Aprobado');
     assert.equal((await pagar({ medioPago: 'Efectivo' })).estado, 422, 'ya está pagado');
 
-    // Todo pagado: la cotización queda en Pendiente con el pago aprobado,
-    // su valor incluye el servicio y el personal recibe el aviso
+    // Todo pagado: la cotización pasa sola a Aprobada, su valor incluye el
+    // servicio y el personal recibe el aviso
     const cotizacion = await e.api(`/cotizaciones/${aprobado.cuerpo.datos.cotizacion}`, { token: t.admin });
-    assert.equal(cotizacion.cuerpo.datos.estado, 'Pendiente');
+    assert.equal(cotizacion.cuerpo.datos.estado, 'Aprobada');
     assert.equal(cotizacion.cuerpo.datos.estadoPago, 'Aprobado');
     assert.ok(cotizacion.cuerpo.datos.totalServicios > 0);
     const avisos = await e.api('/notificaciones', { token: t.admin });

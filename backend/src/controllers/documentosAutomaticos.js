@@ -10,6 +10,7 @@ import * as ventasModel from '../models/ventas.model.js';
  * cotización tampoco cambia.
  *
  *   pago aprobado      → venta "Pendiente" (registrarVentaPagada)
+ *   todo el pago aprobado → la cotización pasa a "Aprobada" (aprobarSiPagada)
  *   cotización Aprobada → una compra por proveedor (generarCompras)
  *   cotización Completada → su venta pasa a "Completada" (completarVenta)
  *   cualquier cambio      → la venta copia estado y entrega (sincronizarVenta)
@@ -51,6 +52,22 @@ export async function sincronizarVenta(db, cotizacionId) {
     ['estado', ESTADO_VENTA[cotizacion.estado] ?? 'Pendiente'],
     ['estado_entrega', cotizacion.estado_entrega],
   ]);
+}
+
+/**
+ * Con todo su pago aprobado (la consignación de contado o la cuota inicial
+ * del crédito, y los reencauches que se cobran aparte), la cotización pasa
+ * sola de "Pendiente" a "Aprobada": queda su venta y se le compra al
+ * proveedor. Devuelve true si la aprobó.
+ */
+export async function aprobarSiPagada(db, cotizacionId) {
+  const { estado, metodoPago, estadoPago } = await cotizacionesModel.estadoDePago(db, cotizacionId);
+  if (estado !== 'Pendiente' || !metodoPago || estadoPago !== 'Aprobado') return false;
+  await cotizacionesModel.actualizar(db, cotizacionId, [['estado', 'Aprobada']]);
+  await registrarVentaPagada(db, cotizacionId);
+  await generarCompras(db, cotizacionId);
+  await sincronizarVenta(db, cotizacionId);
+  return true;
 }
 
 /** La cotización se completó: su venta queda "Completada" (y se crea si faltaba). */

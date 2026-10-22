@@ -103,15 +103,15 @@ describe('Pago de contado de una cotización', () => {
     assert.equal(enPortal.pagos.length, 2);
   });
 
-  test('aprobado, la cotización sigue su proceso normal', async () => {
+  test('aprobado el pago, la cotización queda Aprobada sola', async () => {
     const r = await e.api(`/cotizaciones/${t.numero}/pago`, {
       metodo: 'POST',
       token: t.admin,
       cuerpo: { estado: 'Aprobado' },
     });
     assert.equal(r.cuerpo.datos.pagoEstado, 'Aprobado');
-    const cambio = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
-    assert.equal(cambio.estado, 200);
+    // Con el pago aprobado queda "Aprobada" sola, sin que el asesor la cambie
+    assert.equal(r.cuerpo.datos.estado, 'Aprobada');
   });
 
   test('pagada, aparece su venta pendiente; aprobada, su compra al proveedor', async () => {

@@ -27,7 +27,13 @@ import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
 import { enviarPdfCotizacion } from '../views/pdf.view.js';
 import { enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
-import { completarVenta, generarCompras, registrarVentaPagada, sincronizarVenta } from './documentosAutomaticos.js';
+import {
+  aprobarSiPagada,
+  completarVenta,
+  generarCompras,
+  registrarVentaPagada,
+  sincronizarVenta,
+} from './documentosAutomaticos.js';
 
 /**
  * Controlador de cotizaciones-pedido. El flujo comercial tiene tres pasos:
@@ -545,6 +551,8 @@ export async function revisarPago(req, res) {
     if (estado === 'Aprobado') {
       await solicitudesModel.pagarConCotizacion(db, cotizacion.id, pago.medioPago);
       await registrarVentaPagada(db, cotizacion.id);
+      // Con todo el pago aprobado, la cotización queda "Aprobada" sola
+      await aprobarSiPagada(db, cotizacion.id);
     }
     await notificaciones.crear(
       estado === 'Aprobado'
