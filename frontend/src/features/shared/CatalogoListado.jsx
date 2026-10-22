@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Dropdown from '../../components/base/Dropdown';
+import LiquidGlass from '../../components/base/LiquidGlass';
 import TireThumb from '../../components/base/TireThumb';
 import { BORDER_OK, INPUT } from '../../components/base/formStyles';
 import Skeleton from '../../components/base/Skeleton';
@@ -22,9 +23,12 @@ const FILTROS = [
  *   productos   filas ya cargadas (solo activas)
  *   accion(p)   lo que va al pie de cada tarjeta (agregar al carro, iniciar sesión…)
  *   columnas    clases de la grilla
+ *   limite      (opcional) cuántas tarjetas mostrar antes del botón "Ver más";
+ *               sin él se muestran todas (portal y catálogo público)
  */
-export default function CatalogoListado({ productos, cargando, error, accion, columnas }) {
+export default function CatalogoListado({ productos, cargando, error, accion, columnas, limite }) {
   const [query, setQuery] = useState('');
+  const [mostrar, setMostrar] = useState(limite);
   // Cada filtro guarda un arreglo: se pueden marcar varias opciones
   const [activos, setActivos] = useState({});
 
@@ -93,10 +97,16 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
               </div>
             </div>
           ))}
-        {filtrados.map((p) => (
-          <article
+        {(mostrar ? filtrados.slice(0, mostrar) : filtrados).map((p, i) => (
+          // Lista larga: vidrio sin desenfoque (más barato con muchas tarjetas)
+          <LiquidGlass
             key={p.id}
-            className="ml-tarjeta flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-brand-navy-800"
+            as="article"
+            variante="pastel"
+            blur={false}
+            inclinacion={4}
+            indice={Math.min(i, 8)}
+            className="flex flex-col overflow-hidden"
           >
             <TireThumb
               brand={p.marca}
@@ -106,7 +116,7 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
               className="h-32 w-full"
             />
             <div className="flex flex-1 flex-col p-4">
-              <p className="text-xs font-bold tracking-wide text-amber-500 dark:text-amber-400">{p.marca.toUpperCase()}</p>
+              <p className="text-xs font-bold tracking-wide text-amber-700 dark:text-amber-400">{p.marca.toUpperCase()}</p>
               <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{p.nombre}</p>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 {p.medidas} · {p.tipoVehiculo || 'Uso general'} · {p.codigo}
@@ -116,12 +126,24 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
               )}
               <div className="mt-auto pt-4">{accion(p)}</div>
             </div>
-          </article>
+          </LiquidGlass>
         ))}
       </div>
 
+      {mostrar && filtrados.length > mostrar && (
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setMostrar((m) => m + limite)}
+            className="ml-pulsable rounded-full border border-amber-400 px-6 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-400/10 dark:text-amber-400"
+          >
+            Ver más ({filtrados.length - mostrar})
+          </button>
+        </div>
+      )}
+
       {!cargando && filtrados.length === 0 && (
-        <p className="mt-10 text-center text-sm text-slate-400 dark:text-slate-500">
+        <p className="mt-10 text-center text-sm text-slate-600 dark:text-slate-400">
           {productos.length === 0 ? 'Todavía no hay llantas en el catálogo.' : 'Ningún producto coincide con la búsqueda.'}
         </p>
       )}

@@ -67,7 +67,7 @@ export default function PerfilMenu({ profile, campos = [], onEditar, onSeguridad
       </button>
 
       {abierto && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[280px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-brand-navy-800 dark:shadow-black/40">
+        <div className="absolute right-0 top-full z-30 mt-2 w-[280px] overflow-hidden rounded-xl ml-glass-panel border">
           {/* ---- Cabecera: quién es ---- */}
           <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-white/10">
             {profile.foto ? (

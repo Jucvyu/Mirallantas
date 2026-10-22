@@ -94,7 +94,7 @@ function ContenidoPortal() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-brand-navy-900">
+    <div className="ml-ambiente flex min-h-screen flex-col bg-slate-50 dark:bg-brand-navy-900">
       <ClientNavbar
         profile={profile}
         onEditarPerfil={() => setPerfilOpen(true)}

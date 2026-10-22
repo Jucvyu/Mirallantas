@@ -111,7 +111,7 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
       </button>
 
       {abierto && (
-        <div className="ml-aparece absolute right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-brand-navy-800">
+        <div className="ml-aparece absolute right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl ml-glass-panel border">
           <p className="border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-800 dark:border-white/10 dark:text-slate-100">
             Notificaciones
           </p>

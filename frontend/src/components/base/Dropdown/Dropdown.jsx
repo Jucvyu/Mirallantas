@@ -122,7 +122,7 @@ export default function Dropdown({
           id={listaId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 top-full z-30 mt-1.5 max-h-64 min-w-[11rem] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-brand-navy-800 dark:shadow-black/40"
+          className="absolute left-0 top-full z-30 mt-1.5 max-h-64 min-w-[11rem] overflow-y-auto rounded-xl ml-glass-panel border p-1"
         >
           {/* Opción que limpia el filtro */}
           <li>
