@@ -22,7 +22,6 @@ export default function MarcasPage() {
   const productos = useRecurso(productosService);
 
   const columns = [
-    { key: 'id', label: 'ID' },
     { key: 'nombre', label: 'Marca' },
     {
       key: 'productos',

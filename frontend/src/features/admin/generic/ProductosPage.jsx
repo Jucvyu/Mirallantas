@@ -11,7 +11,6 @@ import { categoriasService, marcasService, productosService, tiposVehiculoServic
 // se define en cada cotización y el de compra en cada compra. Tampoco hay
 // stock. Categoría, marca y tipo de vehículo se eligen con buscador.
 const columns = [
-  { key: 'codigo', label: 'Código' },
   {
     key: 'nombre',
     label: 'Producto',

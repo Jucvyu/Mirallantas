@@ -7,7 +7,6 @@ import { clientesService } from '../../../services';
 // Tabla `cliente`: tipo_documento, numero_documento, nombre_completo,
 // telefono, correo, direccion, estado.
 const columns = [
-  { key: 'id', label: 'ID' },
   { key: 'nombreCompleto', label: 'Nombre completo' },
   { key: 'numeroDocumento', label: 'Documento' },
   { key: 'telefono', label: 'Teléfono' },

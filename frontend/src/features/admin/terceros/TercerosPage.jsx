@@ -7,7 +7,6 @@ import { tercerosService } from '../../../services';
 // Tabla `tercero`: las reencauchadoras que ejecutan físicamente el
 // servicio. En el modelo comparte los mismos campos que proveedor.
 const columns = [
-  { key: 'id', label: 'ID' },
   { key: 'nombreRazonSocial', label: 'Reencauchadora' },
   { key: 'numeroDocumento', label: 'Documento' },
   { key: 'contacto', label: 'Contacto' },

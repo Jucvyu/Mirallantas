@@ -12,7 +12,6 @@ import { rolesService, usuariosService } from '../../../services';
 // sesión (ve el aviso de hablar con el administrador). El administrador
 // principal (el primero que se creó) no se desactiva ni se elimina.
 const columns = [
-  { key: 'id', label: 'ID' },
   {
     key: 'nombre',
     label: 'Nombre',

@@ -7,7 +7,6 @@ import { proveedoresService } from '../../../services';
 // Tabla `proveedor`: tipo_documento, numero_documento, nombre o razón
 // social, contacto, telefono, correo, direccion, estado.
 const columns = [
-  { key: 'id', label: 'ID' },
   { key: 'nombreRazonSocial', label: 'Nombre o razón social' },
   { key: 'numeroDocumento', label: 'Documento' },
   { key: 'contacto', label: 'Contacto' },

@@ -8,7 +8,6 @@ import { permisosService, rolesService } from '../../../services';
 // Roles y permisos. Al crear un rol se marcan los módulos a los que
 // tendrá acceso; la lista de módulos sale de la tabla `permiso`.
 const columns = [
-  { key: 'id', label: 'ID' },
   { key: 'nombre', label: 'Rol' },
   { key: 'descripcion', label: 'Descripción' },
   {

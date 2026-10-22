@@ -35,7 +35,6 @@ export default function CategoriasPage() {
   const productos = useRecurso(productosService);
 
   const columns = [
-    { key: 'id', label: 'ID' },
     {
       key: 'nombre',
       label: 'Categoría',
