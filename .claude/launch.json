@@ -17,12 +17,7 @@
         "run",
         "api"
       ],
-      "port": 3000,
-      "env": {
-        "CORS_ORIGINS": "http://localhost:5173",
-        "DATABASE_URL": "postgres://mirallantas:mirallantas@localhost:5433/mirallantas",
-        "DATABASE_SSL": "false"
-      }
+      "port": 3000
     },
     {
       "name": "mirallantas-db",
@@ -31,10 +26,7 @@
         "run",
         "db"
       ],
-      "port": 5433,
-      "env": {
-        "DATABASE_URL": "postgres://mirallantas:mirallantas@localhost:5433/mirallantas"
-      }
+      "port": 5433
     }
   ]
 }

@@ -606,6 +606,45 @@ export async function eliminar(req, res) {
   enviarSinContenido(res);
 }
 
+/**
+ * POST /portal/cotizaciones/:numero/cancelar — el cliente cancela su
+ * cotización (no se borra: queda Rechazada con su motivo). Solo mientras
+ * está Pendiente y todavía no la acepta: después ya hay un pago de por medio
+ * y la cancelación la gestiona el asesor.
+ */
+export async function cancelarDesdePortal(req, res) {
+  const clienteId = clienteDeSesion(req);
+  if (!clienteId) throw new HttpError(403, 'Esta acción es para los clientes del portal.');
+  const { motivo } = req.validado.body;
+
+  await enTransaccion(async (db) => {
+    const cotizacion = await cotizacionesModel.buscarPorNumero(req.params.numero, { clienteId, bloquear: 'c' }, db);
+    if (cotizacion.estado !== 'Pendiente') {
+      throw new HttpError(422, `La cotización está "${cotizacion.estado}": ya no se puede cancelar.`);
+    }
+    if (cotizacion.etapa === 'Aceptada') {
+      throw new HttpError(422, 'Ya aceptaste esta cotización y registraste un pago: comunícate con nosotros para cancelarla.');
+    }
+    await cotizacionesModel.actualizar(db, cotizacion.id, [
+      ['estado', 'Rechazada'],
+      ['motivo_cancelacion', `Cancelada por el cliente: ${motivo}`],
+    ]);
+    const cliente = await avisosPersonal.nombreCliente(db, clienteId);
+    await avisosPersonal.crear(
+      {
+        modulo: 'Pedidos-Cotización',
+        titulo: 'Cotización cancelada',
+        mensaje: `${cliente} canceló la cotización ${cotizacion.numero}: ${motivo}`,
+        enlace: '/admin/pedidos-cotizacion',
+        tipo: 'alerta',
+      },
+      db,
+    );
+  });
+
+  enviarDocumento(res, await leerCompleta(req, req.params.numero), true);
+}
+
 /** POST /portal/cotizaciones/:numero/aceptar — solo para el cliente dueño de la cotización. */
 export async function aceptarDesdePortal(req, res) {
   if (!clienteDeSesion(req)) throw new HttpError(403, 'Esta acción es para los clientes del portal.');

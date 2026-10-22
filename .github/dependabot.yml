@@ -1,0 +1,20 @@
+# Dependabot: GitHub revisa cada semana las librerías de las tres carpetas
+# y abre un pull request cuando hay una versión que corrige un fallo de
+# seguridad. Así una librería vulnerable no se queda olvidada en producción.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /database
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

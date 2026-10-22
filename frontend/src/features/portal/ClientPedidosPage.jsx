@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  Ban,
   CalendarClock,
   CalendarDays,
   Check,
@@ -18,6 +19,7 @@ import {
 import Badge from '../../components/base/Badge';
 import CardList from '../../components/base/CardList';
 import LiquidGlass from '../../components/base/LiquidGlass';
+import MotivoModal from '../../components/base/MotivoModal';
 import {
   ESTADO_COTIZACION_COMPLETADA,
   estadosCotizacion,
@@ -111,6 +113,8 @@ export default function ClientPedidosPage() {
   const [abonoDe, setAbonoDe] = useState(null);
   const [reciboDe, setReciboDe] = useState(null);
   const [aceptando, setAceptando] = useState(null);
+  // Cotización que el cliente va a cancelar (se pide el motivo)
+  const [cancelando, setCancelando] = useState(null);
   const [errorPdf, setErrorPdf] = useState('');
 
   const descargarPdf = (c) => {
@@ -348,6 +352,16 @@ export default function ClientPedidosPage() {
                   ) : (
                     <p className="text-slate-500 dark:text-slate-400">Reencauche: su valor se gestiona en el servicio.</p>
                   ))}
+                {/* Mientras no la acepte, el cliente puede cancelarla (no se borra) */}
+                {c.estado === 'Pendiente' && c.etapa !== 'Aceptada' && (
+                  <button
+                    type="button"
+                    onClick={() => setCancelando(c)}
+                    className="flex items-center gap-1 self-start text-[11px] font-semibold text-red-500 hover:text-red-600"
+                  >
+                    <Ban size={12} /> Cancelar cotización
+                  </button>
+                )}
               </div>
 
               {/* ---- Botón que despliega el detalle ---- */}
@@ -667,6 +681,20 @@ export default function ClientPedidosPage() {
       {/* Aceptar la cotización formal: contado o crédito (inicial del 30 %) */}
       {aceptando && (
         <AceptarCotizacionModal cotizacion={aceptando} desdePortal onAceptada={recargar} onClose={() => setAceptando(null)} />
+      )}
+      {cancelando && (
+        <MotivoModal
+          title="Cancelar la cotización"
+          message="Queda cancelada y le avisamos al asesor. Esta acción no se puede deshacer."
+          record={{ title: cancelando.id, subtitle: cancelando.etapa === 'Solicitud' ? 'Precios por confirmar' : cancelando.total }}
+          label="¿Por qué la cancelas?"
+          confirmLabel="Cancelar cotización"
+          onConfirm={async (motivo) => {
+            await cotizacionesService.cancelarDesdePortal(cancelando.id, motivo);
+            await recargar();
+          }}
+          onClose={() => setCancelando(null)}
+        />
       )}
 
       {reciboDe && (

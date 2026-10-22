@@ -1,7 +1,7 @@
 import { CheckCircle2, MessageCircle, Phone } from 'lucide-react';
 import Modal from '../../components/base/Modal';
-
 import { TELEFONO_EMPRESA as TELEFONO, WHATSAPP_EMPRESA } from '../../config';
+import { enlaceWhatsApp } from '../../utils/whatsapp';
 
 // WhatsApp tal como se muestra: sin el indicativo del país
 const WHATSAPP = WHATSAPP_EMPRESA.replace(/^57/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
@@ -61,7 +61,16 @@ export default function CotizacionEnviadaModal({ numero, onClose }) {
             </div>
           </a>
 
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+          {/* Abre WhatsApp con el mensaje ya escrito (el cliente decide si lo envía) */}
+          <a
+            href={enlaceWhatsApp(
+              WHATSAPP_EMPRESA,
+              numero ? `Hola, tengo una consulta sobre mi solicitud de cotización ${numero}.` : 'Hola, tengo una consulta sobre mi solicitud de cotización.',
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 transition-colors hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
+          >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-whatsapp/15 text-brand-whatsapp">
               <MessageCircle size={18} />
             </span>
@@ -71,7 +80,7 @@ export default function CotizacionEnviadaModal({ numero, onClose }) {
               </p>
               <p className="text-base font-bold text-slate-900 dark:text-white">{WHATSAPP}</p>
             </div>
-          </div>
+          </a>
         </div>
 
       </div>

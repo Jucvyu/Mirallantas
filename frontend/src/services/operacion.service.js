@@ -125,6 +125,10 @@ export const cotizacionesService = {
       cuerpo: { medioPago: pago.medioPago, comprobante: pago.comprobante || undefined },
     }),
 
+  /** El cliente cancela su cotización pendiente (sin aceptar) con su motivo. */
+  cancelarDesdePortal: (numero, motivo) =>
+    api(`/portal/cotizaciones/${encodeURIComponent(numero)}/cancelar`, { metodo: 'POST', cuerpo: { motivo } }),
+
   /**
    * Solicitud de cotización que envía un cliente desde el portal (su
    * "carro"): llantas, cantidades y servicios, sin precios ni pago.

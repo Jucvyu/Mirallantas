@@ -14,6 +14,11 @@ import {
   textoOpcional,
 } from './comunes.validator.js';
 
+/** POST /portal/cotizaciones/:numero/cancelar — el motivo es obligatorio. */
+export const esquemaCancelacionCliente = z.object({
+  motivo: texto(300),
+});
+
 /** GET /cotizaciones */
 export const esquemaListado = listadoCon(['estado', 'estadoEntrega', 'metodoPago', 'clienteId']);
 

@@ -58,3 +58,25 @@ describe('Cancelar una cotización', () => {
     assert.equal(despues.cuerpo.datos.estado, 'Rechazada');
   });
 });
+
+describe('El cliente cancela su cotización', () => {
+  test('pendiente y sin aceptar: la cancela con motivo; ajena o sin motivo, no', async () => {
+    const luis = await e.iniciarSesion('lfmora@yahoo.com');
+    const creada = await e.api('/cotizaciones', {
+      metodo: 'POST',
+      token: luis,
+      cuerpo: solicitud([{ tipo: 'producto', productoId: 1, cantidad: 2 }]),
+    });
+    const numero = creada.cuerpo.datos.numero;
+    const cancelar = (token, cuerpo) => e.api(`/portal/cotizaciones/${numero}/cancelar`, { metodo: 'POST', token, cuerpo });
+
+    assert.equal((await cancelar(luis, {})).estado, 422, 'el motivo es obligatorio');
+    const maria = await e.iniciarSesion('maria.gomez@gmail.com').catch(() => null);
+    if (maria) assert.equal((await cancelar(maria, { motivo: 'No es mía' })).estado, 404, 'no cancela una ajena');
+
+    const ok = await cancelar(luis, { motivo: 'Ya conseguí las llantas' });
+    assert.equal(ok.estado, 200, JSON.stringify(ok.cuerpo));
+    assert.equal(ok.cuerpo.datos.estado, 'Rechazada');
+    assert.equal((await cancelar(luis, { motivo: 'Otra vez' })).estado, 422, 'ya no está pendiente');
+  });
+});
