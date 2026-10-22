@@ -1,19 +1,21 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import Logo from '../Logo';
-import { TELEFONO_EMPRESA, WHATSAPP_EMPRESA } from '../../../config';
+import { CORREO_EMPRESA, DIRECCION_EMPRESA, TELEFONO_EMPRESA, WHATSAPP_EMPRESA } from '../../../config';
 
+// Secciones del landing (empiezan por "/" para funcionar también desde el
+// catálogo público) y el acceso al portal
 const NAV_LINKS = [
-  { label: 'Catálogo de llantas', href: '#catalogo' },
-  { label: 'Servicio de reencauche', href: '#reencauche' },
-  { label: 'Sobre nosotros', href: '#nosotros' },
-  { label: 'Portal de clientes', href: '#portal', highlight: true },
+  { label: 'Catálogo de llantas', href: '/#productos' },
+  { label: 'Servicio de reencauche', href: '/#servicios' },
+  { label: 'Sobre nosotros', href: '/#nosotros' },
+  { label: 'Portal de clientes', href: '/login', highlight: true },
 ];
 
 const CONTACT_ITEMS = [
-  { icon: MapPin, text: 'Calle 34 #81-27, Medellín' },
+  { icon: MapPin, text: DIRECCION_EMPRESA },
   { icon: Phone, text: TELEFONO_EMPRESA },
-  { icon: Mail, text: 'contabilidadmirallantas@gmail.com' },
+  { icon: Mail, text: CORREO_EMPRESA },
 ];
 
 const SOCIAL_LINKS = [

@@ -72,7 +72,7 @@ export default function AdminLayout() {
   const { usuario: profile, actualizarPerfil } = useAuth();
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-brand-navy-900">
+    <div className="ml-ambiente flex min-h-screen bg-slate-50 dark:bg-brand-navy-900">
       <AdminSidebar profile={profile} mobileOpen={menuOpen} onCloseMobile={() => setMenuOpen(false)} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <AdminTopbar

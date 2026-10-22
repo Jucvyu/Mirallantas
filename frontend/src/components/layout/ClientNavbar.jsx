@@ -43,7 +43,7 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
   ];
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-brand-navy-950/90">
+    <header className="sticky top-0 z-20 ml-glass border-b">
       <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Logo size="sm" />
 
@@ -95,7 +95,7 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
 
       {/* Navegación desplegable en móvil / tablet */}
       {open && (
-        <nav className="border-t border-slate-200 px-4 pb-4 pt-2 dark:border-white/10 lg:hidden">
+        <nav className="border-t border-slate-900/5 px-4 pb-4 pt-2 dark:border-white/10 lg:hidden">
           <ul className="space-y-1">
             {links.map(({ to, label, end }) => (
               <li key={to}>

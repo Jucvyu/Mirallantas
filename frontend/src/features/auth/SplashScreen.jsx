@@ -16,8 +16,8 @@ export default function SplashScreen({ nombre = '', onFinish, duracion = 1600 })
   }, [onFinish, duracion]);
 
   return (
-    <div className="ml-splash fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-brand-navy-950">
-      <Logo size="md" />
+    <div className="ml-splash fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 ml-ambiente-marca">
+      <Logo size="lg" tono="oscuro" />
 
       <TruckTire className="ml-splash-tire h-28 w-28 drop-shadow-2xl" />
 

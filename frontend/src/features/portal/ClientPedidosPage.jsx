@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Badge from '../../components/base/Badge';
 import CardList from '../../components/base/CardList';
+import LiquidGlass from '../../components/base/LiquidGlass';
 import {
   ESTADO_COTIZACION_COMPLETADA,
   estadosCotizacion,
@@ -214,9 +215,14 @@ export default function ClientPedidosPage() {
           const cancelada = c.estadoEntrega === 'Cancelado';
 
           return (
-            <article
+            // Variante neutra: conserva los colores de estado de la carta y suma
+            // solo la interacción del vidrio (inclinación y reflejo)
+            <LiquidGlass
               key={c.id}
-              className={`ml-tarjeta flex flex-col rounded-xl border-2 p-5 hover:shadow-md dark:hover:shadow-black/30 ${estilo}`}
+              as="article"
+              variante="neutra"
+              inclinacion={3}
+              className={`flex flex-col rounded-xl border-2 p-5 ${estilo}`}
             >
               {/* ---- Estados. Todas las cartas llevan las mismas filas (con
                    "—" si no aplica) para que queden del mismo alto ---- */}
@@ -646,7 +652,7 @@ export default function ClientPedidosPage() {
                   )}
                 </div>
               </div>
-            </article>
+            </LiquidGlass>
           );
         }}
       />

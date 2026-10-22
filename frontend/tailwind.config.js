@@ -1,4 +1,31 @@
 /** @type {import('tailwindcss').Config} */
+
+// -------------------------------------------------------------------------
+// Identidad cromática de Comercializadora Mirallantas
+//
+//   Azul industrial   #17375E  profundidad y solidez (superficies oscuras)
+//   Amarillo marca    #F4C400  acciones principales, indicadores y detalles
+//   Carbón            #24282D  texto sobre amarillo y titulares en claro
+//   Blanco            #FFFFFF  contenidos comerciales
+//
+// La escala `amber` se redefine con el amarillo de marca: así todos los
+// botones, enlaces activos e indicadores que ya usan `amber-*` adoptan el
+// tono oficial sin tocar su lógica. Igual con `brand.navy`, que pasa del
+// gris casi negro anterior a un azul medianoche derivado del azul industrial.
+// -------------------------------------------------------------------------
+const amarillo = {
+  50: '#FFFBE6',
+  100: '#FFF4BF',
+  200: '#FFE680',
+  300: '#FFD83D',
+  400: '#F4C400',
+  500: '#DDB000',
+  600: '#A68500',
+  700: '#7A6200',
+  800: '#574600',
+  900: '#3A2F00',
+};
+
 export default {
   darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -7,38 +34,47 @@ export default {
       fontFamily: {
         serif: ['"Playfair Display"', 'Georgia', 'serif'],
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        // Titulares: grotesca industrial de ancho ampliado
+        display: ['Archivo', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
+        amber: amarillo,
+        slate: {
+          // Carbón de marca para el texto más oscuro y el texto sobre amarillo
+          900: '#24282D',
+        },
         brand: {
-          // Navy — fondo principal en modo oscuro
+          blue: '#17375E',
+          yellow: '#F4C400',
+          carbon: '#24282D',
+          // Navy — azul medianoche, fondo principal en modo oscuro
           navy: {
-            DEFAULT: '#12161C',
-            50: '#F3F4F6',
-            100: '#E3E5E9',
-            200: '#C6CAD1',
-            700: '#1B2230',
-            800: '#161B24',
-            900: '#12161C',
-            950: '#0B0E13',
+            DEFAULT: '#081426',
+            50: '#F3F6FA',
+            100: '#E2E8F1',
+            200: '#C3CFDF',
+            700: '#17375E',
+            800: '#0E2140',
+            900: '#081426',
+            950: '#050D1A',
           },
-          // Dorado — acento de marca (aros, iconos de contacto, enlace activo)
+          // Antes dorado: ahora tonos del amarillo de marca
           gold: {
-            300: '#E4D3A6',
-            400: '#D9C08C',
-            500: '#C9A876',
-            600: '#B08D52',
-            700: '#8A6D3C',
+            300: amarillo[300],
+            400: amarillo[400],
+            500: amarillo[500],
+            600: amarillo[600],
+            700: amarillo[700],
           },
           // Colores exactos de marca para redes sociales
           whatsapp: '#00D492',
           facebook: '#2196F3',
           instagram: '#EC4899',
-          // Ámbar vivo — acento principal de la app (botones, links activos, KPIs)
           amber: {
-            300: '#FCD34D',
-            400: '#FBBF24',
-            500: '#F5B914',
-            600: '#D69E0A',
+            300: amarillo[300],
+            400: amarillo[400],
+            500: amarillo[500],
+            600: amarillo[500],
           },
         },
       },
