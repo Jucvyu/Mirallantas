@@ -55,10 +55,19 @@ function soloAlCrear(campo) {
 // "Completada" (con todas sus líneas), y también puede registrarse una
 // venta directa con su valor total.
 const columns = [
-  { key: 'id', label: 'Nº Venta' },
+  // La fecha va debajo del número: así la tabla cabe sin desplazarse de lado
+  {
+    key: 'id',
+    label: 'Nº Venta / Fecha',
+    render: (row) => (
+      <span className="flex flex-col">
+        <span className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">{row.id}</span>
+        <span className="whitespace-nowrap text-[11px] text-slate-400">{row.fecha}</span>
+      </span>
+    ),
+  },
   { key: 'cliente', label: 'Cliente' },
   { key: 'proveedor', label: 'Proveedor' },
-  { key: 'fecha', label: 'Fecha' },
   { key: 'metodoPago', label: 'Método de pago' },
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Venta directa' },
   { key: 'total', label: 'Total' },

@@ -25,7 +25,7 @@ const PAGE_SIZE = 8;
 
 /** Columna de acciones: fija a la derecha, con el fondo de la tarjeta para tapar lo que pasa por debajo. */
 const CELDA_ACCIONES =
-  'sticky right-0 z-10 bg-white px-3 pr-5 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.15)] dark:bg-brand-navy-800';
+  'sticky right-0 z-10 bg-white px-2 pr-4 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.15)] dark:bg-brand-navy-800';
 
 /**
  * Artículo que le corresponde al nombre de la entidad, para que los
@@ -238,7 +238,7 @@ export default function DataTable({
    * iconos; los que no aplican a la fila quedan deshabilitados.
    */
   const botonesFila = (row, desplegable, abierta) => (
-    <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1">
+    <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5">
       {expandir && (
         <BotonAccion
           icono={abierta ? ChevronUp : ChevronDown}
@@ -348,11 +348,11 @@ export default function DataTable({
              columna. Si aun así no cabe, la tabla se desplaza de lado y la
              columna de acciones queda fija a la derecha ---- */}
         <div className="hidden overflow-x-auto lg:block">
-          <table className="w-full table-auto text-left text-sm">
+          <table className="w-full table-auto text-left text-[13px]">
             <thead>
               <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                 {columns.map((col) => (
-                  <th key={col.key} className="px-3 py-3 align-bottom first:pl-5">
+                  <th key={col.key} className="px-2 py-3 align-bottom first:pl-4">
                     {col.label}
                   </th>
                 ))}
@@ -371,7 +371,7 @@ export default function DataTable({
                       {columns.map((col) => (
                         <td
                           key={col.key}
-                          className={`px-3 py-3 align-top first:pl-5 ${
+                          className={`px-2 py-3 align-top first:pl-4 ${
                             esCorto(row[col.key]) ? 'whitespace-nowrap' : 'break-words [overflow-wrap:anywhere]'
                           }`}
                         >

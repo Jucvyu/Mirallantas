@@ -438,6 +438,10 @@ export async function actualizar(req, res) {
     }
     const cambiaEstado = cambios.estado && cambios.estado !== actual.estado;
     if (cambiaEstado) validarTransicion('cotizacion', actual.estado, cambios.estado);
+    // Cancelar una cotización (sin borrarla) exige decir por qué
+    if (cambiaEstado && cambios.estado === 'Rechazada' && !cambios.motivoCancelacion?.trim()) {
+      throw new HttpError(422, 'Indica el motivo de la cancelación.');
+    }
 
     const soloRechaza =
       cambios.estado === 'Rechazada' && Object.keys(cambios).every((k) => ['estado', 'motivoCancelacion'].includes(k));

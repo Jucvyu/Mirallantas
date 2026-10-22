@@ -83,7 +83,12 @@ export function AuthProvider({ children }) {
 
   // ---- Si la API rechaza el token en cualquier pantalla, se cierra -------
   useEffect(() => {
-    const alExpirar = () => setUsuario(null);
+    // La API rechazó el token (se abrió la cuenta en otro dispositivo o venció):
+    // al login, con el aviso de por qué
+    const alExpirar = () => {
+      setUsuario(null);
+      window.location.assign('/login?motivo=sesion');
+    };
     // Si lo desactivaron con la sesión abierta, se le explica en su pantalla
     const alDesactivar = () => window.location.assign('/cuenta-inactiva');
     window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar);

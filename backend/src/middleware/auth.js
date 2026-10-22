@@ -79,9 +79,9 @@ export async function autenticar(req, res, next) {
   if (!usuario) throw new HttpError(401, 'Tu sesión expiró o no es válida. Inicia sesión de nuevo.');
   // Si la desactivaron con la sesión abierta, se le avisa por qué sale
   if (!cuentaHabilitada(usuario)) throw errorCuentaInactiva();
-  // Sesión cerrada desde otro lugar o contraseña cambiada
+  // Se inició sesión en otro dispositivo, se cerró desde otro lugar o cambió la contraseña
   if (carga.ver !== usuario.version_sesion) {
-    throw new HttpError(401, 'Tu sesión fue cerrada. Inicia sesión de nuevo.');
+    throw new HttpError(401, 'Tu sesión se cerró porque la cuenta se abrió en otro dispositivo. Inicia sesión de nuevo.');
   }
 
   const pendiente2fa = debeActivar2fa(usuario);

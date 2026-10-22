@@ -68,6 +68,8 @@ export default function LoginPage() {
   // ?motivo=inactividad: la sesión se cerró sola por falta de uso
   const [parametros] = useSearchParams();
   const porInactividad = parametros.get('motivo') === 'inactividad';
+  // ?motivo=sesion: la cuenta se abrió en otro dispositivo (o la sesión venció)
+  const porOtroDispositivo = parametros.get('motivo') === 'sesion';
 
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
@@ -208,6 +210,12 @@ export default function LoginPage() {
             {porInactividad && !desafio && (
               <p className="ml-aparece mb-4 flex items-center gap-2 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
                 <Clock size={14} className="shrink-0" /> Tu sesión se cerró por inactividad. Vuelve a ingresar.
+              </p>
+            )}
+
+            {porOtroDispositivo && !desafio && (
+              <p className="ml-aparece mb-4 flex items-center gap-2 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <Clock size={14} className="shrink-0" /> Tu sesión se cerró porque la cuenta se abrió en otro dispositivo. Vuelve a ingresar.
               </p>
             )}
 

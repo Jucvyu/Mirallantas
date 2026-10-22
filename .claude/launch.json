@@ -31,7 +31,10 @@
         "run",
         "db"
       ],
-      "port": 5433
+      "port": 5433,
+      "env": {
+        "DATABASE_URL": "postgres://mirallantas:mirallantas@localhost:5433/mirallantas"
+      }
     }
   ]
 }

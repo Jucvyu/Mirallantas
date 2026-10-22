@@ -69,7 +69,7 @@ export const estadosActivo = ['Activo', 'Inactivo'];
 export const estadosCotizacion = ['Pendiente', 'Aprobada', 'En proceso', 'Completada', 'Rechazada'];
 export const FLUJO_ESTADOS_COTIZACION = {
   Pendiente: ['Aprobada', 'Rechazada'],
-  Aprobada: ['En proceso', 'Rechazada'],
+  Aprobada: ['En proceso'],
   'En proceso': ['Completada'],
   Completada: [],
   Rechazada: [],
