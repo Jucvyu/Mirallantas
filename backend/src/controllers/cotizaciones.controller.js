@@ -27,7 +27,7 @@ import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
 import { enviarPdfCotizacion } from '../views/pdf.view.js';
 import { enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
-import { completarVenta, generarCompras, registrarVentaPagada } from './documentosAutomaticos.js';
+import { completarVenta, generarCompras, registrarVentaPagada, sincronizarVenta } from './documentosAutomaticos.js';
 
 /**
  * Controlador de cotizaciones-pedido. El flujo comercial tiene tres pasos:
@@ -259,8 +259,20 @@ export async function emitir(req, res) {
     }
     if (cotizacion.metodoPago) throw new HttpError(422, 'El cliente ya aceptó esta cotización: sus precios no cambian.');
 
-    const productos = (await cotizacionesModel.lineas(cotizacion.id, db)).filter((l) => l.tipo === 'producto');
+    const lineas = await cotizacionesModel.lineas(cotizacion.id, db);
+    const productos = lineas.filter((l) => l.tipo === 'producto');
     if (productos.length === 0) throw new HttpError(422, 'La cotización no tiene llantas que cotizar.');
+
+    // Todos los precios deben estar definidos: también el de cada reencauche,
+    // que se asigna en "Solicitudes de servicio"
+    const serviciosSinPrecio = lineas.filter((l) => l.tipo === 'servicio' && !l.precioServicio);
+    if (serviciosSinPrecio.length > 0) {
+      const numeros = serviciosSinPrecio.map((l) => l.solicitudServicio).filter(Boolean).join(', ');
+      throw new HttpError(
+        422,
+        `Falta el precio del reencauche${numeros ? ` (${numeros})` : ''}: asígnalo en "Solicitudes de servicio" antes de emitir la cotización.`,
+      );
+    }
 
     let subtotal = 0;
     for (const linea of productos) {
@@ -272,6 +284,9 @@ export async function emitir(req, res) {
     }
     const sobrantes = confirmadas.filter((c) => !productos.some((l) => l.id === c.id));
     if (sobrantes.length > 0) throw new HttpError(422, 'Una de las líneas no es una llanta de esta cotización.');
+
+    // El reencauche entra en el total: su precio pasa a su línea y se suma
+    subtotal += await cotizacionesModel.preciarServicios(db, cotizacion.id);
 
     await cotizacionesModel.emitir(db, cotizacion.id, { subtotal, dias: VIGENCIA_COTIZACION_DIAS });
     await notificaciones.crear(
@@ -499,6 +514,8 @@ export async function actualizar(req, res) {
       await generarCompras(db, actual.id);
     }
     if (cambiaEstado && cambios.estado === 'Completada') await completarVenta(db, actual.id);
+    // La venta (si ya existe) copia el estado y la entrega de la cotización
+    await sincronizarVenta(db, actual.id);
   });
 
   enviarDocumento(res, await leerCompleta(req, req.params.numero));
@@ -523,8 +540,12 @@ export async function revisarPago(req, res) {
     if (pago?.estado !== 'En revisión') throw new HttpError(422, 'Esta cotización no tiene un pago por revisar.');
 
     await pagosModel.resolver(db, pago.id, { estado, motivo: estado === 'Rechazado' ? motivo : null });
-    // Pagó de contado: la venta queda registrada enseguida
-    if (estado === 'Aprobado') await registrarVentaPagada(db, cotizacion.id);
+    // Pagó de contado: el reencauche (dentro del total) queda pagado con ella
+    // y la venta queda registrada enseguida
+    if (estado === 'Aprobado') {
+      await solicitudesModel.pagarConCotizacion(db, cotizacion.id, pago.medioPago);
+      await registrarVentaPagada(db, cotizacion.id);
+    }
     await notificaciones.crear(
       estado === 'Aprobado'
         ? {

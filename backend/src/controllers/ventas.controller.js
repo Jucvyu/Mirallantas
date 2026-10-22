@@ -83,6 +83,13 @@ export async function actualizar(req, res) {
   await enTransaccion(async (db) => {
     const actual = await ventasModel.buscarPorNumero(req.params.numero, { bloquear: 'v' }, db);
     if (actual.estado === 'Anulada') throw new HttpError(422, 'La venta está anulada: ya no se modifica.');
+    // La venta de una cotización sigue sola el estado y la entrega de su cotización
+    const cambiaEstados =
+      (cambios.estado && cambios.estado !== actual.estado) ||
+      (cambios.estadoEntrega && cambios.estadoEntrega !== actual.estadoEntrega);
+    if (actual.cotizacion && cambiaEstados) {
+      throw new HttpError(422, `El estado y la entrega de esta venta siguen a la cotización ${actual.cotizacion}: cámbialos allí.`);
+    }
 
     if (cambios.estado && cambios.estado !== actual.estado) {
       validarTransicion('venta', actual.estado, cambios.estado);

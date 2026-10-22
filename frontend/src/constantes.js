@@ -46,6 +46,16 @@ export const cuotaMinimaDe = (total) => Math.ceil((total * CUOTA_INICIAL_PORCENT
 /** Días calendario de vigencia de una cotización formal (los calcula la API). */
 export const VIGENCIA_COTIZACION_DIAS = 8;
 
+/**
+ * Ganancia sugerida sobre el precio de compra: al escribir lo que cobra el
+ * proveedor, el precio de venta se propone con este margen (el administrador
+ * lo puede cambiar). 0.2 = 20 %.
+ */
+export const GANANCIA_SUGERIDA = 0.2;
+
+/** Precio de venta sugerido para un precio de compra (redondeado al peso). */
+export const ventaSugerida = (compra) => Math.round(compra * (1 + GANANCIA_SUGERIDA));
+
 /** Plazo de respuesta para confirmar los precios de una solicitud. */
 export const PLAZO_RESPUESTA_HORAS = 24;
 

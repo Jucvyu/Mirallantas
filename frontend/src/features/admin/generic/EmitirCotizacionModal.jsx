@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BadgeCheck, CalendarClock, TriangleAlert } from 'lucide-react';
+import { BadgeCheck, CalendarClock, TriangleAlert, Wrench } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
 import SearchSelect from '../../../components/base/SearchSelect';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL, formatoMiles } from '../../../components/base/formStyles';
-import { VIGENCIA_COTIZACION_DIAS } from '../../../constantes';
+import { GANANCIA_SUGERIDA, VIGENCIA_COTIZACION_DIAS, ventaSugerida } from '../../../constantes';
 import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
@@ -23,10 +24,10 @@ const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CO') : '');
  * "Confirmar precios y emitir" (Pedidos-Cotización).
  *
  * Por cada llanta de la solicitud el asesor registra el proveedor con el
- * que verificó el precio y el precio de venta definitivo (se sugiere el del
- * catálogo, si tiene), y marca que lo verificó hoy. Con todo listo, la API
- * emite la cotización formal con vigencia de 8 días calendario. El costo
- * del proveedor ya no se pide aquí.
+ * que verificó el precio, el precio de compra (lo que cobra el proveedor) y
+ * el de venta (se propone solo: compra + 20 %, y se puede cambiar), y marca
+ * que lo verificó hoy. Con todo listo, la API emite la cotización formal con
+ * vigencia de 8 días calendario.
  */
 export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, onClose }) {
   const { documento, cargando, error } = useDetalle({ ...inicial, detalle: undefined }, cotizacionesService);
@@ -38,27 +39,48 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
   const [intento, setIntento] = useState(false);
 
   const llantas = useMemo(() => (documento.detalle ?? []).filter((l) => l.tipo === 'producto'), [documento.detalle]);
+  // Reencauches de la cotización que todavía no tienen precio: sin ellos no se emite
+  const serviciosSinPrecio = useMemo(
+    () => (documento.detalle ?? []).filter((l) => l.tipo === 'servicio' && !l.solicitudDatos?.precio),
+    [documento.detalle],
+  );
 
   // Valores de cada línea: lo que escribió el asesor o, si no, lo de antes
-  // (si se re-emite) o el proveedor de la cotización y el precio sugerido.
+  // (si se re-emite) o el proveedor de la cotización. El precio de venta
+  // parte del de compra + la ganancia sugerida.
   const filas = useMemo(
     () =>
       Object.fromEntries(
-        llantas.map((l) => [
-          l.lineaId,
-          {
-            proveedorId: l.proveedorLineaId ?? inicial.proveedorId ?? '',
-            // Un precio sugerido en 0 (productos sin precio de lista) se deja vacío
-            precio: formatoMiles(String(l.precioUnitarioValor || l.precioSugerido || '')),
-            verificado: false,
-            ...ediciones[l.lineaId],
-          },
-        ]),
+        llantas.map((l) => {
+          const compra = l.costoProveedor || l.ultimoCosto || 0;
+          const venta = l.precioUnitarioValor || (compra ? ventaSugerida(compra) : l.precioSugerido) || '';
+          return [
+            l.lineaId,
+            {
+              proveedorId: l.proveedorLineaId ?? inicial.proveedorId ?? '',
+              // Un valor en 0 (sin costo ni precio de lista) se deja vacío
+              compra: formatoMiles(String(compra || '')),
+              precio: formatoMiles(String(venta)),
+              verificado: false,
+              ...ediciones[l.lineaId],
+            },
+          ];
+        }),
       ),
     [llantas, inicial.proveedorId, ediciones],
   );
 
   const cambiar = (id, cambios) => setEdiciones((e) => ({ ...e, [id]: { ...e[id], ...cambios } }));
+
+  /**
+   * Al escribir el precio de compra, el de venta se recalcula con la ganancia
+   * sugerida, salvo que el asesor ya lo haya cambiado a mano.
+   */
+  const cambiarCompra = (id, texto) => {
+    const compra = formatoMiles(texto);
+    const editado = ediciones[id]?.ventaEditada;
+    cambiar(id, editado ? { compra } : { compra, precio: aNumero(compra) ? formatoMiles(String(ventaSugerida(aNumero(compra)))) : '' });
+  };
 
   /** Errores de una línea (se muestran después del primer intento). */
   const erroresDe = (l) => {
@@ -66,6 +88,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     const precio = aNumero(f.precio);
     const e = {};
     if (!f.proveedorId) e.proveedor = 'Elige el proveedor';
+    if (aNumero(f.compra) <= 0) e.compra = 'Escribe el precio que te da el proveedor';
     if (precio <= 0) e.precio = 'Escribe el precio de venta';
     if (!f.verificado) e.verificado = 'Confirma que verificaste el precio con el proveedor';
     return e;
@@ -76,13 +99,14 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
 
   const emitir = (cerrar) => {
     setIntento(true);
-    if (hayErrores) return;
+    if (hayErrores || serviciosSinPrecio.length > 0) return;
     enviar(async () => {
       await cotizacionesService.emitir(
         documento.id,
         llantas.map((l) => ({
           id: l.lineaId,
           proveedorId: filas[l.lineaId].proveedorId,
+          costoProveedor: aNumero(filas[l.lineaId].compra),
           precioUnitario: aNumero(filas[l.lineaId].precio),
         })),
       );
@@ -108,7 +132,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
           </button>
           <button
             type="button"
-            disabled={enviando || cargando || llantas.length === 0}
+            disabled={enviando || cargando || llantas.length === 0 || serviciosSinPrecio.length > 0}
             onClick={() => emitir(cerrar)}
             className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:opacity-60"
           >
@@ -120,6 +144,23 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
       <div className="space-y-4">
         <AvisoError mensaje={error || errorEnvio} />
         {cargando && <SkeletonLineas lineas={4} />}
+
+        {/* Con reencauche: su precio se define en "Solicitudes de servicio" antes de emitir */}
+        {serviciosSinPrecio.length > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-400/60 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+            <Wrench size={15} className="mt-px shrink-0 text-amber-500" />
+            <div>
+              <p className="font-semibold">Esta cotización incluye reencauche sin precio.</p>
+              <p className="mt-0.5">
+                Asigna el precio de {serviciosSinPrecio.map((l) => l.solicitud).filter(Boolean).join(', ') || 'el servicio'} en{' '}
+                <Link to="/admin/solicitudes-servicio" className="font-semibold underline underline-offset-2">
+                  Solicitudes de servicio
+                </Link>{' '}
+                para poder emitir la cotización.
+              </p>
+            </div>
+          </div>
+        )}
 
         {inicial.etapa === 'Vencida' && (
           <p className="flex items-start gap-2 rounded-lg border border-red-400/50 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400">
@@ -146,7 +187,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                   </p>
                 )}
 
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
                     <span className={LABEL}>Proveedor</span>
                     <SearchSelect
@@ -159,6 +200,23 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                     {e.proveedor && <p className="mt-1 text-xs text-red-500">{e.proveedor}</p>}
                   </div>
                   <div>
+                    <label className={LABEL} htmlFor={`compra-${l.lineaId}`}>
+                      Precio de compra (c/u)
+                    </label>
+                    <input
+                      id={`compra-${l.lineaId}`}
+                      inputMode="numeric"
+                      value={f.compra ?? ''}
+                      onChange={(ev) => cambiarCompra(l.lineaId, ev.target.value)}
+                      className={`${INPUT} ${e.compra ? BORDER_ERR : BORDER_OK}`}
+                    />
+                    {e.compra ? (
+                      <p className="mt-1 text-xs text-red-500">{e.compra}</p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-slate-400">Lo que cobra el proveedor</p>
+                    )}
+                  </div>
+                  <div>
                     <label className={LABEL} htmlFor={`precio-${l.lineaId}`}>
                       Precio de venta (c/u)
                     </label>
@@ -166,14 +224,15 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                       id={`precio-${l.lineaId}`}
                       inputMode="numeric"
                       value={f.precio ?? ''}
-                      onChange={(ev) => cambiar(l.lineaId, { precio: formatoMiles(ev.target.value) })}
+                      onChange={(ev) => cambiar(l.lineaId, { precio: formatoMiles(ev.target.value), ventaEditada: true })}
                       className={`${INPUT} ${e.precio ? BORDER_ERR : BORDER_OK}`}
                     />
                     {e.precio ? (
                       <p className="mt-1 text-xs text-red-500">{e.precio}</p>
                     ) : (
                       <p className="mt-1 text-[11px] text-slate-400">
-                        Subtotal: {formatCOP(aNumero(f.precio) * l.cantidad)}
+                        {filas[l.lineaId]?.ventaEditada ? 'Editado a mano' : `Compra + ${GANANCIA_SUGERIDA * 100} %`} · Subtotal:{' '}
+                        {formatCOP(aNumero(f.precio) * l.cantidad)}
                       </p>
                     )}
                   </div>

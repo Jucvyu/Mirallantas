@@ -70,24 +70,40 @@ export async function actualizar(req, res) {
     const actual = await solicitudesModel.bloquear(db, req.params.numero);
     if (!actual) throw new HttpError(404, 'La solicitud no existe.');
 
-    const { precio, ...datos } = resto;
+    const { precio, costo, ...datos } = resto;
     await solicitudesModel.actualizar(db, actual.id, aPares(datos, solicitudesModel.COLUMNAS));
+    // El precio de compra es interno: se puede corregir aunque el servicio ya esté pagado
+    if (costo !== undefined) await solicitudesModel.actualizar(db, actual.id, [['costo', costo]]);
 
     // ---- Precio del servicio: solo mientras no se haya pagado
     if (precio !== undefined && precio !== actual.precio) {
       if ([PAGO.enRevision, PAGO.aprobado].includes(actual.pago_estado)) {
         throw new HttpError(422, 'El pago de este servicio ya se registró: su valor no cambia.');
       }
+      // Si viene de una cotización, su precio va dentro del total: después de
+      // que el cliente la acepta ya no cambia
+      const cotizacion = await cotizacionesModel.deSolicitudServicio(db, actual.id);
+      // (una cotización de solo reencauche no lo incluye: se sigue cobrando aparte)
+      if (cotizacion?.metodoPago && (await cotizacionesModel.servicioIncluido(db, actual.id))) {
+        throw new HttpError(422, `La cotización ${cotizacion.numero} ya fue aceptada con este valor: no cambia.`);
+      }
       const pagoEstado = actual.pago_estado === PAGO.rechazado ? PAGO.rechazado : PAGO.porPagar;
       await solicitudesModel.actualizar(db, actual.id, [
         ['precio', precio],
         ['pago_estado', pagoEstado],
       ]);
+      if (cotizacion?.confirmado && !cotizacion.metodoPago) {
+        // Ya emitida (sin aceptar): su línea y su total se actualizan
+        await cotizacionesModel.preciarServicios(db, cotizacion.id);
+        await cotizacionesModel.recalcularSinAceptar(db, cotizacion.id);
+      }
       await notificaciones.crear(
         {
           clienteId: actual.cliente_id,
           titulo: `Tu servicio ${actual.numero} ya tiene valor`,
-          mensaje: `El valor del servicio es ${pesos(precio)}. Ábrelo en "Mis cotizaciones" para pagarlo.`,
+          mensaje: cotizacion && !cotizacion.metodoPago
+            ?`El valor del reencauche es ${pesos(precio)} y se suma al total de tu cotización ${cotizacion.numero}.`
+            : `El valor del servicio es ${pesos(precio)}. Ábrelo en "Mis cotizaciones" para pagarlo.`,
           enlace: EN_PEDIDOS,
           tipo: 'alerta',
         },

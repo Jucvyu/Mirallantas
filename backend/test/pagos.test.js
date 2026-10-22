@@ -126,6 +126,14 @@ describe('Pago de contado de una cotización', () => {
     assert.ok(deLaCotizacion.length >= 1, 'se genera la compra al proveedor');
     assert.ok(deLaCotizacion.every((c) => c.estado === 'Pendiente'));
 
+    // La venta sigue sola a la cotización: la entrega en camino se ve en ventas
+    const enCamino = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega: 'En camino' } });
+    assert.equal(enCamino.estado, 200, JSON.stringify(enCamino.cuerpo));
+    const ventaEnCamino = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
+    assert.equal(ventaEnCamino.cuerpo.datos.estadoEntrega, 'En camino');
+    const aMano = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Anulada' } });
+    assert.equal(aMano.estado, 422, 'su estado no se cambia desde ventas');
+
     // Volver a pasar por "Aprobada" no duplica nada: completarla deja la misma venta completada
     for (const estado of ['En proceso', 'Completada']) {
       const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado } });

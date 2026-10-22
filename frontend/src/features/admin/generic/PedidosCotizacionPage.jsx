@@ -62,6 +62,11 @@ const columns = [
         <span className="whitespace-nowrap text-[11px] text-slate-400">{row.fecha}</span>
         <Badge>{row.etapa}</Badge>
         {row.etapa === 'Solicitud' && <span className="text-[10px] font-medium text-amber-600">Precios por confirmar</span>}
+        {row.estado === 'Pendiente' && row.serviciosSinPrecio > 0 && (
+          <span className="text-[10px] font-medium text-amber-600" title="Asígnalo en Solicitudes de servicio">
+            Reencauche sin precio
+          </span>
+        )}
         {['Emitida', 'Vencida'].includes(row.etapa) && (
           <span className="text-[10px] text-slate-400">Vence {fechaCorta(row.venceEn)}</span>
         )}

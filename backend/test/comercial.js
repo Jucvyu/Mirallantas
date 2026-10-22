@@ -20,11 +20,21 @@ export const solicitud = (lineas, extra = {}) => ({
  */
 export async function emitir(e, tokenAsesor, numero) {
   const detalle = (await e.api(`/cotizaciones/${numero}`, { token: tokenAsesor })).cuerpo.datos.detalle;
+  // Primero el precio de cada reencauche (sin él no se puede emitir)
+  for (const l of detalle.filter((d) => d.tipo === 'servicio' && !d.precioServicio && d.solicitudServicio)) {
+    await e.api(`/solicitudes-servicio/${l.solicitudServicio}`, {
+      metodo: 'PATCH',
+      token: tokenAsesor,
+      cuerpo: { costo: 60000, precio: 72000 },
+    });
+  }
   const lineas = detalle
     .filter((l) => l.tipo === 'producto')
     .map((l) => ({
       id: l.id,
       proveedorId: 1,
+      // Compra: lo que cobra el proveedor (aquí, el 80 % del precio de venta)
+      costoProveedor: Math.round(l.precioSugerido * 0.8),
       precioUnitario: l.precioSugerido,
     }));
   return e.api(`/cotizaciones/${numero}/emitir`, { metodo: 'POST', token: tokenAsesor, cuerpo: { lineas } });

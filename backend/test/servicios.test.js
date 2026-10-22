@@ -70,7 +70,7 @@ describe('Pago de un servicio de reencauche', () => {
       token: t.admin,
       cuerpo: { precio: 640000 },
     });
-    assert.equal(r.estado, 200);
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.pagoEstado, 'Por pagar');
 
     const avisos = await e.api('/portal/notificaciones', { token: t.luis });

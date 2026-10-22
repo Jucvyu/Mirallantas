@@ -75,7 +75,8 @@ const columns = [
   {
     key: 'estadoEntrega',
     label: 'Entrega',
-    render: (row, { update }) => <EstadoEntrega row={row} update={update} />,
+    // La de una cotización sigue sola a su cotización: aquí solo se ve
+    render: (row, { update }) => <EstadoEntrega row={row} update={row.cotizacion ? undefined : update} />,
   },
 ];
 
@@ -177,6 +178,8 @@ export default function VentasPage() {
         onCreate={(valores) => ventas.crear(valores, contexto)}
         onEdit={(fila, valores) => ventas.editar(fila, valores, contexto)}
         onStatusChange={(fila, estado) => ventas.ejecutar(() => ventasService.cambiarEstado(fila, estado))}
+        // El estado de una venta que viene de una cotización lo pone la cotización
+        canChangeStatus={(row) => !row.cotizacion}
         onRowUpdate={(fila, cambios) => ventas.ejecutar(() => ventasService.actualizar(fila, cambios))}
         statusKey="estado"
         newLabel="Nueva venta"
@@ -213,8 +216,8 @@ export default function VentasPage() {
               icono={Ban}
               etiqueta="Anular la venta"
               tono="peligro"
-              deshabilitado={row.estado === 'Anulada'}
-              motivo="La venta ya está anulada"
+              deshabilitado={row.estado === 'Anulada' || Boolean(row.cotizacion)}
+              motivo={row.cotizacion ? `Sigue a la cotización ${row.cotizacion}: cancélala allí` : 'La venta ya está anulada'}
               onClick={() => setAnulando({ row, update })}
             />
           </>

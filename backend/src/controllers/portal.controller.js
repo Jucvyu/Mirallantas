@@ -6,6 +6,7 @@ import * as notificaciones from '../models/notificaciones.model.js';
 import * as pagosModel from '../models/pagosCotizacion.model.js';
 import * as portalModel from '../models/portal.model.js';
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
+import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import { PAGO } from '../models/solicitudesServicio.model.js';
 import { enviarDato, enviarSinContenido } from '../views/respuesta.view.js';
 import { enviarResumen, enviarResumenVacio } from '../views/portal.view.js';
@@ -54,6 +55,10 @@ export async function pagarServicio(req, res) {
   await enTransaccion(async (db) => {
     const solicitud = await solicitudesModel.bloquear(db, req.params.numero, clienteId);
     if (!solicitud) throw new HttpError(404, 'El servicio no existe.');
+    // Si su precio ya va dentro del total de la cotización, se paga con ella
+    if (await cotizacionesModel.servicioIncluido(db, solicitud.id)) {
+      throw new HttpError(422, 'Este servicio se paga junto con el total de tu cotización.');
+    }
     if (![PAGO.porPagar, PAGO.rechazado].includes(solicitud.pago_estado)) {
       const motivos = {
         [PAGO.sinPrecio]: 'Un asesor aún no le pone valor a este servicio.',

@@ -41,6 +41,8 @@ export const esquemaCambio = objetoEstricto(
     estado: z.enum(estadosDe('servicio')),
     // Valor total del servicio que asigna el asesor (todas las llantas)
     precio: pesosPositivos('El valor del servicio debe ser mayor que cero.'),
+    // Lo que cobra el tercero por el servicio (precio de compra; dato interno)
+    costo: pesosPositivos('El precio de compra debe ser mayor que cero.'),
   },
   'Este campo no se puede modificar en la solicitud.',
 ).partial();

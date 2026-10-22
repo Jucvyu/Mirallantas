@@ -12,6 +12,7 @@ import * as ventasModel from '../models/ventas.model.js';
  *   pago aprobado      → venta "Pendiente" (registrarVentaPagada)
  *   cotización Aprobada → una compra por proveedor (generarCompras)
  *   cotización Completada → su venta pasa a "Completada" (completarVenta)
+ *   cualquier cambio      → la venta copia estado y entrega (sincronizarVenta)
  *
  * Cada una revisa si el documento ya existe, así que llamarla dos veces no
  * duplica nada.
@@ -32,6 +33,24 @@ export async function registrarVentaPagada(db, cotizacionId) {
   const ventaId = await ventasModel.crearDesdeCotizacion(db, cotizacion, 'Pendiente');
   // Si la cotización se financió, su crédito queda ligado a la venta
   await creditosModel.ligarVenta(db, cotizacionId, ventaId);
+}
+
+/** Estado de la venta según el de su cotización. */
+const ESTADO_VENTA = { Completada: 'Completada', Rechazada: 'Anulada' };
+
+/**
+ * La venta de una cotización no se maneja a mano: copia el estado (Pendiente,
+ * Completada o Anulada si la cotización se rechazó) y la entrega de su
+ * cotización. Se llama después de cada cambio de la cotización.
+ */
+export async function sincronizarVenta(db, cotizacionId) {
+  const venta = await ventasModel.deCotizacion(db, cotizacionId);
+  if (!venta) return;
+  const cotizacion = await cotizacionesModel.fila(db, cotizacionId);
+  await ventasModel.actualizar(db, venta.id, [
+    ['estado', ESTADO_VENTA[cotizacion.estado] ?? 'Pendiente'],
+    ['estado_entrega', cotizacion.estado_entrega],
+  ]);
 }
 
 /** La cotización se completó: su venta queda "Completada" (y se crea si faltaba). */

@@ -36,7 +36,10 @@ const COTIZACION = {
     -- Pago de contado: estado de la consignación más reciente (null = no tiene)
     ${SUBCONSULTA_ESTADO} AS "pagoEstado",
     ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago",
-    ${SUBCONSULTA_TOTAL_SERVICIOS} AS "totalServicios"`,
+    ${SUBCONSULTA_TOTAL_SERVICIOS} AS "totalServicios",
+    -- Reencauches sin precio: mientras haya alguno, la cotización no se emite
+    (SELECT count(*)::int FROM cotizacion_detalle d JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
+      WHERE d.cotizacion_id = c.id AND ss.precio IS NULL) AS "serviciosSinPrecio"`,
   desde: `
     FROM cotizacion c
     JOIN cliente cl ON cl.id = c.cliente_id
@@ -111,16 +114,16 @@ export async function lineas(cotizacionId, db = POOL) {
 
 /**
  * Guarda en una línea de producto el proveedor con el que se verificó el
- * precio (con fecha y usuario) y el precio de venta definitivo. El costo
- * ya no se pide en la emisión: si había uno de antes, se conserva.
+ * precio (con fecha y usuario), su precio de compra (lo que cobra el
+ * proveedor) y el precio de venta definitivo.
  */
-export async function confirmarLinea(db, lineaId, { proveedorId, precioUnitario, usuarioId }) {
+export async function confirmarLinea(db, lineaId, { proveedorId, costoProveedor, precioUnitario, usuarioId }) {
   await db.query(
     `UPDATE cotizacion_detalle
         SET proveedor_id = $2, costo_confirmado_en = now(), costo_confirmado_por = $3,
-            precio_unitario = $4::bigint, subtotal = $4::bigint * cantidad
+            precio_unitario = $4::bigint, subtotal = $4::bigint * cantidad, costo_proveedor = $5
       WHERE id = $1`,
-    [lineaId, proveedorId, usuarioId, precioUnitario],
+    [lineaId, proveedorId, usuarioId, precioUnitario, costoProveedor],
   );
 }
 
@@ -205,7 +208,8 @@ export async function crearLinea(db, cotizacionId, l) {
  */
 export async function deSolicitudServicio(db, solicitudId) {
   const { rows } = await db.query(
-    `SELECT c.id, c.numero, c.estado, ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago"
+    `SELECT c.id, c.numero, c.estado, c.confirmado, c.metodo_pago AS "metodoPago",
+            ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago"
        FROM cotizacion c JOIN cotizacion_detalle d ON d.cotizacion_id = c.id
       WHERE d.solicitud_servicio_id = $1
       LIMIT 1`,
@@ -216,6 +220,48 @@ export async function deSolicitudServicio(db, solicitudId) {
 
 export function actualizar(db, id, pares) {
   return actualizarCampos(db, 'cotizacion', id, pares);
+}
+
+/**
+ * Lleva a las líneas de reencauche de la cotización el precio que el asesor
+ * asignó en "Solicitudes de servicio" (el valor total del servicio): así se
+ * suma al total y se ve en el detalle. Devuelve lo que suman.
+ */
+export async function preciarServicios(db, cotizacionId) {
+  const { rows } = await db.query(
+    `UPDATE cotizacion_detalle d
+        SET precio_unitario = ROUND(ss.precio::numeric / d.cantidad), subtotal = ss.precio
+       FROM solicitud_servicio ss
+      WHERE ss.id = d.solicitud_servicio_id AND d.cotizacion_id = $1
+        AND ss.estado <> 'Cancelado' AND ss.precio IS NOT NULL
+      RETURNING d.subtotal`,
+    [cotizacionId],
+  );
+  return rows.reduce((suma, r) => suma + r.subtotal, 0);
+}
+
+/**
+ * Cotización emitida pero aún sin aceptar: vuelve a sumar sus líneas (sin
+ * interés, que se calcula al aceptar) después de cambiar el precio de un
+ * reencauche.
+ */
+export async function recalcularSinAceptar(db, id) {
+  await db.query(
+    `UPDATE cotizacion c
+        SET subtotal = s.suma, total = s.suma
+       FROM (SELECT COALESCE(SUM(subtotal), 0) AS suma FROM cotizacion_detalle WHERE cotizacion_id = $1) s
+      WHERE c.id = $1 AND c.metodo_pago IS NULL`,
+    [id],
+  );
+}
+
+/** ¿El precio del reencauche ya está dentro del total de su cotización? */
+export async function servicioIncluido(db, solicitudId) {
+  const { rows } = await db.query(
+    'SELECT 1 FROM cotizacion_detalle WHERE solicitud_servicio_id = $1 AND subtotal > 0 LIMIT 1',
+    [solicitudId],
+  );
+  return rows.length > 0;
 }
 
 /** ¿Alguna línea quedó sin precio? (no se puede generar la venta) */

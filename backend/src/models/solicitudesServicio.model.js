@@ -38,10 +38,12 @@ const SELECT = `
   s.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
   s.servicio_id AS "servicioId", sv.nombre AS servicio,
   s.tercero_id AS "terceroId", te.nombre_razon_social AS tercero,
-  s.precio, sv.precio AS "precioSugerido", s.pago_estado AS "pagoEstado", s.pago_medio AS "pagoMedio",
+  s.precio, s.costo, sv.precio AS "precioSugerido", s.pago_estado AS "pagoEstado", s.pago_medio AS "pagoMedio",
   s.pago_comprobante AS "pagoComprobante", s.pago_fecha AS "pagoFecha", s.pago_motivo AS "pagoMotivo",
   (SELECT c.numero FROM cotizacion_detalle d JOIN cotizacion c ON c.id = d.cotizacion_id
-    WHERE d.solicitud_servicio_id = s.id LIMIT 1) AS cotizacion`;
+    WHERE d.solicitud_servicio_id = s.id LIMIT 1) AS cotizacion,
+  -- Su precio va dentro del total de la cotización (se paga con ella)
+  EXISTS (SELECT 1 FROM cotizacion_detalle d WHERE d.solicitud_servicio_id = s.id AND d.subtotal > 0) AS "incluidoEnCotizacion"`;
 
 const DESDE = `
   FROM solicitud_servicio s
@@ -133,6 +135,21 @@ export async function eliminarSuelta(numero, db = POOL) {
 /** Elimina una solicitud por id si sigue pendiente (al borrar su cotización). */
 export async function eliminarPendiente(db, id) {
   await db.query("DELETE FROM solicitud_servicio WHERE id = $1 AND estado = 'Pendiente'", [id]);
+}
+
+/**
+ * El cliente pagó la cotización: los reencauches que van dentro de su total
+ * quedan pagados con ella (mismo medio, fecha de hoy).
+ */
+export async function pagarConCotizacion(db, cotizacionId, medio) {
+  await db.query(
+    `UPDATE solicitud_servicio ss
+        SET pago_estado = 'Aprobado', pago_medio = $2, pago_fecha = CURRENT_DATE, pago_motivo = NULL
+       FROM cotizacion_detalle d
+      WHERE d.solicitud_servicio_id = ss.id AND d.cotizacion_id = $1
+        AND d.subtotal > 0 AND ss.pago_estado <> 'Aprobado'`,
+    [cotizacionId, medio ?? null],
+  );
 }
 
 /**

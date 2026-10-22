@@ -43,7 +43,7 @@ export async function deCliente(clienteId) {
 /** El pago más reciente, bloqueado hasta terminar la transacción (o null). */
 export async function ultimoBloqueado(db, cotizacionId) {
   const { rows } = await db.query(
-    `SELECT id, estado FROM pago_cotizacion WHERE cotizacion_id = $1
+    `SELECT id, estado, medio_pago AS "medioPago" FROM pago_cotizacion WHERE cotizacion_id = $1
       ORDER BY creado_en DESC, id DESC LIMIT 1 FOR UPDATE`,
     [cotizacionId],
   );
@@ -92,11 +92,12 @@ export const SUBCONSULTA_ESTADO_PAGO = `(
    WHERE e IS NOT NULL)`;
 
 /**
- * Lo que suman los servicios de reencauche de la cotización (el valor que
- * les asigna el asesor; los que aún no tienen precio cuentan 0). Se pagan
- * aparte, pero se muestran sumados al valor de la cotización.
+ * Lo que suman los servicios de reencauche que todavía NO están dentro del
+ * total de la cotización (los de cotizaciones anteriores a esta regla, que se
+ * pagan aparte). Los que ya tienen su precio en la línea de la cotización
+ * están sumados en su total y no se vuelven a contar.
  */
 export const SUBCONSULTA_TOTAL_SERVICIOS = `(
   SELECT COALESCE(SUM(ss.precio), 0)::bigint
     FROM cotizacion_detalle d JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
-   WHERE d.cotizacion_id = c.id AND ss.estado <> 'Cancelado')`;
+   WHERE d.cotizacion_id = c.id AND ss.estado <> 'Cancelado' AND COALESCE(d.subtotal, 0) = 0)`;

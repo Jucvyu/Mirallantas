@@ -423,6 +423,8 @@ export default function ClientPedidosPage() {
                       // Pago rechazado: el servicio se marca en rojo hasta que se vuelva a subir
                       const pagoRechazado = solicitud?.pagoEstado === 'Rechazado';
                       const pagado = solicitud?.pagoEstado === 'Aprobado';
+                      // Su precio va dentro del total de la cotización: se paga con ella
+                      const incluido = esServicio && linea.precioUnitarioValor > 0;
 
                       return (
                         <li
@@ -446,7 +448,7 @@ export default function ClientPedidosPage() {
                               </p>
                               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 {solicitud
-                                  ? `${linea.medida} · ${linea.cantidad} llantas · se paga aparte`
+                                  ? `${linea.medida} · ${linea.cantidad} llantas · ${incluido ? 'incluido en el total' : 'se paga aparte'}`
                                   : `${linea.medida} · ${linea.cantidad} × ${linea.unitario}`}
                               </p>
                             </div>
@@ -496,8 +498,20 @@ export default function ClientPedidosPage() {
                                 }`}
                               >
                                 <div className="overflow-hidden">
-                                  {/* Pago del servicio: se cobra aparte de la cotización */}
-                                  <PagoServicio servicio={solicitud} onPagado={recargar} />
+                                  {/* Incluido: se paga con la cotización. Si no, se cobra aparte */}
+                                  {incluido ? (
+                                    <p
+                                      className={`rounded-md px-3 py-2 text-[11px] font-semibold ${
+                                        pagado
+                                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                          : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300'
+                                      }`}
+                                    >
+                                      {pagado ? 'Pagado con el total de la cotización.' : 'Se paga junto con el total de la cotización.'}
+                                    </p>
+                                  ) : (
+                                    <PagoServicio servicio={solicitud} onPagado={recargar} />
+                                  )}
 
                                   <dl className="mt-2 space-y-1.5 rounded-md bg-slate-100/80 p-3 text-[11px] dark:bg-white/5">
                                     {[

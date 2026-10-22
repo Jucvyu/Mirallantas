@@ -175,6 +175,8 @@ export const cotizacionDesdeApi = (f) => ({
   totalProductos: formatCOP(f.total),
   totalServicios: formatCOP(f.totalServicios ?? 0),
   conServicios: (f.totalServicios ?? 0) > 0,
+  // Reencauches que todavía esperan su precio en "Solicitudes de servicio"
+  serviciosSinPrecio: f.serviciosSinPrecio ?? 0,
   cuotaInicial: formatCOP(f.cuotaInicial),
   proveedor: f.proveedor ?? '',
   motivoCancelacion: f.motivoCancelacion ?? '',
@@ -284,6 +286,10 @@ export const solicitudServicioDesdeApi = (f) => ({
   // Pago del servicio (se cobra aparte de la cotización)
   cotizacion: f.cotizacion ?? '',
   precio: f.precio ? formatCOP(f.precio) : '',
+  // Precio de compra (lo que cobra el tercero); solo lo ve el personal
+  costo: f.costo ?? null,
+  // Su precio va dentro del total de la cotización (se paga con ella)
+  incluidoEnCotizacion: Boolean(f.incluidoEnCotizacion),
   precioSugerido: f.precioSugerido ? formatCOP(f.precioSugerido) : '',
   pagoEstado: f.pagoEstado ?? 'Sin precio',
   pagoMedio: f.pagoMedio ?? '',

@@ -162,7 +162,7 @@ export default function SolicitudesServicioPage() {
               <TarjetaSolicitudServicio
                 key={s.id}
                 solicitud={s}
-                onPrecio={(precio) => solicitudes.ejecutar(() => solicitudesServicioService.asignarPrecio(s, precio))}
+                onPrecio={(valores) => solicitudes.ejecutar(() => solicitudesServicioService.asignarPrecio(s, valores))}
                 onEstado={(estado) => solicitudes.ejecutar(() => solicitudesServicioService.cambiarEstado(s, estado))}
                 onVerPago={() => setPagoDe(s)}
                 onEditar={() => setEditando(s)}

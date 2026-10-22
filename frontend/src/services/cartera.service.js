@@ -148,7 +148,8 @@ export const solicitudesServicioService = {
   ...solicitudesServicioBase,
   cambiarEstado: (fila, estado) => solicitudesServicioBase.enviar(fila, { estado }),
   /** Asigna el valor del servicio (el cliente recibe el aviso para pagarlo). */
-  asignarPrecio: (fila, precio) => solicitudesServicioBase.enviar(fila, { precio }),
+  /** Precio de compra (tercero) y de venta (cliente): se envía solo lo que cambió. */
+  asignarPrecio: (fila, { costo, precio }) => solicitudesServicioBase.enviar(fila, { costo, precio }),
   /** Aprobar o rechazar el pago del servicio (rechazar exige el motivo). */
   revisarPago: (fila, estado, motivo) =>
     solicitudesServicioBase.enviar(fila, { estado, motivo: motivo || undefined }, { metodo: 'POST', sufijo: '/pago' }),

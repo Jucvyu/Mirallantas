@@ -99,7 +99,13 @@ describe('Cotización formal: precios verificados con el proveedor', () => {
     const emitirCon = (lineas) => e.api(`/cotizaciones/${t.cotizacionLuis}/emitir`, { metodo: 'POST', token: t.admin, cuerpo: { lineas } });
     assert.equal((await emitirCon([])).estado, 422);
     assert.equal((await emitirCon([{ id: llanta.id, precioUnitario: 280000 }])).estado, 422, 'falta el proveedor');
-    assert.equal((await emitirCon([{ id: llanta.id, proveedorId: 1 }])).estado, 422, 'falta el precio');
+    assert.equal((await emitirCon([{ id: llanta.id, proveedorId: 1, costoProveedor: 224000 }])).estado, 422, 'falta el precio de venta');
+    assert.equal((await emitirCon([{ id: llanta.id, proveedorId: 1, precioUnitario: 280000 }])).estado, 422, 'falta el precio de compra');
+
+    // Las llantas completas no bastan: falta el precio del reencauche
+    const sinServicio = await emitirCon([{ id: llanta.id, proveedorId: 1, costoProveedor: 224000, precioUnitario: 280000 }]);
+    assert.equal(sinServicio.estado, 422);
+    assert.match(sinServicio.cuerpo.error, /precio del reencauche/);
   });
 
   test('emitida: guarda los precios, vence a los 8 días y avisa al cliente', async () => {
@@ -107,11 +113,14 @@ describe('Cotización formal: precios verificados con el proveedor', () => {
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     const c = r.cuerpo.datos;
     assert.equal(c.etapa, 'Emitida');
-    assert.equal(c.subtotal, 560000);
-    assert.equal(c.total, 560000);
+    // 2 llantas × 280.000 + el reencauche (72.000), que va dentro del total
+    assert.equal(c.subtotal, 632000);
+    assert.equal(c.total, 632000);
+    const reencauche = c.detalle.find((l) => l.tipo === 'servicio');
+    assert.equal(reencauche.subtotal, 72000, 'el precio del reencauche se ve en el detalle');
     const linea = c.detalle.find((l) => l.id === t.lineaLuis);
     assert.equal(linea.precioUnitario, 280000);
-    assert.equal(linea.costoProveedor, null, 'no se inventa un costo');
+    assert.equal(linea.costoProveedor, 224000, 'guarda el precio de compra');
     assert.equal(linea.proveedorLineaId, 1);
     assert.ok(linea.costoConfirmadoEn, 'queda la fecha de verificación');
 
@@ -136,7 +145,7 @@ describe('Cotización formal: precios verificados con el proveedor', () => {
   test('si cambia el precio del catálogo, la cotización emitida no cambia', async () => {
     await e.db.query('UPDATE producto SET precio_venta = 999000 WHERE id = 1');
     const r = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin });
-    assert.equal(r.cuerpo.datos.subtotal, 560000);
+    assert.equal(r.cuerpo.datos.subtotal, 632000);
     await e.db.query('UPDATE producto SET precio_venta = 280000 WHERE id = 1');
   });
 
@@ -170,17 +179,17 @@ describe('Aceptación de la cotización formal', () => {
   });
 
   test('a crédito suma el interés y abre la solicitud por lo que se financia', async () => {
-    // 560.000 + 3 % = 576.800; la cuota mínima es 173.040 (30 %)
+    // 632.000 (llantas + reencauche) + 3 % = 650.960; la cuota mínima es 195.288 (30 %)
     const r = await aceptar(e, t.luis, t.cotizacionLuis, credito({ monto: 500000, medioPago: 'Transferencia', comprobante: PNG }));
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.etapa, 'Aceptada');
-    assert.equal(r.cuerpo.datos.interes, 16800);
-    assert.equal(r.cuerpo.datos.total, 576800);
+    assert.equal(r.cuerpo.datos.interes, 18960);
+    assert.equal(r.cuerpo.datos.total, 650960);
 
     const solicitudes = await e.api(`/solicitudes-credito?q=${t.cotizacionLuis}`, { token: t.admin });
     const solicitudCredito = solicitudes.cuerpo.datos[0];
     assert.equal(solicitudCredito.estado, 'Pendiente');
-    assert.equal(solicitudCredito.monto, 576800 - 500000);
+    assert.equal(solicitudCredito.monto, 650960 - 500000);
     t.solicitudLuis = solicitudCredito.numero;
 
     // Ya aceptada, no se vuelve a emitir con otros precios
@@ -255,8 +264,8 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     // Aparece en la cartera del cliente con lo que queda debiendo
     const creditos = await e.api('/creditos', { token: t.luis });
     const credito = creditos.cuerpo.datos.find((c) => c.cotizacion === t.cotizacionLuis);
-    assert.equal(credito.montoTotal, 576800);
-    assert.equal(credito.saldoPendiente, 76800);
+    assert.equal(credito.montoTotal, 650960);
+    assert.equal(credito.saldoPendiente, 150960);
     t.credito = credito.numero;
 
     const detalle = await e.api(`/creditos/${t.credito}`, { token: t.admin });
@@ -266,24 +275,26 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.equal(cotizacion.cuerpo.datos.estado, 'Aprobada');
   });
 
-  test('con el servicio sin pagar no avanza; pagado, el valor se suma y el pago queda aprobado', async () => {
-    const frenada = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'En proceso' } });
-    assert.equal(frenada.estado, 422);
-    assert.match(frenada.cuerpo.error, /pagos pendientes/);
+  test('el reencauche queda pagado con la cotización y su precio ya no cambia', async () => {
+    const cotizacion = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin });
+    // Va dentro del total: no se cobra aparte ni se vuelve a sumar
+    assert.equal(cotizacion.cuerpo.datos.estadoPago, 'Aprobado');
+    assert.equal(cotizacion.cuerpo.datos.totalServicios, 0);
+    const solicitud = cotizacion.cuerpo.datos.detalle.find((l) => l.solicitudServicio).solicitudServicio;
 
-    const antes = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin });
-    assert.equal(antes.cuerpo.datos.estadoPago, 'Pendiente');
-    const solicitud = antes.cuerpo.datos.detalle.find((l) => l.solicitudServicio).solicitudServicio;
+    const servicio = await e.api(`/solicitudes-servicio/${solicitud}`, { token: t.admin });
+    assert.equal(servicio.cuerpo.datos.pagoEstado, 'Aprobado', 'pagado con la cotización');
 
-    // El asesor le pone valor al servicio y el cliente lo paga en el local
-    const precio = await e.api(`/solicitudes-servicio/${solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { precio: 90000 } });
-    assert.equal(precio.estado, 200, JSON.stringify(precio.cuerpo));
-    const pago = await e.api(`/solicitudes-servicio/${solicitud}/pago`, { metodo: 'POST', token: t.admin, cuerpo: { estado: 'Aprobado' } });
-    assert.equal(pago.estado, 200, JSON.stringify(pago.cuerpo));
+    // Aceptada la cotización, el precio de venta no cambia; el de compra (interno) sí
+    const cambio = await e.api(`/solicitudes-servicio/${solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { precio: 90000 } });
+    assert.equal(cambio.estado, 422);
+    const costo = await e.api(`/solicitudes-servicio/${solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { costo: 75000 } });
+    assert.equal(costo.estado, 200, JSON.stringify(costo.cuerpo));
+    assert.equal(costo.cuerpo.datos.costo, 75000, 'guarda el precio de compra del reencauche');
 
-    const despues = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { token: t.admin });
-    assert.equal(despues.cuerpo.datos.totalServicios, 90000);
-    assert.equal(despues.cuerpo.datos.estadoPago, 'Aprobado');
+    // Y el cliente no lo puede pagar por separado
+    const aparte = await e.api(`/portal/servicios/${solicitud}/pago`, { metodo: 'POST', token: t.luis, cuerpo: { medioPago: 'Efectivo' } });
+    assert.equal(aparte.estado, 422);
   });
 
   test('al completarla genera la venta con las mismas líneas', async () => {
@@ -295,7 +306,7 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.match(cotizacion.cuerpo.datos.venta, /^VEN-/);
 
     const venta = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
-    assert.equal(venta.cuerpo.datos.total, 576800);
+    assert.equal(venta.cuerpo.datos.total, 650960);
     assert.equal(venta.cuerpo.datos.detalle.length, 2);
 
     const credito = await e.api(`/creditos/${t.credito}`, { token: t.admin });
@@ -332,7 +343,7 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.equal(r.estado, 200);
 
     const credito = await e.api(`/creditos/${t.credito}`, { token: t.admin });
-    assert.equal(credito.cuerpo.datos.saldoPendiente, 26800);
+    assert.equal(credito.cuerpo.datos.saldoPendiente, 100960);
 
     // Un abono confirmado no vuelve a cambiar de estado
     const otraVez = await e.api(`/abonos/${t.abono}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Rechazado' } });
@@ -527,7 +538,7 @@ describe('Registro, perfil y tableros', () => {
     assert.equal(r.estado, 200);
     assert.equal(r.cuerpo.datos.esCliente, true);
     assert.ok(r.cuerpo.datos.cotizaciones.every((c) => Array.isArray(c.detalle)));
-    assert.equal(r.cuerpo.datos.estadisticas.saldoCredito, 26800);
+    assert.equal(r.cuerpo.datos.estadisticas.saldoCredito, 100960);
   });
 
   test('el tablero se calcula con datos reales', async () => {
@@ -536,6 +547,6 @@ describe('Registro, perfil y tableros', () => {
     assert.equal(r.cuerpo.datos.reencauchesPorMes.length, 7);
     assert.equal(r.cuerpo.datos.ultimosPedidos.length, 5);
     // La venta generada este mes cuenta en las ventas del mes
-    assert.ok(r.cuerpo.datos.ventasMes.total >= 576800);
+    assert.ok(r.cuerpo.datos.ventasMes.total >= 650960);
   });
 });

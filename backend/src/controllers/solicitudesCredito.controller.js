@@ -7,11 +7,12 @@ import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import { POOL } from '../models/listado.model.js';
 import * as solicitudesModel from '../models/solicitudesCredito.model.js';
+import * as solicitudesServicioModel from '../models/solicitudesServicio.model.js';
 import { validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirSinCreditoAbierto } from './creditos.controller.js';
 import { exigirActivo } from './estados.js';
-import { generarCompras, registrarVentaPagada } from './documentosAutomaticos.js';
+import { generarCompras, registrarVentaPagada, sincronizarVenta } from './documentosAutomaticos.js';
 
 /**
  * Controlador de solicitudes de crédito.
@@ -90,7 +91,9 @@ async function aprobarDeCotizacion(db, solicitud) {
     await creditosModel.descontarSaldo(db, credito.id, cotizacion.cuota_inicial);
   }
   await cotizacionesModel.actualizar(db, cotizacion.id, [['estado', 'Aprobada']]);
-  // Pagó la cuota inicial y se le financió el resto: venta y compra al proveedor
+  // Pagó la cuota inicial y se le financió el resto: el reencauche (dentro del
+  // total) queda pagado con la cotización; venta y compra al proveedor
+  await solicitudesServicioModel.pagarConCotizacion(db, cotizacion.id, cotizacion.cuota_inicial_medio);
   await registrarVentaPagada(db, cotizacion.id);
   await generarCompras(db, cotizacion.id);
 }
@@ -103,6 +106,7 @@ async function rechazarDeCotizacion(db, solicitud, motivo) {
       ['estado', 'Rechazada'],
       ['motivo_cancelacion', `Crédito no aprobado: ${motivo}`],
     ]);
+    await sincronizarVenta(db, cotizacion.id);
   }
 }
 
