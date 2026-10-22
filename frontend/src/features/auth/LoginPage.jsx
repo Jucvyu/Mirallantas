@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Clock, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AvisoError from '../../components/base/AvisoError';
+import LiquidGlass from '../../components/base/LiquidGlass';
 import Logo from '../../components/base/Logo';
 import FormModal from '../../components/base/FormModal';
 import { BORDER_ERR, BORDER_OK, INPUT } from '../../components/base/formStyles';
@@ -172,14 +173,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-brand-navy-950">
+    <div className="ml-fondo-pastel flex min-h-screen flex-col">
       {/* El mismo menú y pie de la página de inicio */}
       <PublicNavbar />
       <div className="grid flex-1 grid-cols-1 lg:grid-cols-2">
         {/* Panel de marca */}
-        <div className="hidden flex-col justify-between bg-brand-navy-950 p-12 lg:flex">
+        <div className="ml-ambiente-marca hidden flex-col justify-between p-12 lg:flex">
           <div>
-            <Logo size="md" />
+            <Logo size="lg" tono="oscuro" />
             <h1 className="ml-aparece mt-10 max-w-sm text-4xl font-extrabold leading-tight text-white">
               ERP para tu negocio de llantas
             </h1>
@@ -197,8 +198,9 @@ export default function LoginPage() {
         </div>
 
         {/* Formulario */}
-        <div className="flex items-center justify-center bg-white px-6 py-16 dark:bg-brand-navy-900">
-          <div className="ml-aparece w-full max-w-sm">
+        <div className="flex items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
+          {/* Vidrio pastel sin inclinación: los campos no se mueven al escribir */}
+          <LiquidGlass variante="pastel" inclinacion={0} indice={0} className="w-full max-w-md p-6 sm:p-9">
             <div className="mb-8 lg:hidden">
               <Logo size="sm" />
             </div>
@@ -214,7 +216,7 @@ export default function LoginPage() {
                 <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-white">
                   <ShieldCheck size={22} className="text-amber-500" /> Verificación
                 </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                   Escribe el código de 6 dígitos que muestra tu app autenticadora.
                 </p>
                 <AvisoError mensaje={errorApi} className="ml-aparece mt-4" />
@@ -223,7 +225,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={enviando || codigo.length !== 6}
-                    className="ml-pulsable flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
+                    className="ml-pulsable flex w-full items-center justify-center gap-2 rounded-[14px] bg-amber-400 py-2.5 text-sm font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
                   >
                     {enviando ? 'Verificando…' : 'Verificar'} <ArrowRight size={16} />
                   </button>
@@ -235,7 +237,7 @@ export default function LoginPage() {
                     setCodigo('');
                     setErrorApi('');
                   }}
-                  className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-amber-500 dark:text-slate-400"
+                  className="mt-2 inline-flex items-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-amber-700 dark:text-slate-400 dark:hover:text-amber-400"
                 >
                   <ArrowLeft size={13} /> Volver
                 </button>
@@ -243,7 +245,7 @@ export default function LoginPage() {
             ) : (
               <>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Iniciar sesión</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Accede a tu cuenta ERP</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Accede a tu cuenta ERP</p>
 
               <AvisoError mensaje={errorApi} className="ml-aparece mt-4" />
 
@@ -302,7 +304,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={enviando}
-                  className="ml-pulsable flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-semibold text-slate-900 hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
+                  className="ml-pulsable flex w-full items-center justify-center gap-2 rounded-[14px] bg-amber-400 py-2.5 text-sm font-semibold text-slate-900 hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
                 >
                   {enviando ? 'Ingresando…' : 'Ingresar'} <ArrowRight size={16} />
                 </button>
@@ -312,25 +314,25 @@ export default function LoginPage() {
               <BotonGoogle onCredencial={entrarConGoogle} deshabilitado={enviando} />
 
               {/* ---- Acciones secundarias ---- */}
-              <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs">
                 <button
                   type="button"
                   onClick={() => setDialogo('recuperar')}
-                  className="font-semibold text-slate-500 underline-offset-2 hover:text-amber-500 hover:underline dark:text-slate-400"
+                  className="py-2 font-semibold text-slate-600 underline-offset-2 hover:text-amber-700 hover:underline dark:text-slate-400 dark:hover:text-amber-400"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
                 <button
                   type="button"
                   onClick={() => setDialogo('registro')}
-                  className="font-semibold text-amber-600 underline-offset-2 hover:underline dark:text-amber-400"
+                  className="py-2 font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
                 >
                   Crear una cuenta
                 </button>
               </div>
               </>
             )}
-          </div>
+          </LiquidGlass>
         </div>
 
         {/* ---- Registro de una cuenta nueva ---- */}

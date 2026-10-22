@@ -12,9 +12,9 @@
 
 /** Caja base de cualquier campo de texto, número, fecha o área. */
 export const INPUT =
-  'w-full rounded-xl border bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm ' +
-  'transition-all duration-150 placeholder:font-normal placeholder:text-slate-400 ' +
-  'focus:outline-none focus:ring-4 focus:ring-amber-400/15 ' +
+  'w-full rounded-[14px] border bg-white px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm ' +
+  'transition-[border-color,box-shadow,background-color] duration-150 placeholder:font-normal placeholder:text-slate-400 ' +
+  'focus:outline-none focus:ring-4 focus:ring-amber-400/30 ' +
   '[color-scheme:light] dark:[color-scheme:dark] ' +
   'dark:bg-brand-navy-900/70 dark:text-slate-100 dark:shadow-none dark:placeholder:text-slate-500';
 
@@ -25,7 +25,7 @@ export const BORDER_OK =
 
 /** Contorno cuando el campo tiene un error de validación. */
 export const BORDER_ERR =
-  'border-red-400 focus:border-red-400 focus:ring-red-400/15 dark:border-red-500/60';
+  'border-red-400 focus:border-red-400 focus:ring-red-400/25 dark:border-red-500/60';
 
 /** Campo completo listo para usar, sin estado de error. */
 export const CAMPO = `${INPUT} ${BORDER_OK}`;

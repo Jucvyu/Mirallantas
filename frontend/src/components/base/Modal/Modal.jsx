@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import LiquidGlass from '../LiquidGlass';
 
 const SIZES = {
   sm: 'max-w-sm',
@@ -48,6 +49,16 @@ export default function Modal({
 }) {
   const [closing, setClosing] = useState(false);
   const t = TONES[tone] ?? TONES.default;
+  const panel = useRef(null);
+  // Lo que tenía el foco al abrir (se lee en el primer render, antes de que
+  // un campo con autoFocus lo tome): al cerrar, el teclado vuelve ahí.
+  const [previo] = useState(() => document.activeElement);
+
+  // El teclado entra al modal al abrirlo. Si un campo ya tomó el foco
+  // (autoFocus), se respeta.
+  useEffect(() => {
+    if (panel.current && !panel.current.contains(document.activeElement)) panel.current.focus();
+  }, []);
 
   // Cerrar sólo marca el estado: primero corre la animación de salida.
   const requestClose = useCallback(() => setClosing(true), []);
@@ -55,12 +66,41 @@ export default function Modal({
   // Una vez terminada esa animación se desmonta de verdad.
   useEffect(() => {
     if (!closing) return undefined;
-    const id = setTimeout(() => onClose?.(), 180);
+    const id = setTimeout(() => {
+      if (previo instanceof HTMLElement && previo.isConnected) previo.focus();
+      onClose?.();
+    }, 180);
     return () => clearTimeout(id);
-  }, [closing, onClose]);
+  }, [closing, onClose, previo]);
 
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && requestClose();
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        requestClose();
+        return;
+      }
+      // El foco no sale del modal con Tab / Shift+Tab: da la vuelta dentro
+      if (e.key !== 'Tab' || !panel.current) return;
+      const enfocables = [
+        ...panel.current.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((el) => el.offsetParent !== null);
+      if (enfocables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const primero = enfocables[0];
+      const ultimo = enfocables[enfocables.length - 1];
+      const dentro = panel.current.contains(document.activeElement);
+      if (e.shiftKey && (document.activeElement === primero || !dentro)) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && (document.activeElement === ultimo || !dentro)) {
+        e.preventDefault();
+        primero.focus();
+      }
+    };
     document.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -76,15 +116,21 @@ export default function Modal({
 
   return createPortal(
     <div
-      className={`ml-backdrop ${anim} fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 dark:bg-black/60`}
+      className={`ml-backdrop ${anim} fixed inset-0 z-50 flex items-center justify-center bg-brand-navy-950/35 p-4 dark:bg-brand-navy-950/65`}
       onMouseDown={(e) => e.target === e.currentTarget && requestClose()}
       role="presentation"
     >
-      <div
+      {/* Panel opaco (el formulario manda) con el reflejo de vidrio que sigue
+          al cursor; sin inclinación para no mover lo que se está escribiendo */}
+      <LiquidGlass
+        ref={panel}
+        variante="panel"
+        inclinacion={0}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`ml-panel ${anim} flex max-h-[90vh] w-full ${SIZES[size] ?? SIZES.md} flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 dark:border-white/10 dark:bg-brand-navy-800 dark:shadow-black/50`}
+        className={`ml-panel ${anim} flex max-h-[90vh] w-full ${SIZES[size] ?? SIZES.md} flex-col overflow-hidden rounded-2xl border focus:outline-none`}
       >
         {/* Filete de acento superior */}
         <div className={`h-[3px] w-full bg-gradient-to-r ${t.rule}`} />
@@ -106,7 +152,7 @@ export default function Modal({
             </div>
             <button
               onClick={requestClose}
-              className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-100"
+              className="ml-pulsable -mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-100"
               aria-label="Cerrar"
             >
               <X size={17} />
@@ -117,11 +163,11 @@ export default function Modal({
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
         {footerNode && (
-          <div className="flex items-center justify-end gap-2.5 border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-white/10 dark:bg-brand-navy-900/60">
+          <div className="flex items-center justify-end gap-2.5 border-t border-slate-200/80 bg-slate-50/70 px-6 py-4 dark:border-white/10 dark:bg-white/[0.03]">
             {footerNode}
           </div>
         )}
-      </div>
+      </LiquidGlass>
     </div>,
     document.body,
   );

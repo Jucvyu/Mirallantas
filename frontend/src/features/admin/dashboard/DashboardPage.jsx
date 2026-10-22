@@ -4,7 +4,12 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import AvisoError from '../../../components/base/AvisoError';
 import StatCard from '../../../components/base/StatCard';
 import Badge from '../../../components/base/Badge';
+import LiquidGlass from '../../../components/base/LiquidGlass';
+import RejillaOrdenable from '../../../components/base/RejillaOrdenable';
+import SobreProyecto from '../../../components/base/SobreProyecto';
 import Skeleton, { SkeletonLineas } from '../../../components/base/Skeleton';
+import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { dashboardService } from '../../../services';
 import { formatCOP } from '../../../utils/formato';
 
@@ -30,6 +35,10 @@ function textoVariacion(variacion) {
  * calcula la API con los datos reales; aquí se pide al servicio del tablero.
  */
 export default function DashboardPage() {
+  const { usuario } = useAuth();
+  const { theme } = useTheme();
+  // Etiquetas de los ejes con contraste AA sobre el vidrio de cada tema
+  const colorEje = theme === 'dark' ? '#94A3B8' : '#475569';
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(true);
@@ -100,159 +109,178 @@ export default function DashboardPage() {
   // Mientras llega la primera respuesta se ven bloques grises en lugar de los datos
   const primeraCarga = cargando && !datos;
 
+  /* ---- Indicadores del mes (o su esqueleto mientras cargan) ---- */
+  const tarjetaIndicador = (i) =>
+    primeraCarga ? (
+      <LiquidGlass variante="industrial" inclinacion={0} aria-hidden="true" className="h-full space-y-3 p-5">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-3 w-32" />
+      </LiquidGlass>
+    ) : indicadores[i] ? (
+      <StatCard {...indicadores[i]} indice={i} />
+    ) : null;
+
+  /* ---- Reencauches procesados por mes ---- */
+  const tarjetaReencauches = (
+    <LiquidGlass variante="industrial" inclinacion={3} indice={2} className="h-full min-w-0 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Reencauches por mes</h3>
+          <p className="text-xs text-slate-600 dark:text-slate-400">Últimos 7 meses · llantas procesadas</p>
+        </div>
+        <span className="rounded-md bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          Mensual
+        </span>
+      </div>
+      <div className="mt-4 h-56 sm:h-64">
+        {primeraCarga ? (
+          <Skeleton className="h-full w-full rounded-lg" />
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={reencauches} margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: colorEje }} axisLine={false} tickLine={false} />
+              <YAxis
+                domain={[0, maximoReencauches]}
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: colorEje }}
+                axisLine={false}
+                tickLine={false}
+                width={32}
+              />
+              <Tooltip
+                cursor={{ fill: 'rgba(251, 191, 36, 0.08)' }}
+                formatter={(v) => [`${v} llantas`, 'Reencauches']}
+                contentStyle={{ borderRadius: 8, border: 'none', fontSize: 12 }}
+              />
+              <Bar dataKey="reencauches" fill="#FBBF24" radius={[6, 6, 0, 0]} maxBarSize={44} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </LiquidGlass>
+  );
+
+  /* ---- Participación por marca ---- */
+  const tarjetaMarcas = (
+    <LiquidGlass variante="industrial" inclinacion={3} indice={3} className="h-full min-w-0 p-5">
+      <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ventas por Marca</h3>
+      <p className="text-xs text-slate-600 dark:text-slate-400">Participación en los últimos 12 meses</p>
+      {primeraCarga ? (
+        <div className="mt-4 flex flex-col items-center gap-4">
+          <Skeleton className="h-36 w-36 rounded-full" />
+          <SkeletonLineas lineas={3} className="w-full" />
+        </div>
+      ) : marcas.length === 0 ? (
+        <p className="py-16 text-center text-sm text-slate-600 dark:text-slate-400">Aún no hay ventas de productos en este periodo.</p>
+      ) : (
+        <>
+          <div className="mx-auto mt-2 flex justify-center" style={{ width: 176, height: 176 }}>
+            <PieChart width={176} height={176}>
+              <Pie
+                data={marcas}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={76}
+                paddingAngle={2}
+                startAngle={90}
+                endAngle={-270}
+                isAnimationActive={false}
+              >
+                {marcas.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} stroke="none" />
+                ))}
+              </Pie>
+            </PieChart>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {marcas.map((b) => (
+              <li key={b.name} className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
+                  {b.name}
+                </span>
+                <span className="font-semibold text-slate-800 dark:text-slate-100">{b.value}%</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </LiquidGlass>
+  );
+
+  /* ---- Últimos pedidos-cotización ---- */
+  const tarjetaUltimos = (
+    <LiquidGlass variante="industrial" inclinacion={3} indice={4} className="h-full p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Últimos Pedidos</h3>
+        <a href="/admin/pedidos-cotizacion" className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+          Ver todos
+        </a>
+      </div>
+      {primeraCarga && <SkeletonLineas lineas={4} className="mt-4" />}
+      <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/5">
+        {(datos?.ultimosPedidos ?? []).map((pedido) => (
+          <li key={pedido.numero} className="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{pedido.numero}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">{pedido.cliente}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-sm text-slate-700 dark:text-slate-200">{formatCOP(pedido.total)}</span>
+              <Badge>{pedido.estado}</Badge>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </LiquidGlass>
+  );
+
+  // Bloques reordenables, en el orden por defecto
+  const bloques = [
+    { id: 'ventas', etiqueta: 'Ventas del mes', contenido: tarjetaIndicador(0) },
+    { id: 'pedidos', etiqueta: 'Pedidos activos', contenido: tarjetaIndicador(1) },
+    { id: 'reencauches', etiqueta: 'Reencauches por mes', contenido: tarjetaReencauches },
+    { id: 'marcas', etiqueta: 'Ventas por marca', contenido: tarjetaMarcas },
+    { id: 'ultimos', etiqueta: 'Últimos pedidos', clase: 'sm:col-span-2', contenido: tarjetaUltimos },
+    { id: 'sobre', etiqueta: 'Sobre Mirallantas', clase: 'sm:col-span-2', contenido: <SobreProyecto compacto /> },
+  ].filter((b) => b.contenido);
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Dashboard General</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             {mesActual} · {cargando ? <Skeleton className="inline-block h-3 w-20 align-middle" /> : 'Datos al día'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
-            <Download size={15} /> Reporte
+          <button className="ml-pulsable inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
+            <Download size={15} aria-hidden="true" /> Reporte
           </button>
           <button
             onClick={cargar}
             disabled={cargando}
             className="ml-pulsable inline-flex items-center gap-2 rounded-lg bg-amber-400 px-3.5 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
           >
-            <RefreshCw size={15} className={cargando ? 'animate-spin' : ''} /> Actualizar
+            <RefreshCw size={15} aria-hidden="true" className={cargando ? 'animate-spin' : ''} /> Actualizar
           </button>
         </div>
       </div>
 
       <AvisoError mensaje={error} className="mt-4" />
 
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {primeraCarga
-          ? [0, 1].map((i) => (
-              <div
-                key={i}
-                aria-hidden="true"
-                className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800"
-              >
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-7 w-40" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-            ))
-          : indicadores.map((stat) => <StatCard key={stat.id} {...stat} />)}
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
-        {/* ---- Reencauches procesados por mes ---- */}
-        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Reencauches por mes</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Últimos 7 meses · llantas procesadas</p>
-            </div>
-            <span className="rounded-md bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              Mensual
-            </span>
-          </div>
-          <div className="mt-4 h-56 sm:h-64">
-            {primeraCarga ? (
-              <Skeleton className="h-full w-full rounded-lg" />
-            ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={reencauches} margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                <YAxis
-                  domain={[0, maximoReencauches]}
-                  allowDecimals={false}
-                  tick={{ fontSize: 11, fill: '#94A3B8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={32}
-                />
-                <Tooltip
-                  cursor={{ fill: 'rgba(251, 191, 36, 0.08)' }}
-                  formatter={(v) => [`${v} llantas`, 'Reencauches']}
-                  contentStyle={{ borderRadius: 8, border: 'none', fontSize: 12 }}
-                />
-                <Bar dataKey="reencauches" fill="#FBBF24" radius={[6, 6, 0, 0]} maxBarSize={44} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* ---- Participación por marca ---- */}
-        <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ventas por Marca</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Participación en los últimos 12 meses</p>
-          {primeraCarga ? (
-            <div className="mt-4 flex flex-col items-center gap-4">
-              <Skeleton className="h-36 w-36 rounded-full" />
-              <SkeletonLineas lineas={3} className="w-full" />
-            </div>
-          ) : marcas.length === 0 ? (
-            <p className="py-16 text-center text-sm text-slate-400">Aún no hay ventas de productos en este periodo.</p>
-          ) : (
-            <>
-              <div className="mx-auto mt-2 flex justify-center" style={{ width: 176, height: 176 }}>
-                <PieChart width={176} height={176}>
-                  <Pie
-                    data={marcas}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={76}
-                    paddingAngle={2}
-                    startAngle={90}
-                    endAngle={-270}
-                    isAnimationActive={false}
-                  >
-                    {marcas.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} stroke="none" />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </div>
-              <ul className="mt-3 space-y-2">
-                {marcas.map((b) => (
-                  <li key={b.name} className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
-                      {b.name}
-                    </span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{b.value}%</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ---- Últimos pedidos-cotización ---- */}
-      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-brand-navy-800">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Últimos Pedidos</h3>
-          <a href="/admin/pedidos-cotizacion" className="text-xs font-semibold text-amber-500 dark:text-amber-400">
-            Ver todos
-          </a>
-        </div>
-        {primeraCarga && <SkeletonLineas lineas={4} className="mt-4" />}
-        <ul className="mt-3 divide-y divide-slate-100 dark:divide-white/5">
-          {(datos?.ultimosPedidos ?? []).map((pedido) => (
-            <li key={pedido.numero} className="flex flex-wrap items-center justify-between gap-2 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{pedido.numero}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{pedido.cliente}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm text-slate-700 dark:text-slate-200">{formatCOP(pedido.total)}</span>
-                <Badge>{pedido.estado}</Badge>
-              </div>
-            </li>
-          ))}
-        </ul>
+      {/* Tarjetas reordenables: el orden se guarda en este navegador, por usuario */}
+      <div className="mt-3">
+        <RejillaOrdenable
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          claveAlmacen={`mirallantas-dashboard-orden:${usuario?.id ?? usuario?.correo ?? 'anonimo'}`}
+          bloques={bloques}
+        />
       </div>
     </div>
   );

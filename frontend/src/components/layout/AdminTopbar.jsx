@@ -18,7 +18,7 @@ export default function AdminTopbar({ title, profile, onOpenMenu, onEditarPerfil
   ];
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 py-3.5 backdrop-blur dark:border-white/10 dark:bg-brand-navy-950/90 sm:px-6">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 ml-glass border-b px-4 py-3.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={onOpenMenu}

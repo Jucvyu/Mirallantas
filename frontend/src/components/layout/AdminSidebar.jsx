@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import Logo from '../base/Logo';
+import logoOficial from '../../assets/logo-mirallantas.png';
 import { useAuth } from '../../context/AuthContext';
 import { MODULOS_PORTAL, permisoDeRuta } from '../../permisos';
 
@@ -117,17 +118,21 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col bg-brand-navy-950 transition-all duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-[76px]' : 'w-[220px]'}`}
       >
         <div className="flex items-center justify-between px-4 py-5">
           {collapsed ? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400 text-sm font-bold text-slate-900">
-              ML
-            </span>
+            <img
+              src={logoOficial}
+              alt="Logo de Mirallantas"
+              width="256"
+              height="262"
+              className="ml-logo h-9 w-9 shrink-0 rounded-[10px] bg-[#F0AC25] object-contain"
+            />
           ) : (
-            <Logo size="sm" />
+            <Logo size="sm" tono="oscuro" />
           )}
           {!collapsed && (
             <>

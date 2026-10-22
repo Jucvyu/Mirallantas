@@ -26,6 +26,10 @@ export const WHATSAPP_EMPRESA = soloDigitos(import.meta.env.VITE_WHATSAPP_NUMERO
 /** Teléfono de la empresa tal como se muestra. */
 export const TELEFONO_EMPRESA = import.meta.env.VITE_TELEFONO_EMPRESA ?? '+57 310 897 69 43';
 
+/** Dirección y correo de la empresa (los que ya publica el pie de página). */
+export const DIRECCION_EMPRESA = 'Calle 34 #81-27, Medellín';
+export const CORREO_EMPRESA = 'contabilidadmirallantas@gmail.com';
+
 /**
  * ID de cliente OAuth de Google para "Continuar con Google" (es público: va
  * en el botón). Sin él, el botón no aparece. Debe ser el mismo que

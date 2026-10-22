@@ -6,8 +6,9 @@ import ThemeToggle from '../base/ThemeToggle';
 // Secciones de la página de inicio. Empiezan por "/" para que también
 // funcionen desde el login (llevan a la página de inicio y bajan a la sección).
 const LINKS = [
-  { href: '/#modulos', label: 'Módulos' },
-  { href: '/#caracteristicas', label: 'Características' },
+  { href: '/#productos', label: 'Productos' },
+  { href: '/#servicios', label: 'Servicios' },
+  { href: '/#nosotros', label: 'Nosotros' },
   { href: '/#contacto', label: 'Contacto' },
 ];
 
@@ -18,8 +19,8 @@ export default function PublicNavbar() {
   const enLogin = pathname === '/login';
 
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-brand-navy-950/90">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-10">
+    <header className="sticky top-0 z-10 ml-glass border-b">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-10">
         <Link to="/">
           <Logo size="sm" initials="ML" suffix="ERP" />
         </Link>
@@ -36,27 +37,28 @@ export default function PublicNavbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
-          {/* El catálogo se consulta sin iniciar sesión (también en celular) */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* El catálogo se consulta sin iniciar sesión (también en celular,
+              donde queda solo el icono para que la barra quepa en 360 px) */}
           <NavLink
             to="/catalogo"
             className={({ isActive }) =>
-              `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+              `inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-semibold transition-colors sm:px-3 ${
                 isActive
                   ? 'text-amber-500 dark:text-amber-400'
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
               }`
             }
           >
-            <LayoutGrid size={15} /> Catálogo
+            <LayoutGrid size={15} aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Catálogo</span>
           </NavLink>
           <ThemeToggle />
           {!enLogin && (
             <Link
               to="/login"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-300"
+              className="ml-pulsable inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-300 sm:px-4"
             >
-              Acceder <ArrowRight size={15} />
+              Acceder <ArrowRight size={15} aria-hidden="true" className="hidden sm:block" />
             </Link>
           )}
         </div>

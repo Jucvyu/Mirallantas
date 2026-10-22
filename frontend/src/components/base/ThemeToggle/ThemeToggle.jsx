@@ -1,19 +1,65 @@
+import { useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import { EASE_OUT } from '../../../utils/movimiento';
 
+/**
+ * Botón de modo claro/oscuro: círculo de vidrio esmerilado con anillo
+ * arcoíris. Solo cambia la apariencia y la transición: el tema se cambia con
+ * el mismo `toggleTheme` de siempre (se guarda y se lee igual).
+ *
+ * Si el navegador tiene View Transitions, el tema nuevo se revela en un
+ * círculo que nace del botón. Con "menos movimiento" el cambio es instantáneo.
+ */
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
+  const boton = useRef(null);
+
+  const cambiar = () => {
+    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || quieto) {
+      toggleTheme();
+      return;
+    }
+
+    const r = boton.current.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const radio = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const raiz = document.documentElement;
+
+    // Durante el revelado se apagan las transiciones de color: el círculo
+    // ya es la transición, y así la captura nueva sale con los colores finales
+    raiz.classList.add('ml-sin-transiciones');
+    const transicion = document.startViewTransition(() => {
+      flushSync(toggleTheme);
+    });
+    transicion.ready
+      .then(() => {
+        raiz.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radio}px at ${x}px ${y}px)`] },
+          { duration: 450, easing: EASE_OUT, pseudoElement: '::view-transition-new(root)' },
+        );
+      })
+      .catch(() => {});
+    transicion.finished.finally(() => raiz.classList.remove('ml-sin-transiciones'));
+  };
 
   return (
     <button
+      ref={boton}
       type="button"
-      onClick={toggleTheme}
+      onClick={cambiar}
       aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       aria-pressed={isDark}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-600 shadow-sm transition-colors hover:border-brand-gold-500 hover:text-brand-gold-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-500 focus-visible:ring-offset-2 dark:border-white/15 dark:bg-brand-navy-800 dark:text-slate-300 dark:hover:text-brand-gold-400 dark:focus-visible:ring-offset-brand-navy-900"
+      className="ml-tema"
     >
-      {isDark ? <Sun size={17} strokeWidth={2} /> : <Moon size={17} strokeWidth={2} />}
+      <span className="ml-tema-brillo" aria-hidden="true" />
+      {/* Los dos iconos están siempre: el cambio es un cruce con giro y desenfoque */}
+      <Sun size={18} strokeWidth={2} aria-hidden="true" className="ml-tema-icono" data-visible={isDark || undefined} />
+      <Moon size={18} strokeWidth={2} aria-hidden="true" className="ml-tema-icono" data-visible={!isDark || undefined} />
     </button>
   );
 }

@@ -101,7 +101,7 @@ export default function SearchSelect({
       </button>
 
       {abierto && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 dark:border-white/10 dark:bg-brand-navy-800 dark:shadow-black/40">
+        <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl ml-glass-panel border">
           {/* ---- Barra de búsqueda ---- */}
           <div className="relative border-b border-slate-100 p-2 dark:border-white/10">
             <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
