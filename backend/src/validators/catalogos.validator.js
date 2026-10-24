@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import {
   correo,
+  documentoSegunTipo,
+  nombreEntidad,
+  nombrePersona,
   numeroDocumento,
   pesos,
   telefono,
   texto,
+  textoExplicadoOpcional,
   textoOpcional,
   tipoDocumento,
 } from './comunes.validator.js';
@@ -26,8 +30,8 @@ const contactoOpcional = {
 export const esquemaEstado = z.object({ activo: z.boolean({ error: 'Envía "activo" como true o false.' }) });
 
 export const esquemaCategoria = z.object({
-  nombre: texto(80),
-  descripcion: textoOpcional(300),
+  nombre: nombreEntidad(80),
+  descripcion: textoExplicadoOpcional(300),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'El color debe tener la forma #RRGGBB.')
@@ -35,13 +39,13 @@ export const esquemaCategoria = z.object({
   ...activo,
 });
 
-export const esquemaMarca = z.object({ nombre: texto(80), ...activo });
+export const esquemaMarca = z.object({ nombre: nombreEntidad(80), ...activo });
 
-export const esquemaTipoVehiculo = z.object({ nombre: texto(80) });
+export const esquemaTipoVehiculo = z.object({ nombre: nombreEntidad(80) });
 
 export const esquemaServicio = z.object({
-  nombre: texto(120),
-  descripcion: textoOpcional(500),
+  nombre: nombreEntidad(120),
+  descripcion: textoExplicadoOpcional(500),
   precio: pesos,
   garantiaDias: z.coerce.number().int().min(0).max(3650).optional(),
   ...activo,
@@ -50,7 +54,7 @@ export const esquemaServicio = z.object({
 export const esquemaCliente = z.object({
   tipoDocumento,
   numeroDocumento,
-  nombreCompleto: texto(150),
+  nombreCompleto: nombrePersona(150),
   ...contactoOpcional,
   ...activo,
 });
@@ -59,7 +63,7 @@ export const esquemaCliente = z.object({
 export const esquemaEmpresaExterna = z.object({
   tipoDocumento,
   numeroDocumento,
-  nombreRazonSocial: texto(150),
+  nombreRazonSocial: nombreEntidad(150),
   contacto: textoOpcional(120),
   ...contactoOpcional,
   ...activo,

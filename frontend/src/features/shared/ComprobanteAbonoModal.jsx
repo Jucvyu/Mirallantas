@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Download, Mail, MapPin, Phone, Receipt } from 'lucide-react';
+import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
 import { useEmpresa } from '../../hooks/useEmpresa';
+import { abonosService } from '../../services';
 
 /**
  * Lo que se muestra mientras la empresa no registre sus datos reales
@@ -22,44 +25,22 @@ const EMPRESA_SIN_DATOS = {
  *
  * Solo se emite cuando el asesor ya validó la consignación: recoge el
  * crédito al que se aplicó, el monto, el medio de pago y los datos de la
- * empresa, y se puede descargar igual que el comprobante de venta.
+ * empresa, y se descarga en PDF tipo tirilla (80 mm), como un recibo de caja.
  */
 export default function ComprobanteAbonoModal({ abono, onClose }) {
   const { empresa: datosEmpresa, cargando: cargandoEmpresa } = useEmpresa();
   const empresa = datosEmpresa ?? EMPRESA_SIN_DATOS;
 
-  /**
-   * Descarga el comprobante como archivo de texto. Sin backend no hay
-   * generador de PDF, así que el documento se arma en el navegador.
-   */
+  // El PDF (tirilla de 80 mm) lo genera la API con los datos guardados del abono
+  const [descargando, setDescargando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState('');
   const descargar = () => {
-    const ancho = 48;
-    const contenido = [
-      empresa.nombre.toUpperCase(),
-      empresa.razonSocial,
-      `NIT ${empresa.nit}`,
-      empresa.direccion,
-      empresa.telefono,
-      '='.repeat(ancho),
-      'COMPROBANTE DE ABONO',
-      `Documento: ${abono.id}`,
-      `Fecha:     ${abono.fecha}`,
-      `Cliente:   ${abono.cliente ?? ''}`,
-      `Crédito:   ${abono.credito}`,
-      `Pago:      ${abono.metodoPago}`,
-      '-'.repeat(ancho),
-      'MONTO ABONADO'.padEnd(ancho - 14) + String(abono.monto).padStart(14),
-      '='.repeat(ancho),
-      empresa.correo,
-      'Abono validado por MiraLlantas.',
-    ].join('\n');
-
-    const url = URL.createObjectURL(new Blob([contenido], { type: 'text/plain;charset=utf-8' }));
-    const enlace = document.createElement('a');
-    enlace.href = url;
-    enlace.download = `abono-${abono.id}.txt`;
-    enlace.click();
-    URL.revokeObjectURL(url);
+    setErrorPdf('');
+    setDescargando(true);
+    abonosService
+      .descargarPdf(abono.id)
+      .catch((e) => setErrorPdf(e.message))
+      .finally(() => setDescargando(false));
   };
 
   return (
@@ -81,14 +62,16 @@ export default function ComprobanteAbonoModal({ abono, onClose }) {
           <button
             type="button"
             onClick={descargar}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300"
+            disabled={descargando}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:opacity-60"
           >
-            <Download size={16} /> Descargar
+            <Download size={16} /> {descargando ? 'Descargando…' : 'Descargar PDF'}
           </button>
         </>
       )}
     >
       <div className="space-y-6">
+        <AvisoError mensaje={errorPdf} />
         {/* Sin datos de la empresa no se inventan: se avisa */}
         {!datosEmpresa && !cargandoEmpresa && (
           <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-xs font-medium text-amber-700 dark:text-amber-400">

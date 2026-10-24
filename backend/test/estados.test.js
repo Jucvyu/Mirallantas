@@ -102,7 +102,7 @@ describe('Estado Inactivo', () => {
     const categoria = await e.api('/categorias', {
       metodo: 'POST',
       token: t.admin,
-      cuerpo: { nombre: 'Categoría Pausada', descripcion: 'Prueba', color: '#3B82F6' },
+      cuerpo: { nombre: 'Categoría Pausada', descripcion: 'Categoría de prueba', color: '#3B82F6' },
     });
     await e.api(`/categorias/${categoria.cuerpo.datos.id}/estado`, {
       metodo: 'PATCH',

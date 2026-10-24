@@ -55,6 +55,61 @@ export const numeroDocumento = z
   .trim()
   .regex(/^[0-9A-Za-z-]{5,20}$/, 'El número de documento solo admite dígitos, letras y guion (5 a 20).');
 
+/** Formato del número según el tipo de documento (reglas colombianas). */
+const REGLAS_DOCUMENTO = {
+  CC: [/^\d{6,10}$/, 'La cédula de ciudadanía tiene de 6 a 10 dígitos.'],
+  CE: [/^[0-9A-Za-z]{6,12}$/, 'La cédula de extranjería tiene de 6 a 12 letras o números.'],
+  NIT: [/^\d{9,10}(-\d)?$/, 'El NIT tiene 9 o 10 dígitos (con guion y dígito de verificación opcional).'],
+  Pasaporte: [/^[0-9A-Za-z]{6,15}$/, 'El pasaporte tiene de 6 a 15 letras o números.'],
+};
+
+/**
+ * Para `.superRefine` de un esquema con tipo y número de documento: revisa
+ * el número según su tipo (si llegan los dos).
+ */
+export function documentoSegunTipo(datos, ctx) {
+  const regla = REGLAS_DOCUMENTO[datos.tipoDocumento];
+  if (regla && datos.numeroDocumento && !regla[0].test(datos.numeroDocumento)) {
+    ctx.addIssue({ code: 'custom', path: ['numeroDocumento'], message: regla[1] });
+  }
+}
+
+/** Letras (con tildes y ñ), espacios, punto y apóstrofo: nombres de personas. */
+const LETRAS_NOMBRE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ.' ]+$/;
+
+/** Nombre de una persona: mínimo 3 caracteres y solo letras (sin números). */
+export const nombrePersona = (max = 150) =>
+  z
+    .string()
+    .trim()
+    .min(3, 'El nombre debe tener al menos 3 caracteres.')
+    .max(max)
+    .regex(LETRAS_NOMBRE, 'El nombre solo admite letras, espacios, punto y apóstrofo.');
+
+/** Nombre de una empresa o de un elemento del catálogo: mínimo 2 caracteres y con alguna letra. */
+export const nombreEntidad = (max = 150) =>
+  z
+    .string()
+    .trim()
+    .min(2, 'El nombre debe tener al menos 2 caracteres.')
+    .max(max)
+    .refine((v) => /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(v), { error: 'El nombre no puede ser solo números o símbolos.' });
+
+/** Texto que debe explicar algo (descripciones, motivos, observaciones): mínimo 10 caracteres. */
+export const textoExplicado = (max = 500) =>
+  z.string().trim().min(10, 'Escribe al menos 10 caracteres.').max(max);
+
+/** Igual, pero opcional: si llega con texto, mínimo 10 caracteres; vacío se guarda como null. */
+export const textoExplicadoOpcional = (max = 500) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .refine((v) => v === '' || v.length >= 10, { error: 'Escribe al menos 10 caracteres.' })
+    .transform((v) => v || null)
+    .nullable()
+    .optional();
+
 /** Texto obligatorio con largo máximo. */
 export const texto = (max = 200) => z.string().trim().min(1, 'Este campo es obligatorio.').max(max);
 
@@ -127,10 +182,17 @@ export const correo = z
   .max(150)
   .pipe(z.email({ error: 'El correo no es válido.' }));
 
+/**
+ * Teléfono colombiano: celular de 10 dígitos que empieza por 3 o fijo de 10
+ * dígitos que empieza por 60, con +57 opcional. Se guarda sin espacios.
+ */
 export const telefono = z
   .string()
   .trim()
-  .regex(/^\+?[0-9 ]{7,20}$/, 'El teléfono solo admite dígitos, espacios y un + inicial.');
+  .transform((v) => v.replace(/[\s-]/g, ''))
+  .refine((v) => /^(\+57)?(3\d{9}|60\d{8})$/.test(v), {
+    error: 'Escribe un celular (3xx xxx xxxx) o un fijo (60x xxx xxxx) colombiano.',
+  });
 
 /**
  * Contraseña nueva: al menos 10 caracteres con letras y números. bcrypt

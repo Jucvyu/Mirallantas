@@ -2,7 +2,9 @@ import { z } from 'zod';
 import {
   codigo2fa,
   correo,
+  documentoSegunTipo,
   imagen,
+  nombrePersona,
   numeroDocumento,
   password,
   telefono,
@@ -39,14 +41,14 @@ export const esquemaDesactivar2fa = z.object({ passwordActual, codigo: codigo2fa
 
 /** POST /auth/registro — cuenta nueva de cliente desde el login. */
 export const esquemaRegistro = z.object({
-  nombre: texto(150),
+  nombre: nombrePersona(150),
   tipoDocumento,
   numeroDocumento,
   telefono,
   direccion: textoOpcional(200),
   correo,
   password,
-});
+}).superRefine(documentoSegunTipo);
 
 /**
  * PUT /auth/yo — el usuario edita su propio perfil. El rol y el estado no
@@ -55,7 +57,7 @@ export const esquemaRegistro = z.object({
  */
 export const esquemaPerfil = z
   .object({
-    nombre: texto(150),
+    nombre: nombrePersona(150),
     tipoDocumento,
     numeroDocumento,
     correo,
@@ -66,7 +68,8 @@ export const esquemaPerfil = z
     // Obligatoria para cambiar la contraseña o el correo
     passwordActual,
   })
-  .partial();
+  .partial()
+  .superRefine(documentoSegunTipo);
 
 // ---- ¿Olvidaste tu contraseña? ---------------------------------------------------
 

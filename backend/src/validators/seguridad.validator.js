@@ -1,25 +1,28 @@
 import { z } from 'zod';
 import {
   correo,
+  documentoSegunTipo,
   idRelacion,
+  nombreEntidad,
+  nombrePersona,
   numeroDocumento,
   password,
   telefono,
   texto,
-  textoOpcional,
+  textoExplicadoOpcional,
   tipoDocumento,
 } from './comunes.validator.js';
 
 /** Rol con los nombres de los módulos marcados ("Clientes", "Ventas"…). */
 export const esquemaRol = z.object({
-  nombre: texto(60),
-  descripcion: textoOpcional(300),
+  nombre: nombreEntidad(60),
+  descripcion: textoExplicadoOpcional(300),
   permisos: z.array(z.string().trim().min(1)).min(1, 'Marca al menos un módulo.'),
   activo: z.boolean().optional(),
 });
 
 const camposUsuario = {
-  nombre: texto(150),
+  nombre: nombrePersona(150),
   tipoDocumento,
   numeroDocumento,
   correo,
@@ -28,7 +31,10 @@ const camposUsuario = {
 };
 
 /** Cuenta nueva: la contraseña es obligatoria. */
-export const esquemaNuevoUsuario = z.object({ ...camposUsuario, password });
+export const esquemaNuevoUsuario = z.object({ ...camposUsuario, password }).superRefine(documentoSegunTipo);
 
 /** Edición: todo es opcional; la contraseña solo si se cambia. */
-export const esquemaEdicionUsuario = z.object({ ...camposUsuario, password, activo: z.boolean() }).partial();
+export const esquemaEdicionUsuario = z
+  .object({ ...camposUsuario, password, activo: z.boolean() })
+  .partial()
+  .superRefine(documentoSegunTipo);

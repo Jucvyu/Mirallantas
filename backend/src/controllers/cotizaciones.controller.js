@@ -11,11 +11,11 @@ import * as notificaciones from '../models/notificaciones.model.js';
 import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as pagosModel from '../models/pagosCotizacion.model.js';
 import * as serviciosModel from '../models/servicios.model.js';
+import * as creditosModel from '../models/creditos.model.js';
 import * as solicitudesCreditoModel from '../models/solicitudesCredito.model.js';
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
 import {
   calcularTotales,
-  CUOTA_INICIAL_PORCENTAJE,
   exigirMedioDelCliente,
   pesos,
   PLAZOS_CREDITO,
@@ -28,6 +28,7 @@ import { enviarPdfCotizacion } from '../views/pdf.view.js';
 import { enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 import {
+  abonarCuotaInicial,
   aprobarSiPagada,
   completarVenta,
   generarCompras,
@@ -210,6 +211,7 @@ export async function crear(req, res) {
           cantidad: l.cantidad,
           descripcion: l.descripcion,
           foto: l.foto,
+          fotos: l.fotos,
           estadoEvidencia: esPortal ? 'Pendiente de revisión' : (l.estadoEvidencia ?? 'Pendiente de revisión'),
         });
         solicitudServicioId = solicitud.id;
@@ -271,7 +273,9 @@ export async function emitir(req, res) {
 
     // Todos los precios deben estar definidos: también el de cada reencauche,
     // que se asigna en "Solicitudes de servicio"
-    const serviciosSinPrecio = lineas.filter((l) => l.tipo === 'servicio' && !l.precioServicio);
+    const serviciosSinPrecio = lineas.filter(
+      (l) => l.tipo === 'servicio' && !l.precioServicio && l.estadoServicio !== 'Cancelado',
+    );
     if (serviciosSinPrecio.length > 0) {
       const numeros = serviciosSinPrecio.map((l) => l.solicitudServicio).filter(Boolean).join(', ');
       throw new HttpError(
@@ -315,10 +319,10 @@ export async function emitir(req, res) {
 // ---------------------------------------------------------------------------
 
 /**
- * Reglas del crédito al aceptar. Devuelve la cuota inicial que se guarda:
- * la pagada, que debe cubrir al menos el 30 % del total definitivo.
+ * Reglas del crédito al aceptar. Devuelve la cuota inicial (30 % del total)
+ * que el cliente pagará cuando el crédito esté aprobado.
  */
-async function validarCredito(db, { clienteId, total, cuotaMinima, cuota, esPortal }) {
+async function validarCredito(db, { clienteId, total, cuotaMinima }) {
   const abierto = await clientesModel.creditoAbierto(db, clienteId);
   if (abierto) {
     throw new HttpError(422, `El cliente ya tiene el crédito ${abierto} abierto: solo se permite uno a la vez.`);
@@ -327,21 +331,9 @@ async function validarCredito(db, { clienteId, total, cuotaMinima, cuota, esPort
   if (pendiente) {
     throw new HttpError(422, `El cliente ya tiene la solicitud de crédito ${pendiente} en revisión.`);
   }
-  if (!cuota?.medioPago) throw new HttpError(422, 'Registra el pago de la cuota inicial (medio de pago).');
-  exigirMedioDelPortal(cuota.medioPago, esPortal);
-  const cuotaInicial = cuota.monto ?? cuotaMinima;
-  if (cuotaInicial < cuotaMinima) {
-    throw new HttpError(
-      422,
-      `La cuota inicial debe ser de al menos ${pesos(cuotaMinima)} (${CUOTA_INICIAL_PORCENTAJE} % del total).`,
-    );
-  }
-  if (cuotaInicial >= total) throw new HttpError(422, 'Si se paga todo de una vez, elige pago de contado.');
-  // En efectivo se paga en el local; con cualquier otro medio hay pantallazo
-  if (cuota.medioPago !== 'Efectivo' && !cuota.comprobante) {
-    throw new HttpError(422, 'Adjunta el comprobante del pago de la cuota inicial.');
-  }
-  return cuotaInicial;
+  if (cuotaMinima >= total) throw new HttpError(422, 'Si se paga todo de una vez, elige pago de contado.');
+  // La cuota no se paga al aceptar: se paga cuando el crédito esté aprobado
+  return cuotaMinima;
 }
 
 /**
@@ -387,18 +379,8 @@ export async function aceptar(req, res) {
     ];
 
     if (esCredito) {
-      const cuotaInicial = await validarCredito(db, {
-        clienteId: cotizacion.clienteId,
-        total,
-        cuotaMinima,
-        cuota: datos.cuotaInicial,
-        esPortal,
-      });
-      pares.push(
-        ['cuota_inicial', cuotaInicial],
-        ['cuota_inicial_medio', datos.cuotaInicial.medioPago],
-        ['cuota_inicial_comprobante', datos.cuotaInicial.comprobante ?? null],
-      );
+      const cuotaInicial = await validarCredito(db, { clienteId: cotizacion.clienteId, total, cuotaMinima });
+      pares.push(['cuota_inicial', cuotaInicial]);
       await cotizacionesModel.actualizar(db, cotizacion.id, pares);
       await solicitudesCreditoModel.crearParaCotizacion(db, {
         clienteId: cotizacion.clienteId,
@@ -423,7 +405,7 @@ export async function aceptar(req, res) {
         {
           modulo: 'Pedidos-Cotización',
           titulo: 'Cotización aceptada',
-          mensaje: `${cliente} aceptó la cotización ${cotizacion.numero} (${esCredito ? `crédito a ${plazoDias} días` : 'de contado'}): revisa el pago.`,
+          mensaje: `${cliente} aceptó la cotización ${cotizacion.numero} (${esCredito ? `crédito a ${plazoDias} días` : 'de contado'}): ${esCredito ? 'revisa la solicitud de crédito' : 'revisa el pago'}.`,
           enlace: esCredito ? '/admin/solicitudes-credito' : '/admin/pedidos-cotizacion',
           tipo: 'alerta',
         },
@@ -496,14 +478,32 @@ export async function actualizar(req, res) {
       );
     }
 
+    // ---- No se cierra mientras falte recibir la compra al proveedor o
+    // terminar un reencauche
+    if (cambiaEstado && cambios.estado === 'Completada') {
+      const { compras, servicios } = await cotizacionesModel.pendientesParaCompletar(db, actual.id);
+      const faltan = [
+        compras.length ? `la orden de compra ${compras.join(', ')} (debe estar "Recibida")` : null,
+        servicios.length ? `el reencauche ${servicios.join(', ')} (debe estar "Completado")` : null,
+      ].filter(Boolean);
+      if (faltan.length) throw new HttpError(422, `Aún no se puede completar: falta ${faltan.join(' y ')}.`);
+    }
+
     // ---- A crédito: se aprueba aprobando su solicitud de crédito
     const solicitud = await solicitudesCreditoModel.deCotizacion(db, actual.id);
+    if (cambiaEstado && cambios.estado === 'Aprobada' && solicitud?.estado === 'Pendiente de cuota inicial') {
+      throw new HttpError(422, 'El crédito está aprobado, pero falta confirmar el pago de la cuota inicial.');
+    }
     if (cambiaEstado && cambios.estado === 'Aprobada' && solicitud && solicitud.estado !== 'Aprobada') {
       throw new HttpError(422, `Es a crédito: apruébala desde "Solicitudes de crédito" (${solicitud.numero}).`);
     }
 
+    // ---- Rechazada antes de pagar la cuota inicial: su crédito no empezó y se elimina
+    if (cambiaEstado && cambios.estado === 'Rechazada' && solicitud?.estado === 'Pendiente de cuota inicial') {
+      await creditosModel.eliminarSinIniciar(db, actual.id);
+    }
     // ---- Rechazada: su solicitud de crédito pendiente se cierra
-    if (cambiaEstado && cambios.estado === 'Rechazada' && solicitud?.estado === 'Pendiente') {
+    if (cambiaEstado && cambios.estado === 'Rechazada' && ['Pendiente', 'Pendiente de cuota inicial'].includes(solicitud?.estado)) {
       await solicitudesCreditoModel.resolver(db, solicitud.id, {
         estado: 'Rechazada',
         motivo: cambios.motivoCancelacion || 'La cotización fue rechazada.',
@@ -546,9 +546,12 @@ export async function revisarPago(req, res) {
     if (pago?.estado !== 'En revisión') throw new HttpError(422, 'Esta cotización no tiene un pago por revisar.');
 
     await pagosModel.resolver(db, pago.id, { estado, motivo: estado === 'Rechazado' ? motivo : null });
+    await cotizacionesModel.marcarCambio(db, cotizacion.id);
     // Pagó de contado: el reencauche (dentro del total) queda pagado con ella
     // y la venta queda registrada enseguida
     if (estado === 'Aprobado') {
+      // A crédito, lo aprobado es la cuota inicial: queda como abono del crédito
+      if (cotizacion.metodoPago === 'Crédito') await abonarCuotaInicial(db, cotizacion.id, pago);
       await solicitudesModel.pagarConCotizacion(db, cotizacion.id, pago.medioPago);
       await registrarVentaPagada(db, cotizacion.id);
       // Con todo el pago aprobado, la cotización queda "Aprobada" sola
@@ -595,7 +598,8 @@ export async function volverAPagar(req, res) {
     }
     await pagosModel.crear(db, {
       cotizacionId: cotizacion.id,
-      monto: cotizacion.total,
+      // A crédito se vuelve a subir la cuota inicial; de contado, el total
+      monto: cotizacion.metodoPago === 'Crédito' ? cotizacion.cuotaInicial : cotizacion.total,
       medioPago: pago.medioPago,
       comprobante: pago.comprobante,
     });
@@ -672,6 +676,53 @@ export async function cancelarDesdePortal(req, res) {
   });
 
   enviarDocumento(res, await leerCompleta(req, req.params.numero), true);
+}
+
+/**
+ * POST /portal/cotizaciones/:numero/cuota (cliente) y
+ * POST /cotizaciones/:numero/cuota (asesor, si paga en el local): la cuota
+ * inicial de un crédito ya aprobado. Queda "En revisión"; cuando el asesor
+ * la confirma pasa a ser abono del crédito y la cotización queda "Aprobada".
+ */
+export async function pagarCuota(req, res) {
+  const clienteSesion = clienteDeSesion(req);
+  const esPortal = Boolean(clienteSesion);
+  const pago = req.validado.body;
+  exigirPagoContado(pago, esPortal);
+
+  await enTransaccion(async (db) => {
+    const cotizacion = await cotizacionesModel.buscarPorNumero(req.params.numero, { clienteId: clienteSesion, bloquear: 'c' }, db);
+    if (cotizacion.metodoPago !== 'Crédito') throw new HttpError(422, 'Esta cotización no es a crédito.');
+    const solicitud = await solicitudesCreditoModel.deCotizacion(db, cotizacion.id);
+    if (!['Pendiente de cuota inicial', 'Aprobada'].includes(solicitud?.estado)) {
+      throw new HttpError(422, 'La cuota inicial se paga cuando el crédito esté aprobado.');
+    }
+    const ultimo = await pagosModel.ultimoBloqueado(db, cotizacion.id);
+    if (ultimo && ultimo.estado !== 'Rechazado') {
+      throw new HttpError(422, ultimo.estado === 'Aprobado' ? 'La cuota inicial ya está pagada.' : 'El pago de la cuota ya está en revisión.');
+    }
+    await pagosModel.crear(db, {
+      cotizacionId: cotizacion.id,
+      monto: cotizacion.cuotaInicial,
+      medioPago: pago.medioPago,
+      comprobante: pago.comprobante,
+    });
+    if (esPortal) {
+      const cliente = await avisosPersonal.nombreCliente(db, clienteSesion);
+      await avisosPersonal.crear(
+        {
+          modulo: 'Pedidos-Cotización',
+          titulo: 'Cuota inicial por revisar',
+          mensaje: `${cliente} pagó la cuota inicial de la cotización ${cotizacion.numero}: confírmala en "Ver pago".`,
+          enlace: '/admin/pedidos-cotizacion',
+          tipo: 'alerta',
+        },
+        db,
+      );
+    }
+  });
+
+  enviarDocumento(res, await leerCompleta(req, req.params.numero), esPortal);
 }
 
 /** POST /portal/cotizaciones/:numero/aceptar — solo para el cliente dueño de la cotización. */

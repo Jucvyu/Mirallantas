@@ -293,7 +293,7 @@ describe('Pagos sin duplicados', () => {
         metodo: 'POST',
         token: t.maria,
         cabeceras: { 'Idempotency-Key': clave },
-        cuerpo: { monto: 1000, medioPago: 'Efectivo' },
+        cuerpo: { monto: 20000, medioPago: 'Efectivo' },
       });
     // Doble clic: las dos peticiones salen a la vez
     const [a, b] = await Promise.all([enviar(), enviar()]);
@@ -309,7 +309,7 @@ describe('Pagos sin duplicados', () => {
       metodo: 'POST',
       token: t.maria,
       cabeceras: { 'Idempotency-Key': "1' OR '1'='1" },
-      cuerpo: { monto: 1000, medioPago: 'Efectivo' },
+      cuerpo: { monto: 20000, medioPago: 'Efectivo' },
     });
     assert.equal(r.estado, 400);
   });

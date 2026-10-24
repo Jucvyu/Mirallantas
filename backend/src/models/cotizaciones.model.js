@@ -94,7 +94,8 @@ export async function lineas(cotizacionId, db = POOL) {
   const { rows } = await db.query(
     `SELECT ${SELECT_LINEA},
             ss.numero AS "solicitudServicio", ss.estado AS "estadoServicio",
-            ss.estado_evidencia AS "estadoEvidencia", ss.foto_url AS foto,
+            ss.estado_evidencia AS "estadoEvidencia", ss.foto_url AS foto, ss.fotos,
+            ss.observacion_revision AS "observacionRevision", ss.motivo_cancelacion AS "motivoCancelacionServicio",
             ss.descripcion AS "descripcionCarcasa", ss.tiempo_estimado AS "tiempoEstimado",
             ss.garantia, ss.fecha AS "fechaServicio", te.nombre_razon_social AS tercero,
             ss.precio AS "precioServicio",
@@ -263,6 +264,33 @@ export async function estadoDePago(db, id) {
     [id],
   );
   return rows[0];
+}
+
+/**
+ * Lo que falta para cerrar la cotización: sus órdenes de compra que no se
+ * han recibido y sus reencauches que no se han completado (los anulados y
+ * cancelados no cuentan). → { compras: [números], servicios: [números] }
+ */
+export async function pendientesParaCompletar(db, id) {
+  const compras = await db.query(
+    `SELECT numero FROM compra WHERE cotizacion_id = $1 AND estado NOT IN ('Recibida', 'Anulada') ORDER BY id`,
+    [id],
+  );
+  const servicios = await db.query(
+    `SELECT ss.numero FROM cotizacion_detalle d JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
+      WHERE d.cotizacion_id = $1 AND ss.estado NOT IN ('Completado', 'Cancelado') ORDER BY ss.id`,
+    [id],
+  );
+  return { compras: compras.rows.map((r) => r.numero), servicios: servicios.rows.map((r) => r.numero) };
+}
+
+/**
+ * Marca un cambio en la cotización aunque su fila no cambie (un pago
+ * revisado, un crédito aprobado, el precio de un reencauche): así sube al
+ * primer lugar de "Mis cotizaciones".
+ */
+export async function marcarCambio(db, id) {
+  await db.query('UPDATE cotizacion SET actualizado_en = now() WHERE id = $1', [id]);
 }
 
 /** ¿El precio del reencauche ya está dentro del total de su cotización? */

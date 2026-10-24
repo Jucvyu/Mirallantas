@@ -80,3 +80,54 @@ describe('El cliente cancela su cotización', () => {
     assert.equal((await cancelar(luis, { motivo: 'Otra vez' })).estado, 422, 'ya no está pendiente');
   });
 });
+
+describe('Fotos del reencauche', () => {
+  test('acepta hasta 3 fotos de la llanta y rechaza la cuarta', async () => {
+    const luis = await e.iniciarSesion('lfmora@yahoo.com');
+    const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const pedir = (fotos) =>
+      e.api('/cotizaciones', {
+        metodo: 'POST',
+        token: luis,
+        cuerpo: {
+          direccionEntrega: 'Cra 5 #10-22, Pereira',
+          lineas: [{ tipo: 'servicio', cantidad: 2, medidas: '275/80 R22.5', descripcion: 'Carcasa sana', fotos }],
+        },
+      });
+    assert.equal((await pedir([PNG, PNG, PNG, PNG])).estado, 422);
+    const ok = await pedir([PNG, PNG, PNG]);
+    assert.equal(ok.estado, 201, JSON.stringify(ok.cuerpo));
+    const linea = ok.cuerpo.datos.detalle.find((l) => l.tipo === 'servicio');
+    assert.equal(linea.fotos.length, 3);
+  });
+});
+
+describe('Validaciones de los datos', () => {
+  const registro = (cambios) =>
+    e.api('/auth/registro', {
+      metodo: 'POST',
+      cuerpo: {
+        nombre: 'Laura Gómez',
+        tipoDocumento: 'CC',
+        numeroDocumento: '1098765432',
+        telefono: '310 555 1234',
+        correo: 'laura.validaciones@ejemplo.com',
+        password: 'ClaveSegura2026',
+        ...cambios,
+      },
+    });
+  const campoConError = async (cambios) => (await registro(cambios)).cuerpo.detalles?.map((d) => d.campo) ?? [];
+
+  test('teléfono colombiano, documento según su tipo y nombre solo con letras', async () => {
+    assert.ok((await campoConError({ telefono: '12345' })).includes('telefono'));
+    assert.ok((await campoConError({ telefono: '2105551234' })).includes('telefono'), 'ni celular ni fijo');
+    assert.ok((await campoConError({ numeroDocumento: 'AB12345' })).includes('numeroDocumento'), 'la cédula es solo dígitos');
+    assert.ok((await campoConError({ tipoDocumento: 'NIT', numeroDocumento: '12345' })).includes('numeroDocumento'));
+    assert.ok((await campoConError({ nombre: 'Juan 23' })).includes('nombre'));
+    assert.ok((await campoConError({ nombre: 'Al' })).includes('nombre'), 'mínimo 3 caracteres');
+
+    // Fijo con +57 y espacios, y NIT con dígito de verificación: válidos
+    const ok = await registro({ telefono: '+57 604 123 4567' });
+    assert.equal(ok.estado, 201, JSON.stringify(ok.cuerpo));
+  });
+});

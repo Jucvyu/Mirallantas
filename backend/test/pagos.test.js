@@ -135,6 +135,11 @@ describe('Pago de contado de una cotización', () => {
     assert.equal(aMano.estado, 422, 'su estado no se cambia desde ventas');
 
     // Volver a pasar por "Aprobada" no duplica nada: completarla deja la misma venta completada
+    // (antes se recibe la compra al proveedor: sin eso no se completa)
+    for (const c of deLaCotizacion) {
+      const r = await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Recibida' } });
+      assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    }
     for (const estado of ['En proceso', 'Completada']) {
       const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado } });
       assert.equal(r.estado, 200, `${estado}: ${JSON.stringify(r.cuerpo)}`);

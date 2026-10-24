@@ -7,6 +7,7 @@ import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import { useEnvio } from '../../hooks/useEnvio';
 import { portalService } from '../../services';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
+import DatosTransferencia from '../shared/DatosTransferencia';
 
 // =========================================================================
 // Pago de un servicio de reencauche, en el portal del cliente.
@@ -110,6 +111,7 @@ function PagarServicioModal({ servicio, onPagado, onClose }) {
           </p>
         )}
 
+        {medio === 'Transferencia' && <DatosTransferencia />}
         {requiereComprobante && (
           <div>
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Comprobante del pago</span>

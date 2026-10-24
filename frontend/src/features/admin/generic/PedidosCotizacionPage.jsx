@@ -23,6 +23,7 @@ import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 import AceptarCotizacionModal from '../../shared/AceptarCotizacionModal';
 import EmitirCotizacionModal from './EmitirCotizacionModal';
+import { fechaISO } from '../../../utils/formato';
 
 // Cotización-pedido, en etapas (columna "Etapa"):
 //   Solicitud → el cliente (o el asesor) pidió llantas: "Confirmar precios"
@@ -45,8 +46,8 @@ import EmitirCotizacionModal from './EmitirCotizacionModal';
  */
 const bloqueada = (row) => Boolean(row.estadoPago) && row.estadoPago !== 'Aprobado';
 
-/** "2026-10-28" → "28/10/2026" */
-const fechaCorta = (f) => (f ? f.slice(0, 10).split('-').reverse().join('/') : '');
+/** Fecha en el formato estándar AAAA-MM-DD */
+const fechaCorta = (f) => fechaISO(f);
 
 /** Se puede (re)emitir mientras el cliente no la acepte y siga pendiente. */
 const emitible = (row) => row.estado === 'Pendiente' && ['Solicitud', 'Emitida', 'Vencida'].includes(row.etapa);
@@ -240,7 +241,8 @@ export default function PedidosCotizacionPage() {
               icono={HandCoins}
               etiqueta="Ver pago y consignaciones"
               tono={row.pagoEstado === 'En revisión' ? 'destacado' : 'acento'}
-              deshabilitado={!row.pagoEstado}
+              // A crédito aceptado se abre también para registrar la cuota inicial
+              deshabilitado={!row.pagoEstado && !(row.metodoPago === 'Crédito' && row.etapa === 'Aceptada')}
               motivo="Todavía no hay pagos registrados"
               onClick={() => setPagosDe(row)}
             />

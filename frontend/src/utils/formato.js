@@ -35,3 +35,19 @@ export function vacioANull(valor) {
   const texto = String(valor).trim();
   return texto === '' ? null : texto;
 }
+
+/**
+ * Fecha en el formato estándar del sistema: AAAA-MM-DD (año-mes-día).
+ * Acepta "2026-10-20", un timestamp ISO o un Date. Un timestamp se pasa a la
+ * fecha local del navegador; una fecha sola se toma tal cual (sin desfase).
+ * Con `conHora` agrega "HH:MM".
+ */
+export function fechaISO(valor, { conHora = false } = {}) {
+  if (!valor) return '';
+  if (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+  const d = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(d.getTime())) return String(valor).slice(0, 10);
+  const dos = (n) => String(n).padStart(2, '0');
+  const fecha = `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+  return conHora ? `${fecha} ${dos(d.getHours())}:${dos(d.getMinutes())}` : fecha;
+}

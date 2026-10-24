@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { config } from './config.js';
 import { query } from './db.js';
 import { HttpError, manejadorErrores } from './errores.js';
+import { limpiarImagenes } from './utils/limpiezaImagenes.js';
 // Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
 // llaman a los controladores (src/controllers), que usan los modelos
 // (src/models) para hablar con la base y las vistas (src/views) para
@@ -76,11 +77,23 @@ export function crearApp() {
 
   // Las fotos y los comprobantes viajan dentro del JSON como imágenes en
   // texto (data URL), por eso el límite es mayor que el de 100 KB por defecto
-  app.use(express.json({ limit: '8mb' }));
+  // (un reencauche lleva hasta 3 fotos de 3 MB, ~4 MB cada una en base64)
+  app.use(express.json({ limit: '20mb' }));
 
   // Las respuestas tienen datos privados: el navegador no debe guardarlas
   app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
+    next();
+  });
+
+  // Después de un cambio que salió bien, borra de Cloudinary las imágenes
+  // que quedaron sin usar (en segundo plano, no demora la respuesta)
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+      res.on('finish', () => {
+        if (res.statusCode < 400) limpiarImagenes();
+      });
+    }
     next();
   });
 

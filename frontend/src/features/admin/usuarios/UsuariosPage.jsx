@@ -37,9 +37,9 @@ function seccionesFormulario(nombresRoles) {
     {
       title: 'Datos personales',
       fields: [
-        { key: 'nombre', label: 'Nombre completo', required: true, span: 2 },
+        { key: 'nombre', label: 'Nombre completo', nombrePersona: true, required: true, span: 2 },
         { key: 'tipoDocumento', label: 'Tipo de documento', type: 'select', required: true, options: tiposDocumento },
-        { key: 'numeroDocumento', label: 'Número de documento', type: 'number', required: true },
+        { key: 'numeroDocumento', label: 'Número de documento', type: 'documento', required: true },
         { key: 'correo', label: 'Correo electrónico', type: 'email', required: true },
         { key: 'telefono', label: 'Teléfono', type: 'tel' },
       ],

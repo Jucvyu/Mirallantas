@@ -36,3 +36,16 @@ export const CORREO_EMPRESA = 'contabilidadmirallantas@gmail.com';
  * GOOGLE_CLIENT_ID de la API.
  */
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
+
+/**
+ * Cuenta de la empresa para pagos por transferencia (datos públicos: se
+ * muestran al cliente al elegir "Transferencia"). Si falta el número, el
+ * recuadro no aparece.
+ */
+export const CUENTA_TRANSFERENCIA = {
+  banco: import.meta.env.VITE_CUENTA_BANCO ?? '',
+  tipo: import.meta.env.VITE_CUENTA_TIPO ?? '',
+  numero: import.meta.env.VITE_CUENTA_NUMERO ?? '',
+  titular: import.meta.env.VITE_CUENTA_TITULAR ?? '',
+  documento: import.meta.env.VITE_CUENTA_DOCUMENTO ?? '',
+};

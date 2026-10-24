@@ -70,8 +70,12 @@ export async function guardarImagen(dataUrl) {
     // Nombre aleatorio: las direcciones no se pueden adivinar
     public_id: randomUUID(),
     resource_type: 'image',
-    allowed_formats: ['png', 'jpg', 'webp'],
+    // (el formato ya se validó con los bytes del archivo; allowed_formats
+    // impediría la conversión a WebP)
     overwrite: false,
+    // Se guarda liviana: WebP, máximo 1600 px de lado y calidad automática
+    format: 'webp',
+    transformation: [{ width: 1600, height: 1600, crop: 'limit', quality: 'auto:good' }],
   });
   return resultado.secure_url;
 }

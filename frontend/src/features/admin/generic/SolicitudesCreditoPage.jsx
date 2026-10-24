@@ -3,17 +3,18 @@ import { FileText } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
-import MotivoModal from '../../../components/base/MotivoModal';
-import { estadosSolicitudCredito, FLUJO_ESTADOS_SOLICITUD_CREDITO, PLAZOS_CREDITO } from '../../../constantes';
+import { estadosSolicitudCredito, PLAZOS_CREDITO } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { opcionesClientes } from '../../../utils/opciones';
 import { clientesService, solicitudesCreditoService } from '../../../services';
 import DetalleSolicitudCreditoModal from './DetalleSolicitudCreditoModal';
 
 // Solicitudes de crédito. Cada cotización-pedido a crédito crea la suya
-// (Pendiente). El administrador revisa el detalle y la consignación ("Ver
-// detalle") y la aprueba o no: al aprobarla, la API abre el crédito en la
-// cartera del cliente; al no aprobarla, la cotización se rechaza.
+// (Pendiente). El administrador revisa el detalle ("Ver detalle") y la
+// aprueba o no: al aprobarla, la API abre el crédito en la cartera del
+// cliente y la solicitud queda "Pendiente de cuota inicial" hasta que se
+// confirma ese pago (entonces pasa sola a "Aprobada"); al no aprobarla, la
+// cotización se rechaza. El estado no se cambia a mano.
 const columns = [
   { key: 'id', label: 'Nº Solicitud' },
   { key: 'cliente', label: 'Cliente' },
@@ -33,21 +34,14 @@ function seccionesFormulario(opciones) {
         // Al crear se eligen; después solo se consultan
         // Buscador por nombre o documento: guarda el id real del cliente
         { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opciones, placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente', only: 'create' },
-        { key: 'cliente', label: 'Cliente', only: ['edit', 'view'], soloLectura: true },
+        { key: 'cliente', label: 'Cliente', only: 'view' },
         { key: 'monto', label: 'Monto solicitado (COP)', type: 'money', required: true, placeholder: '800.000', only: 'create' },
-        { key: 'monto', label: 'Monto solicitado (COP)', only: ['edit', 'view'], soloLectura: true },
+        { key: 'monto', label: 'Monto solicitado (COP)', only: 'view' },
         { key: 'plazoDias', label: 'Plazo (días)', type: 'select', required: true, options: PLAZOS_CREDITO.map(String), only: 'create' },
-        { key: 'plazoDias', label: 'Plazo (días)', only: ['edit', 'view'], soloLectura: true },
-        { key: 'fecha', label: 'Fecha', only: ['edit', 'view'], soloLectura: true },
-        { key: 'estado', label: 'Estado', type: 'select', options: estadosSolicitudCredito, only: ['edit', 'view'] },
-        {
-          key: 'motivo',
-          label: 'Motivo del rechazo',
-          type: 'textarea',
-          span: 2,
-          only: ['edit', 'view'],
-          hint: 'Obligatorio cuando la solicitud se rechaza.',
-        },
+        { key: 'plazoDias', label: 'Plazo (días)', only: 'view' },
+        { key: 'fecha', label: 'Fecha', only: 'view' },
+        { key: 'estado', label: 'Estado', only: 'view' },
+        { key: 'motivo', label: 'Motivo del rechazo', type: 'textarea', span: 2, only: 'view' },
       ],
     },
   ];
@@ -58,8 +52,6 @@ export default function SolicitudesCreditoPage() {
   const solicitudes = useRecurso(solicitudesCreditoService);
   // Solicitud abierta en "Ver detalle"
   const [detalleDe, setDetalleDe] = useState(null);
-  // Solicitud que se va a rechazar (se pide el motivo)
-  const [rechazando, setRechazando] = useState(null);
 
   return (
     <div>
@@ -72,21 +64,15 @@ export default function SolicitudesCreditoPage() {
         error={solicitudes.error}
         onRecargar={solicitudes.recargar}
         onCreate={(valores) => solicitudes.crear(valores, { clientes: clientes.filas })}
-        onEdit={solicitudes.editar}
+        // Nada se edita a mano: se aprueba o rechaza desde "Ver detalle"
+        canEdit={false}
         onDelete={solicitudes.eliminar}
-        // Para rechazar hace falta el motivo: se pide en un modal antes de enviar
-        onStatusChange={(fila, estado) =>
-          estado === 'Rechazada'
-            ? setRechazando(fila)
-            : solicitudes.ejecutar(() => solicitudesCreditoService.cambiarEstado(fila, estado))
-        }
         statusKey="estado"
         newLabel="Nueva solicitud"
         formSections={seccionesFormulario(opcionesClientes(clientes.filas))}
         entityName="solicitud"
         titleKey="cliente"
         statusOptions={estadosSolicitudCredito}
-        statusFlow={FLUJO_ESTADOS_SOLICITUD_CREDITO}
         filters={[
           { key: 'estado', label: 'Estado', options: estadosSolicitudCredito },
           { key: 'cliente', label: 'Cliente' },
@@ -95,21 +81,6 @@ export default function SolicitudesCreditoPage() {
           <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
         )}
       />
-
-      {rechazando && (
-        <MotivoModal
-          title="Rechazar la solicitud de crédito"
-          message={rechazando.cotizacion ? `Su cotización ${rechazando.cotizacion} también quedará rechazada.` : undefined}
-          record={{ title: `${rechazando.id} · ${rechazando.cliente}`, subtitle: `${rechazando.monto} a ${rechazando.plazoDias} días` }}
-          label="Motivo del rechazo"
-          confirmLabel="Rechazar"
-          onConfirm={async (motivo) => {
-            await solicitudesCreditoService.rechazar(rechazando, motivo);
-            await solicitudes.recargar();
-          }}
-          onClose={() => setRechazando(null)}
-        />
-      )}
 
       {detalleDe && (
         <DetalleSolicitudCreditoModal

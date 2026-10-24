@@ -4,6 +4,7 @@ import Badge from '../../components/base/Badge';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from '../../components/base/formStyles';
 import { mediosPago } from '../../constantes';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
+import DatosTransferencia from './DatosTransferencia';
 
 // =========================================================================
 // Piezas del pago de contado de una cotización (consignación).
@@ -72,6 +73,7 @@ export function CamposPago({ pago, onCambio, errores = {}, medios = mediosPago, 
         <p className="text-xs text-slate-500 dark:text-slate-400">Pagas en el local; un asesor confirmará el pago.</p>
       )}
 
+      {pago.medioPago === 'Transferencia' && <DatosTransferencia />}
       {pideComprobante(pago.medioPago) && (
         <div>
           <span className={LABEL}>

@@ -11,7 +11,7 @@ import {
   solicitudCreditoDesdeApi,
   solicitudServicioDesdeApi,
 } from './adaptadores';
-import { api, conClave } from './http';
+import { api, conClave, descargarArchivo } from './http';
 import { crearServicio } from './recurso';
 import { parseCOP, vacioANull } from '../utils/formato';
 
@@ -56,6 +56,8 @@ const abonoHaciaApi = (v, fila) => ({
 const abonosBase = crearServicio({ ruta: '/abonos', desdeApi: abonoDesdeApi, haciaApi: abonoHaciaApi, metodoEditar: 'PATCH' });
 
 export const abonosService = {
+  /** Comprobante del abono confirmado, en PDF tipo tirilla (lo genera la API). */
+  descargarPdf: (numero) => descargarArchivo(`/abonos/${encodeURIComponent(numero)}/pdf`, `Abono-${numero}.pdf`),
   ...abonosBase,
 
   /**
@@ -146,10 +148,15 @@ const solicitudesServicioBase = crearServicio({
 
 export const solicitudesServicioService = {
   ...solicitudesServicioBase,
-  cambiarEstado: (fila, estado) => solicitudesServicioBase.enviar(fila, { estado }),
+  // Cancelar exige el motivo
+  cambiarEstado: (fila, estado, motivo) =>
+    solicitudesServicioBase.enviar(fila, { estado, ...(motivo ? { motivoCancelacion: motivo } : {}) }),
   /** Asigna el valor del servicio (el cliente recibe el aviso para pagarlo). */
   /** Precio de compra (tercero) y de venta (cliente): se envía solo lo que cambió. */
   asignarPrecio: (fila, { costo, precio }) => solicitudesServicioBase.enviar(fila, { costo, precio }),
+  /** Revisión de la carcasa: Apta (la aprueba y bloquea sus datos) o No apta, con su observación. */
+  revisarCarcasa: (fila, { estadoEvidencia, observacionRevision, garantia }) =>
+    solicitudesServicioBase.enviar(fila, { estadoEvidencia, observacionRevision, garantia }),
   /** Aprobar o rechazar el pago del servicio (rechazar exige el motivo). */
   revisarPago: (fila, estado, motivo) =>
     solicitudesServicioBase.enviar(fila, { estado, motivo: motivo || undefined }, { metodo: 'POST', sufijo: '/pago' }),

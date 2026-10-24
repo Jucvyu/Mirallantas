@@ -91,6 +91,14 @@ export async function resolver(db, id, { estado, motivo }) {
   await db.query('UPDATE solicitud_credito SET estado = $1, motivo = $2 WHERE id = $3', [estado, motivo, id]);
 }
 
+/** Se confirmó la cuota inicial: la solicitud de la cotización pasa a "Aprobada". */
+export async function cuotaPagada(db, cotizacionId) {
+  await db.query(
+    "UPDATE solicitud_credito SET estado = 'Aprobada' WHERE cotizacion_id = $1 AND estado = 'Pendiente de cuota inicial'",
+    [cotizacionId],
+  );
+}
+
 /** Elimina una solicitud si sigue pendiente. Devuelve true si la eliminó. */
 export async function eliminarPendiente(numero) {
   const { rowCount } = await query("DELETE FROM solicitud_credito WHERE numero = $1 AND estado = 'Pendiente'", [numero]);

@@ -40,6 +40,7 @@ rutasCreditos.post('/:numero/abonos', validar(esquemaAbono), creditos.registrarA
 // ---- Abonos (/api/abonos) — validación del asesor ------------------------------
 //   GET    /            listado
 //   PATCH  /:numero     confirmar, rechazar o corregir uno pendiente
+//   GET    /:numero/pdf comprobante en tirilla (solo confirmado)
 export const rutasAbonos = Router();
 rutasAbonos.use(autenticar, soloPersonal, requierePermiso('Abonos'));
 
@@ -48,6 +49,7 @@ rutasAbonos.get('/', validar(esquemaListadoAbonos, 'query'), abonos.listar);
 rutasAbonos.get('/facturas', validar(esquemaFacturas, 'query'), abonos.facturas);
 rutasAbonos.post('/', validar(esquemaAbonoFactura), abonos.registrarEnFactura);
 rutasAbonos.patch('/:numero', validar(esquemaCambioAbono), abonos.actualizar);
+rutasAbonos.get('/:numero/pdf', abonos.pdf);
 
 // ---- Solicitudes de crédito (/api/solicitudes-credito) ---------------------------
 //   GET    /            listado (el portal solo ve las suyas)

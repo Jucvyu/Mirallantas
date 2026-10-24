@@ -3,9 +3,10 @@ import {
   esquemaListado,
   idRelacion,
   imagen,
+  nombreEntidad,
   objetoEstricto,
   texto,
-  textoOpcional,
+  textoExplicadoOpcional,
 } from './comunes.validator.js';
 
 /** GET /productos — además de la búsqueda, filtros por catálogo. */
@@ -16,8 +17,8 @@ export const esquemaFiltros = esquemaListado.extend({
 });
 
 const campos = {
-  nombre: texto(150),
-  descripcion: textoOpcional(500),
+  nombre: nombreEntidad(150),
+  descripcion: textoExplicadoOpcional(500),
   categoriaId: idRelacion,
   marcaId: idRelacion,
   // Sin espacios y en mayúsculas: "195/65 r15" y "195/65R15" son la misma medida

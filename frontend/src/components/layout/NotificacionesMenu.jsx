@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { notificacionesService } from '../../services';
+import { fechaISO } from '../../utils/formato';
 
 /** Cada cuánto se revisa si llegaron avisos nuevos. */
 const CADA_MS = 60_000;
@@ -18,7 +19,7 @@ function cuandoFue(fecha) {
   if (minutos < 1) return 'ahora';
   if (minutos < 60) return `hace ${minutos} min`;
   if (minutos < 24 * 60) return `hace ${Math.round(minutos / 60)} h`;
-  return `el ${new Date(fecha).toLocaleDateString('es-CO')}`;
+  return `el ${fechaISO(fecha)}`;
 }
 
 /**

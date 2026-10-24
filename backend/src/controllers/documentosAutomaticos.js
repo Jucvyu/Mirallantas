@@ -1,7 +1,9 @@
 import { HttpError } from '../errores.js';
+import * as abonosModel from '../models/abonos.model.js';
 import * as comprasModel from '../models/compras.model.js';
 import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import * as creditosModel from '../models/creditos.model.js';
+import * as solicitudesCreditoModel from '../models/solicitudesCredito.model.js';
 import * as ventasModel from '../models/ventas.model.js';
 
 /**
@@ -68,6 +70,31 @@ export async function aprobarSiPagada(db, cotizacionId) {
   await generarCompras(db, cotizacionId);
   await sincronizarVenta(db, cotizacionId);
   return true;
+}
+
+/**
+ * A crédito: el asesor confirmó el pago de la cuota inicial. Queda como abono
+ * confirmado del crédito (baja su saldo) y se guarda cómo se pagó.
+ */
+export async function abonarCuotaInicial(db, cotizacionId, pago) {
+  const numero = await creditosModel.creditoDeCotizacion(db, cotizacionId);
+  if (!numero) return;
+  const credito = await creditosModel.buscarPorNumero(numero, {}, db);
+  await abonosModel.crear(db, {
+    creditoId: credito.id,
+    monto: pago.monto,
+    medioPago: pago.medioPago,
+    comprobante: pago.comprobante,
+    estado: 'Confirmado',
+  });
+  await creditosModel.descontarSaldo(db, credito.id, pago.monto);
+  // Con la cuota pagada el crédito empieza y su solicitud queda "Aprobada"
+  await creditosModel.iniciar(db, credito.id);
+  await solicitudesCreditoModel.cuotaPagada(db, cotizacionId);
+  await cotizacionesModel.actualizar(db, cotizacionId, [
+    ['cuota_inicial_medio', pago.medioPago],
+    ['cuota_inicial_comprobante', pago.comprobante ?? null],
+  ]);
 }
 
 /** La cotización se completó: su venta queda "Completada" (y se crea si faltaba). */

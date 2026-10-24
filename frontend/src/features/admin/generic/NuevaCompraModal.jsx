@@ -16,7 +16,7 @@ import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { comprasService, productosService, proveedoresService } from '../../../services';
-import { formatCOP as pesos, parseCOP } from '../../../utils/formato';
+import { formatCOP as pesos, parseCOP, fechaISO } from '../../../utils/formato';
 import { opcionesEmpresas } from '../../../utils/opciones';
 import SelectorCotizaciones from '../shared/SelectorCotizaciones';
 
@@ -302,7 +302,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                           (l.costoConfirmadoEn ? (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                               <BadgeCheck size={12} /> Precio verificado el{' '}
-                              {new Date(l.costoConfirmadoEn).toLocaleDateString('es-CO')} con {l.proveedorConfirmado}
+                              {fechaISO(l.costoConfirmadoEn)} con {l.proveedorConfirmado}
                             </p>
                           ) : (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">

@@ -5,7 +5,7 @@ import { claveIdempotencia } from '../middleware/idempotencia.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as clientesModel from '../models/clientes.model.js';
 import * as creditosModel from '../models/creditos.model.js';
-import { exigirMedioDelCliente, pesos } from '../reglas.js';
+import { exigirMedioDelCliente, pesos, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
@@ -105,11 +105,13 @@ export async function registrarAbono(req, res) {
       return existente;
     }
     // Un crédito desactivado (p. ej. en revisión o castigado) no recibe abonos
+    if (!credito.iniciado) throw new HttpError(422, 'El crédito empieza cuando se pague la cuota inicial: todavía no recibe abonos.');
     if (!credito.activo) throw new HttpError(422, 'El crédito está inactivo: no recibe abonos por ahora.');
     if (credito.saldoPendiente <= 0) throw new HttpError(422, 'El crédito ya está pagado.');
     if (datos.monto > credito.saldoPendiente) {
       throw new HttpError(422, `El abono no puede superar el saldo pendiente (${pesos(credito.saldoPendiente)}).`);
     }
+    exigirAbonoMinimo(datos.monto, credito.saldoPendiente);
     return abonosModel.crear(db, {
       creditoId: credito.id,
       monto: datos.monto,

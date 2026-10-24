@@ -4,8 +4,10 @@ import { HttpError } from '../errores.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
-import { pesos, validarTransicion } from '../reglas.js';
+import { pesos, validarTransicion, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
+import { enviarPdfAbono } from '../views/pdf.view.js';
+import * as empresaModel from '../models/empresa.model.js';
 
 /**
  * Controlador de abonos (validación del asesor).
@@ -50,11 +52,13 @@ export async function registrarEnFactura(req, res) {
       return existente;
     }
     if (factura.estado === 'Anulada') throw new HttpError(422, 'La factura está anulada: no recibe abonos.');
+    if (!factura.iniciado) throw new HttpError(422, 'El crédito empieza cuando se pague la cuota inicial.');
     if (!factura.activo) throw new HttpError(422, 'El crédito de la factura está inactivo: no recibe abonos por ahora.');
     if (factura.saldo_pendiente <= 0) throw new HttpError(422, 'La factura ya está pagada.');
     if (datos.monto > factura.saldo_pendiente) {
       throw new HttpError(422, `El abono no puede superar el saldo pendiente (${pesos(factura.saldo_pendiente)}).`);
     }
+    exigirAbonoMinimo(datos.monto, factura.saldo_pendiente);
     const nuevo = await abonosModel.crear(db, {
       creditoId: factura.credito_id,
       monto: datos.monto,
@@ -145,4 +149,12 @@ export async function actualizar(req, res) {
   });
 
   enviarDato(res, await abonosModel.buscarPorNumero(req.params.numero));
+}
+
+/** GET /abonos/:numero/pdf — comprobante (tirilla) de un abono confirmado. */
+export async function pdf(req, res) {
+  const abono = await abonosModel.buscarPorNumero(req.params.numero);
+  if (!abono) throw new HttpError(404, 'El abono no existe.');
+  if (abono.estado !== 'Confirmado') throw new HttpError(422, 'El comprobante solo se emite con el abono confirmado.');
+  enviarPdfAbono(res, { empresa: await empresaModel.obtener(), abono });
 }

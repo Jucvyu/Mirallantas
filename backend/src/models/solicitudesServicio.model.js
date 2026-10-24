@@ -26,6 +26,8 @@ export const COLUMNAS = {
   descripcion: 'descripcion',
   foto: 'foto_url',
   estadoEvidencia: 'estado_evidencia',
+  observacionRevision: 'observacion_revision',
+  motivoCancelacion: 'motivo_cancelacion',
   tiempoEstimado: 'tiempo_estimado',
   garantia: 'garantia',
   cantidad: 'cantidad',
@@ -34,7 +36,8 @@ export const COLUMNAS = {
 const SELECT = `
   s.id, s.numero, s.fecha, s.medidas, s.cantidad, s.estado,
   s.estado_evidencia AS "estadoEvidencia", s.garantia, s.tiempo_estimado AS "tiempoEstimado",
-  s.descripcion, s.foto_url AS foto,
+  s.descripcion, s.foto_url AS foto, s.fotos, s.observacion_revision AS "observacionRevision",
+  s.motivo_cancelacion AS "motivoCancelacion",
   s.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
   s.servicio_id AS "servicioId", sv.nombre AS servicio,
   s.tercero_id AS "terceroId", te.nombre_razon_social AS tercero,
@@ -78,7 +81,7 @@ export async function buscarPorNumero(numero) {
  */
 export async function bloquear(db, numero, clienteId = null) {
   const { rows } = await db.query(
-    `SELECT id, numero, estado, cliente_id, precio, pago_estado
+    `SELECT id, numero, estado, cliente_id, precio, costo, pago_estado, estado_evidencia
        FROM solicitud_servicio WHERE numero = $1 ${clienteId ? 'AND cliente_id = $2' : ''} FOR UPDATE`,
     clienteId ? [numero, clienteId] : [numero],
   );
@@ -92,9 +95,9 @@ export async function bloquear(db, numero, clienteId = null) {
 export async function crear(db, s) {
   const { rows } = await db.query(
     `INSERT INTO solicitud_servicio (numero, cliente_id, servicio_id, tercero_id, fecha, medidas, cantidad,
-                                     descripcion, foto_url, estado_evidencia, tiempo_estimado, garantia)
+                                     descripcion, foto_url, estado_evidencia, tiempo_estimado, garantia, fotos)
      VALUES (siguiente_numero('SOL'), $1, $2, $3, COALESCE($4::date, CURRENT_DATE), $5, $6, $7, $8,
-             COALESCE($9, 'Pendiente de revisión'), $10, COALESCE($11, FALSE))
+             COALESCE($9, 'Pendiente de revisión'), $10, COALESCE($11, FALSE), $12::text[])
      RETURNING id, numero`,
     [
       s.clienteId,
@@ -104,10 +107,12 @@ export async function crear(db, s) {
       s.medidas ?? null,
       s.cantidad,
       s.descripcion,
-      s.foto ?? null,
+      // La primera foto sigue en foto_url; todas (hasta 3) en fotos
+      s.fotos?.[0] ?? s.foto ?? null,
       s.estadoEvidencia ?? null,
       s.tiempoEstimado ?? null,
       s.garantia ?? null,
+      s.fotos?.length ? s.fotos : s.foto ? [s.foto] : [],
     ],
   );
   return rows[0];

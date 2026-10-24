@@ -89,10 +89,18 @@ describe('Abono sobre una factura', () => {
   test('un doble envío con la misma clave no registra dos abonos', async () => {
     const antes = await saldoDe(FACTURA);
     const clave = randomUUID();
-    const cuerpo = { factura: FACTURA, monto: 1000, medioPago: 'Efectivo' };
+    const cuerpo = { factura: FACTURA, monto: 20000, medioPago: 'Efectivo' };
     const [a, b] = await Promise.all([abonar(cuerpo, clave), abonar(cuerpo, clave)]);
     assert.equal(a.cuerpo.datos.numero, b.cuerpo.datos.numero);
-    assert.equal(await saldoDe(FACTURA), antes - 1000);
+    assert.equal(await saldoDe(FACTURA), antes - 20000);
+  });
+
+  test('el abono mínimo es de $20.000, salvo el último pago por el saldo exacto', async () => {
+    const saldo = await saldoDe(FACTURA);
+    const pequeno = await abonar({ factura: FACTURA, monto: 5000, medioPago: 'Efectivo' });
+    assert.equal(pequeno.estado, 422);
+    assert.match(pequeno.cuerpo.error, /mínimo/);
+    assert.equal(await saldoDe(FACTURA), saldo, 'no se registró nada');
   });
 
   test('dos abonos a la vez no dejan el saldo en negativo', async () => {
@@ -131,5 +139,18 @@ describe('Aceptación en el local: solo efectivo o transferencia', () => {
     }
     const ok = await aceptar(e, t.admin, numero, { metodoPago: 'Contado', pago: { medioPago: 'Efectivo' } }, { desdePortal: false });
     assert.equal(ok.estado, 200, JSON.stringify(ok.cuerpo));
+  });
+});
+
+describe('Comprobante del abono', () => {
+  test('se descarga en PDF (tirilla) solo con el abono confirmado', async () => {
+    const { rows } = await e.db.query(
+      "SELECT (SELECT numero FROM abono WHERE estado = 'Confirmado' LIMIT 1) AS confirmado, (SELECT numero FROM abono WHERE estado <> 'Confirmado' LIMIT 1) AS otro",
+    );
+    const r = await e.api(`/abonos/${rows[0].confirmado}/pdf`, { token: t.admin });
+    assert.equal(r.estado, 200);
+    assert.match(r.tipo, /application\/pdf/);
+    assert.equal(r.bytes.subarray(0, 4).toString(), '%PDF');
+    if (rows[0].otro) assert.equal((await e.api(`/abonos/${rows[0].otro}/pdf`, { token: t.admin })).estado, 422);
   });
 });

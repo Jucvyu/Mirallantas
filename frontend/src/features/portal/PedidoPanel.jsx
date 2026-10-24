@@ -4,7 +4,6 @@ import { Disc3, Minus, Pencil, Plus, Send, ShoppingCart, Trash2, Wrench, X } fro
 import { FaWhatsapp } from 'react-icons/fa';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
-import FormModal from '../../components/base/FormModal';
 import TireThumb from '../../components/base/TireThumb';
 import { BORDER_ERR, BORDER_OK, INPUT, SECTION as SECTION_TEXT, soloDigitos } from '../../components/base/formStyles';
 import { WHATSAPP_EMPRESA } from '../../config';
@@ -15,8 +14,9 @@ import { CANTIDAD_MAXIMA, useCart } from '../../context/CartContext';
 import { usePortal } from '../../context/PortalContext';
 import { useEnvio } from '../../hooks/useEnvio';
 import { cotizacionesService, nuevaClaveIdempotencia } from '../../services';
-import { servicioInitialValues, servicioSectionsCliente } from '../shared/servicioSections';
+import SolicitudReencaucheModal from './SolicitudReencaucheModal';
 import CotizacionEnviadaModal from './CotizacionEnviadaModal';
+import Tooltip from '../../components/base/Tooltip';
 
 /**
  * Carro de cotización del cliente (columna derecha del catálogo).
@@ -70,7 +70,9 @@ export default function PedidoPanel({ onClose = null }) {
       servicio: SERVICIO_POR_DEFECTO,
       cantidad: Number(values.cantidad) || 1,
       medidas: values.medidas ?? '',
-      foto: values.foto,
+      // Hasta 3 fotos; la primera también va como foto principal
+      fotos: values.fotos ?? (values.foto ? [values.foto] : []),
+      foto: values.fotos?.[0] ?? values.foto,
       descripcion: values.descripcion,
       estadoEvidencia: 'Pendiente de revisión',
     };
@@ -238,21 +240,24 @@ export default function PedidoPanel({ onClose = null }) {
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">
-                  <button
-                    onClick={() => setServicioEditado(s)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:text-amber-500"
-                    aria-label="Editar el servicio"
-                    title="Editar el servicio"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    onClick={() => cart.removeServicio(s.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:text-red-500"
-                    aria-label="Quitar el servicio del carro"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <Tooltip texto="Editar las medidas, fotos o descripción del reencauche">
+                    <button
+                      onClick={() => setServicioEditado(s)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:text-amber-500"
+                      aria-label="Editar el servicio"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip texto="Quitar este reencauche del carro">
+                    <button
+                      onClick={() => cart.removeServicio(s.id)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:text-red-500"
+                      aria-label="Quitar el servicio del carro"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </Tooltip>
                 </div>
               </li>
             ))}
@@ -309,14 +314,9 @@ export default function PedidoPanel({ onClose = null }) {
       </div>
 
       {(servicioModal || servicioEditado) && (
-        <FormModal
-          mode={servicioEditado ? 'edit' : 'create'}
-          title={servicioEditado ? 'Editar servicio' : 'Pedir reencauche'}
-          subtitle="Sube la foto de la carcasa para que el asesor evalúe si es apta. El valor lo define el asesor y se paga aparte."
-          sections={servicioSectionsCliente}
-          initialValues={servicioEditado ?? servicioInitialValues}
-          submitLabel={servicioEditado ? 'Guardar cambios' : 'Agregar al carro'}
-          onSubmit={guardarServicio}
+        <SolicitudReencaucheModal
+          inicial={servicioEditado}
+          onGuardar={guardarServicio}
           onClose={() => {
             setServicioModal(false);
             setServicioEditado(null);

@@ -109,7 +109,9 @@ function seccionesFormulario({ clientes, terceros }) {
     {
       title: 'Condiciones',
       fields: [
-        { key: 'estadoEvidencia', label: 'Estado de la evidencia', type: 'select', options: estadosEvidenciaCarcasa },
+        // Al crear se elige; después se cambia con "Revisar la carcasa" (lleva su observación)
+        { key: 'estadoEvidencia', label: 'Estado de la evidencia', type: 'select', options: estadosEvidenciaCarcasa, only: 'create' },
+        { key: 'estadoEvidencia', label: 'Estado de la evidencia', only: ['edit', 'view'], soloLectura: true },
         { key: 'tiempoEstimado', label: 'Tiempo estimado', placeholder: '9 días' },
         // Sí / No: se resuelve mejor con un interruptor que con un desplegable
         { key: 'garantia', label: '¿Incluye garantía?', type: 'switch' },
@@ -163,7 +165,8 @@ export default function SolicitudesServicioPage() {
                 key={s.id}
                 solicitud={s}
                 onPrecio={(valores) => solicitudes.ejecutar(() => solicitudesServicioService.asignarPrecio(s, valores))}
-                onEstado={(estado) => solicitudes.ejecutar(() => solicitudesServicioService.cambiarEstado(s, estado))}
+                onRevisar={(valores) => solicitudes.ejecutar(() => solicitudesServicioService.revisarCarcasa(s, valores))}
+                onEstado={(estado, motivo) => solicitudes.ejecutar(() => solicitudesServicioService.cambiarEstado(s, estado, motivo))}
                 onVerPago={() => setPagoDe(s)}
                 onEditar={() => setEditando(s)}
                 onEliminar={() => solicitudes.eliminar(s)}

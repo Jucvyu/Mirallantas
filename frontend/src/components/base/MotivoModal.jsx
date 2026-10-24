@@ -5,7 +5,7 @@ import Modal from './Modal';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from './formStyles';
 
 /** Mínimo de caracteres del motivo: que explique algo, no solo "no". */
-const MINIMO = 5;
+const MINIMO = 10;
 
 /**
  * Pide el motivo antes de una acción que lo exige (rechazar, cancelar).

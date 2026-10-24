@@ -15,7 +15,7 @@
 // evita repetir estas conversiones en cada página.
 // =========================================================================
 
-import { formatCOP, formatCOPoGuion, parseCOP, vacioANull } from '../utils/formato';
+import { formatCOP, formatCOPoGuion, parseCOP, vacioANull, fechaISO } from '../utils/formato';
 
 // ---- Ayudantes comunes ----------------------------------------------------
 
@@ -152,6 +152,9 @@ export const lineaDesdeApi = (l) => ({
         medidas: l.medidasServicio ?? l.medida ?? '',
         cantidad: l.cantidadServicio ?? l.cantidad,
         descripcion: l.descripcionCarcasa ?? '',
+        fotos: l.fotos?.length ? l.fotos : l.foto ? [l.foto] : [],
+        observacionRevision: l.observacionRevision ?? '',
+        motivoCancelacion: l.motivoCancelacionServicio ?? '',
         // Pago del servicio (se cobra aparte de la cotización)
         precio: l.precioServicio ?? null,
         precioTexto: l.precioServicio ? formatCOP(l.precioServicio) : 'Por definir',
@@ -201,7 +204,7 @@ export const pagoDesdeApi = (p) => ({
   monto: formatCOP(p.monto),
   comprobante: esImagen(p.comprobante) ? p.comprobante : '',
   motivo: p.motivo ?? '',
-  fechaTexto: new Date(p.fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }),
+  fechaTexto: fechaISO(p.fecha, { conHora: true }),
 });
 
 export const ventaDesdeApi = (f) => ({
@@ -255,6 +258,8 @@ export const creditoDesdeApi = (f) => ({
   montoTotalValor: f.montoTotal,
   saldoValor: f.saldoPendiente,
   estado: estadoActivo(f.activo),
+  // Sin la cuota inicial pagada, la cartera no ha empezado (no recibe abonos)
+  iniciado: f.iniciado !== false,
   venta: f.venta ?? '',
   cotizacion: f.cotizacion ?? '',
   abonos: f.abonos?.map(abonoDesdeApi),
@@ -290,6 +295,9 @@ export const solicitudServicioDesdeApi = (f) => ({
   costo: f.costo ?? null,
   // Su precio va dentro del total de la cotización (se paga con ella)
   incluidoEnCotizacion: Boolean(f.incluidoEnCotizacion),
+  observacionRevision: f.observacionRevision ?? '',
+  motivoCancelacion: f.motivoCancelacion ?? '',
+  fotos: f.fotos?.length ? f.fotos : f.foto ? [f.foto] : [],
   precioSugerido: f.precioSugerido ? formatCOP(f.precioSugerido) : '',
   pagoEstado: f.pagoEstado ?? 'Sin precio',
   pagoMedio: f.pagoMedio ?? '',

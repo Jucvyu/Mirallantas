@@ -7,16 +7,19 @@ import { useEnvio } from '../../hooks/useEnvio';
 import { cotizacionesService } from '../../services';
 import { CamposPago, HistorialPagos, pideComprobante } from '../shared/PagoConsignacion';
 
-/** Formulario para volver a subir el pago rechazado de una cotización de contado. */
-function VolverAPagarModal({ cotizacion, onPagado, onClose }) {
+/**
+ * Formulario de pago: volver a subir el pago rechazado (contado o cuota) o,
+ * a crédito ya aprobado, pagar la cuota inicial por primera vez (`esCuota`).
+ */
+function VolverAPagarModal({ cotizacion, esCuota = false, onPagado, onClose }) {
   const [pago, setPago] = useState({ medioPago: '', comprobante: '' });
   const { enviando, errorEnvio, enviar } = useEnvio();
   const listo = pago.medioPago && (!pideComprobante(pago.medioPago) || pago.comprobante);
 
   return (
     <Modal
-      title="Volver a subir el pago"
-      subtitle={`${cotizacion.id} · ${cotizacion.totalProductos}`}
+      title={esCuota ? 'Pagar la cuota inicial' : 'Volver a subir el pago'}
+      subtitle={`${cotizacion.id} · ${esCuota ? cotizacion.cuotaInicial : cotizacion.totalProductos}`}
       icon={<HandCoins size={17} />}
       size="md"
       onClose={onClose}
@@ -26,7 +29,7 @@ function VolverAPagarModal({ cotizacion, onPagado, onClose }) {
           disabled={!listo || enviando}
           onClick={() =>
             enviar(async () => {
-              await cotizacionesService.volverAPagar(cotizacion.id, pago);
+              await (esCuota ? cotizacionesService.pagarCuota(cotizacion.id, pago) : cotizacionesService.volverAPagar(cotizacion.id, pago));
               await onPagado?.();
             }, cerrar)
           }
@@ -51,6 +54,26 @@ function VolverAPagarModal({ cotizacion, onPagado, onClose }) {
  */
 export default function PagoCotizacion({ cotizacion, onPagado }) {
   const [pagando, setPagando] = useState(false);
+  // A crédito ya aprobado y sin ningún pago: falta la cuota inicial
+  const debeCuota = cotizacion.metodoPago === 'Crédito' && Boolean(cotizacion.credito) && !cotizacion.pagoEstado;
+  if (debeCuota) {
+    return (
+      <div className="mt-4 space-y-2 rounded-lg border border-amber-400 bg-amber-400/15 px-3 py-2">
+        <p className="flex items-start gap-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+          <HandCoins size={14} className="mt-px shrink-0" />
+          Tu crédito fue aprobado. Paga la cuota inicial de {cotizacion.cuotaInicial} para continuar con el pedido.
+        </p>
+        <button
+          type="button"
+          onClick={() => setPagando(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md bg-amber-400 py-1.5 text-[11px] font-bold text-slate-900 hover:bg-amber-300"
+        >
+          <HandCoins size={12} /> Pagar la cuota inicial
+        </button>
+        {pagando && <VolverAPagarModal cotizacion={cotizacion} esCuota onPagado={onPagado} onClose={() => setPagando(false)} />}
+      </div>
+    );
+  }
   if (!cotizacion.pagoEstado) return null;
   const ultimo = cotizacion.pagos?.[0];
 

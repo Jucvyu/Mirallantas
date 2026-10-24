@@ -3,7 +3,7 @@ import { Wallet } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
-import { estadosActivo } from '../../../constantes';
+import { CREDITO_SIN_INICIAR, estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { creditosService } from '../../../services';
 import HistorialAbonosModal from './HistorialAbonosModal';
@@ -12,7 +12,7 @@ import NuevoCreditoModal from './NuevoCreditoModal';
 /** Un crédito está vencido si pasó su fecha límite y aún debe. */
 function vencido(row) {
   if (!row.fechaLimite) return false;
-  return row.saldoValor > 0 && new Date(row.fechaLimite) < new Date();
+  return row.iniciado && row.saldoValor > 0 && new Date(row.fechaLimite) < new Date();
 }
 
 // Tabla `credito`: cliente, monto total, saldo pendiente, plazo, fechas y
@@ -26,12 +26,16 @@ const columns = [
   {
     key: 'fechaLimite',
     label: 'Fecha límite',
-    render: (row) => (
-      <span className={vencido(row) ? 'font-semibold text-red-500' : ''}>
-        {row.fechaLimite}
-        {vencido(row) ? ' · vencido' : ''}
-      </span>
-    ),
+    render: (row) =>
+      row.iniciado ? (
+        <span className={vencido(row) ? 'font-semibold text-red-500' : ''}>
+          {row.fechaLimite}
+          {vencido(row) ? ' · vencido' : ''}
+        </span>
+      ) : (
+        // El plazo empieza a correr cuando se paga la cuota inicial
+        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{CREDITO_SIN_INICIAR}</span>
+      ),
   },
   { key: 'estado', label: 'Estado' },
 ];
@@ -91,7 +95,14 @@ export default function CreditosPage() {
         ]}
         createModal={({ onSubmit, onClose }) => <NuevoCreditoModal onSubmit={onSubmit} onClose={onClose} />}
         rowActions={(row) => (
-          <BotonAccion icono={Wallet} etiqueta="Subir abonos y ver el historial" tono="destacado" onClick={() => setAbonosDe(row)} />
+          <BotonAccion
+            icono={Wallet}
+            etiqueta="Subir abonos y ver el historial"
+            tono="destacado"
+            deshabilitado={!row.iniciado}
+            motivo="Empieza cuando se pague la cuota inicial"
+            onClick={() => setAbonosDe(row)}
+          />
         )}
       />
 

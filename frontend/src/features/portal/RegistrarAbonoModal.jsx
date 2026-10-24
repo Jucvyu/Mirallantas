@@ -5,7 +5,7 @@ import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
-import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
+import { ABONO_MINIMO, MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import { usePortal } from '../../context/PortalContext';
 import { useValidacion } from '../../hooks/useValidacion';
 import { useEnvio } from '../../hooks/useEnvio';
@@ -19,6 +19,7 @@ import {
   SECTION,
   formatoMiles,
 } from '../../components/base/formStyles';
+import DatosTransferencia from '../shared/DatosTransferencia';
 
 /**
  * Registro de un abono desde el portal.
@@ -74,6 +75,9 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
     const next = {};
     if (!montoNum) next.monto = 'Ingresa el monto abonado';
     else if (credito && montoNum > saldoActual) next.monto = 'El monto supera el saldo pendiente';
+    // Mínimo $20.000, salvo el último pago (por el saldo exacto)
+    else if (montoNum < ABONO_MINIMO && montoNum !== saldoActual)
+      next.monto = `El abono mínimo es de ${formatCOP(ABONO_MINIMO)} (o paga el saldo exacto de ${formatCOP(saldoActual)})`;
     if (!metodo) next.metodo = 'Este campo es obligatorio';
     if (requiereSoporte && !soporte) next.soporte = 'Adjunta el pantallazo de la consignación';
     if (errorArchivo) next.soporte = errorArchivo;
@@ -217,6 +221,9 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
           <div className="mb-3 flex items-center gap-3">
             <span className={SECTION}>Soporte de la consignación</span>
             <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+          </div>
+          <div className="mb-3">
+            <DatosTransferencia />
           </div>
 
           {soporte ? (

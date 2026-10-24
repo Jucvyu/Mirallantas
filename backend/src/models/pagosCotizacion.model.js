@@ -43,7 +43,7 @@ export async function deCliente(clienteId) {
 /** El pago más reciente, bloqueado hasta terminar la transacción (o null). */
 export async function ultimoBloqueado(db, cotizacionId) {
   const { rows } = await db.query(
-    `SELECT id, estado, medio_pago AS "medioPago" FROM pago_cotizacion WHERE cotizacion_id = $1
+    `SELECT id, estado, monto, medio_pago AS "medioPago", comprobante FROM pago_cotizacion WHERE cotizacion_id = $1
       ORDER BY creado_en DESC, id DESC LIMIT 1 FOR UPDATE`,
     [cotizacionId],
   );
@@ -67,7 +67,7 @@ export const SUBCONSULTA_ESTADO = `(SELECT p.estado FROM pago_cotizacion p WHERE
  * Estado de pago de la cotización, en tres valores: Pendiente, Aprobado o
  * Rechazado (null si no lleva ningún pago). Junta todo lo que se paga:
  *   - De contado: la última consignación ("En revisión" = Pendiente).
- *   - A crédito: la solicitud de crédito, que revisa la cuota inicial.
+ *   - A crédito: la solicitud de crédito y, ya aprobada, el pago de la cuota inicial.
  *   - Cada servicio de reencauche (sin precio, por pagar o en revisión = Pendiente).
  * Si algo se rechazó → Rechazado; si todo se aprobó → Aprobado; si no, Pendiente.
  */
@@ -79,8 +79,13 @@ export const SUBCONSULTA_ESTADO_PAGO = `(
            ELSE 'Pendiente'
          END
     FROM (
-      SELECT (SELECT p.estado FROM pago_cotizacion p WHERE p.cotizacion_id = c.id
-               ORDER BY p.creado_en DESC, p.id DESC LIMIT 1) AS e
+      -- La consignación más reciente; a crédito, sin ella (y sin cuota ya
+      -- registrada, como en los créditos anteriores) la cuota sigue Pendiente
+      SELECT COALESCE(
+               (SELECT p.estado FROM pago_cotizacion p WHERE p.cotizacion_id = c.id
+                 ORDER BY p.creado_en DESC, p.id DESC LIMIT 1),
+               CASE WHEN c.metodo_pago = 'Crédito' AND c.cuota_inicial_medio IS NULL THEN 'Pendiente' END
+             ) AS e
       UNION ALL
       SELECT (SELECT CASE s.estado WHEN 'Aprobada' THEN 'Aprobado' WHEN 'Rechazada' THEN 'Rechazado' END
                 FROM solicitud_credito s WHERE s.cotizacion_id = c.id ORDER BY s.id DESC LIMIT 1)

@@ -20,8 +20,18 @@ export const solicitud = (lineas, extra = {}) => ({
  */
 export async function emitir(e, tokenAsesor, numero) {
   const detalle = (await e.api(`/cotizaciones/${numero}`, { token: tokenAsesor })).cuerpo.datos.detalle;
-  // Primero el precio de cada reencauche (sin él no se puede emitir)
+  // Primero el precio de cada reencauche (sin él no se puede emitir), y
+  // antes de ponerle precio se revisa la carcasa
   for (const l of detalle.filter((d) => d.tipo === 'servicio' && !d.precioServicio && d.solicitudServicio)) {
+    const ruta = `/solicitudes-servicio/${l.solicitudServicio}`;
+    const { estadoEvidencia } = (await e.api(ruta, { token: tokenAsesor })).cuerpo.datos;
+    if (estadoEvidencia !== 'Apta') {
+      await e.api(ruta, {
+        metodo: 'PATCH',
+        token: tokenAsesor,
+        cuerpo: { estadoEvidencia: 'Apta', observacionRevision: 'Carcasa sana, sin cortes', garantia: true },
+      });
+    }
     await e.api(`/solicitudes-servicio/${l.solicitudServicio}`, {
       metodo: 'PATCH',
       token: tokenAsesor,

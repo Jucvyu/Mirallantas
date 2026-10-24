@@ -11,7 +11,8 @@ const PASOS = estadosServicio.filter((e) => e !== 'Cancelado');
  * Estado de la solicitud de reencauche de una línea de servicio.
  *
  * Se consulta desde el detalle del servicio dentro de su cotización: el
- * cliente ve en qué punto va la carcasa y qué reencauchadora la tiene.
+ * cliente ve en qué punto va la carcasa (la reencauchadora es un dato
+ * interno: no se le muestra).
  */
 export default function ReencaucheModal({ solicitud, onClose }) {
   const cancelada = solicitud.estado === 'Cancelado';
@@ -35,14 +36,14 @@ export default function ReencaucheModal({ solicitud, onClose }) {
       )}
     >
       <div className="space-y-6">
-        {/* ---- Cabecera: reencauchadora y estado ---- */}
+        {/* ---- Cabecera: servicio y estado ---- */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-bold text-slate-900 dark:text-white">
-              {solicitud.tercero || 'Reencauchadora sin asignar'}
+              {solicitud.servicio}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {solicitud.servicio} · {solicitud.cantidad}{' '}
+              {solicitud.medidas || 'Sin medidas'} · {solicitud.cantidad}{' '}
               {solicitud.cantidad === 1 ? 'llanta' : 'llantas'}
             </p>
           </div>
@@ -52,7 +53,7 @@ export default function ReencaucheModal({ solicitud, onClose }) {
         {/* ---- Avance del servicio ---- */}
         {cancelada ? (
           <p className="rounded-xl border border-red-400/40 bg-red-500/5 px-4 py-3 text-xs font-medium text-red-600 dark:text-red-400">
-            El servicio fue cancelado: la reencauchadora o el cliente no continuaron con el proceso.
+            El reencauche fue cancelado. Motivo: {solicitud.motivoCancelacion || 'comunícate con tu asesor para más información.'}
           </p>
         ) : (
           <ol className="space-y-3">
@@ -105,6 +106,13 @@ export default function ReencaucheModal({ solicitud, onClose }) {
             </dd>
           </div>
         </dl>
+
+        {/* ---- Observación de la revisión de la carcasa ---- */}
+        {solicitud.observacionRevision && (
+          <p className="rounded-xl border border-slate-200 px-4 py-3 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300">
+            <span className="font-semibold">Revisión de la carcasa:</span> {solicitud.observacionRevision}
+          </p>
+        )}
 
         {/* ---- Garantía ---- */}
         <p

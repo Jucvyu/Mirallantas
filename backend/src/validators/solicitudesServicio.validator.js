@@ -10,6 +10,8 @@ import {
   objetoEstricto,
   pesosPositivos,
   texto,
+  textoExplicado,
+  textoExplicadoOpcional,
   textoOpcional,
 } from './comunes.validator.js';
 
@@ -21,9 +23,13 @@ const campos = {
   terceroId: idRelacion.nullable().optional(),
   fecha: fecha.optional(),
   medidas: textoOpcional(30),
-  descripcion: texto(500),
+  descripcion: textoExplicado(500),
   foto: imagen.nullable().optional(),
   estadoEvidencia: z.enum(ESTADOS_EVIDENCIA).optional(),
+  // Lo que anota el asesor al revisar la carcasa (obligatoria si es "No apta")
+  observacionRevision: textoExplicadoOpcional(500),
+  // Por qué se cancela el reencauche (obligatorio al cancelarlo)
+  motivoCancelacion: textoExplicadoOpcional(300),
   tiempoEstimado: textoOpcional(40),
   garantia: z.boolean().optional(),
   cantidad: cantidad(),

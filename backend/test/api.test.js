@@ -97,7 +97,7 @@ describe('Catálogos', () => {
     const repetida = await e.api('/categorias', { metodo: 'POST', token: tokens.admin, cuerpo: { nombre: 'Agrícola especial' } });
     assert.equal(repetida.estado, 409);
 
-    const colorMalo = await e.api('/categorias', { metodo: 'POST', token: tokens.admin, cuerpo: { nombre: 'X', color: 'rojo' } });
+    const colorMalo = await e.api('/categorias', { metodo: 'POST', token: tokens.admin, cuerpo: { nombre: 'Categoría roja', color: 'rojo' } });
     assert.equal(colorMalo.estado, 422);
     assert.equal(colorMalo.cuerpo.detalles[0].campo, 'color');
 

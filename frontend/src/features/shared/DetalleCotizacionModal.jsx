@@ -7,9 +7,10 @@ import { useDetalle } from '../../hooks/useDetalle';
 import { VIGENCIA_COTIZACION_DIAS } from '../../constantes';
 import { HistorialPagos } from './PagoConsignacion';
 import { SkeletonLineas } from '../../components/base/Skeleton';
+import { fechaISO } from '../../utils/formato';
 
-/** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
-const fechaCorta = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '');
+/** Fecha en el formato estándar AAAA-MM-DD */
+const fechaCorta = (f) => fechaISO(f);
 
 /**
  * Detalle integrado de una cotización-pedido.
@@ -190,6 +191,61 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
             </table>
           </div>
         </section>
+
+        {/* ---- Reencauches: estado, revisión de la carcasa, garantía y fotos ---- */}
+        {lineas.filter((l) => l.solicitudDatos).map((l) => {
+          const s = l.solicitudDatos;
+          return (
+            <section key={s.id} className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-100">
+                  <Wrench size={14} className="text-blue-500" /> Reencauche {s.id}
+                </p>
+                <Badge>{s.estado}</Badge>
+              </div>
+              <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+                {[
+                  ['Medidas', s.medidas || '—'],
+                  ['Cantidad', `${s.cantidad} llantas`],
+                  ['Carcasa', s.estadoEvidencia],
+                  // Cancelado ya no se cobra: solo queda el motivo (abajo)
+                  ...(s.estado === 'Cancelado'
+                    ? []
+                    : [
+                        ['Garantía', s.estadoEvidencia === 'Apta' ? s.garantia : 'Por definir'],
+                        ['Valor', s.precioTexto],
+                        ['Pago', s.pagoEstado],
+                      ]),
+                ].map(([etiqueta, valor]) => (
+                  <div key={etiqueta} className="flex justify-between gap-3">
+                    <dt className="text-slate-500 dark:text-slate-400">{etiqueta}</dt>
+                    <dd className="font-semibold text-slate-800 dark:text-slate-100">{valor}</dd>
+                  </div>
+                ))}
+              </dl>
+              {s.estado === 'Cancelado' && (
+                <p className="mt-2 rounded-md border border-red-400/40 bg-red-500/5 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                  <span className="font-bold">Reencauche cancelado.</span> Motivo: {s.motivoCancelacion || 'sin motivo registrado'}
+                </p>
+              )}
+              {s.observacionRevision && (
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold">Revisión de la carcasa:</span> {s.observacionRevision}
+                </p>
+              )}
+              {s.descripcion && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.descripcion}</p>}
+              {s.fotos.length > 0 && (
+                <div className="mt-3 flex gap-2">
+                  {s.fotos.map((foto, i) => (
+                    <a key={i} href={foto} target="_blank" rel="noreferrer">
+                      <img src={foto} alt={`Foto ${i + 1} de la llanta`} className="h-16 w-16 rounded-lg object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })}
 
         {/* ---- Entrega y total ---- */}
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4">

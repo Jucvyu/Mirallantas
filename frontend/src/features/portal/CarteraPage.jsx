@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CreditCard, Plus, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import Badge from '../../components/base/Badge';
 import StatCard from '../../components/base/StatCard';
+import { CREDITO_SIN_INICIAR } from '../../constantes';
 import { useCredito } from '../../context/CreditoContext';
 import { usePortal } from '../../context/PortalContext';
 import { creditosService } from '../../services';
@@ -13,6 +14,7 @@ const aNumero = (v) => Number(String(v ?? '').replace(/\D/g, '')) || 0;
 
 /** Cómo va el crédito hoy, a partir del saldo y de la fecha límite. */
 function condicion(credito) {
+  if (!credito.iniciado) return CREDITO_SIN_INICIAR;
   if (aNumero(credito.saldoPendiente) === 0) return 'Pagado';
   return new Date(credito.fechaLimite) < new Date() ? 'Vencido' : 'Al día';
 }
@@ -21,6 +23,7 @@ const BORDE = {
   'Al día': 'border-emerald-400',
   Vencido: 'border-red-400',
   Pagado: 'border-slate-300 dark:border-white/25',
+  [CREDITO_SIN_INICIAR]: 'border-amber-400',
 };
 
 /**
@@ -103,7 +106,8 @@ export default function CarteraPage() {
                   <div>
                     <p className="text-sm font-bold text-slate-900 dark:text-white">{credito.id}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {credito.cotizacion} · vence el {credito.fechaLimite}
+                      {credito.cotizacion} ·{' '}
+                      {credito.iniciado ? `vence el ${credito.fechaLimite}` : 'empieza al pagar la cuota inicial'}
                     </p>
                   </div>
                 </div>
@@ -115,7 +119,7 @@ export default function CarteraPage() {
                   ['MONTO', credito.montoTotal],
                   ['SALDO', credito.saldoPendiente],
                   ['PLAZO', `${credito.plazoDias} días`],
-                  ['APERTURA', credito.fechaApertura],
+                  ['APERTURA', credito.iniciado ? credito.fechaApertura : 'Al pagar la cuota'],
                 ].map(([etiqueta, valor]) => (
                   <div key={etiqueta} className="rounded-lg bg-slate-100/80 p-2.5 dark:bg-white/5">
                     <p className="text-[10px] font-bold tracking-wide text-slate-400 dark:text-slate-500">
@@ -175,12 +179,14 @@ export default function CarteraPage() {
 
               <button
                 type="button"
-                disabled={estado === 'Pagado'}
+                disabled={estado === 'Pagado' || !credito.iniciado}
                 onClick={() => setAbonoDe(credito)}
                 className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-400 py-2 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 dark:text-amber-400 dark:disabled:border-white/10 dark:disabled:text-slate-500"
               >
                 {estado === 'Pagado' ? (
                   'Crédito pagado: no recibe más abonos'
+                ) : !credito.iniciado ? (
+                  'Paga la cuota inicial desde "Mis cotizaciones" para empezar'
                 ) : (
                   <>
                     <Plus size={13} /> Registrar abono

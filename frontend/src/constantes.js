@@ -29,9 +29,13 @@ export const metodosPago = [];
 /** Medio concreto con el que se paga un abono o la cuota inicial. */
 export const mediosPago = [];
 
+/** Abono mínimo de un crédito (el último pago, por el saldo exacto, puede ser menor). */
+export const ABONO_MINIMO = 20000;
+
 /** Plazos de financiación (en días) e interés que suma cada uno. */
 export const PLAZOS_CREDITO = [30, 60, 90];
-export const INTERES_POR_PLAZO = { 30: 0.03, 60: 0.06, 90: 0.09 };
+// 3,3 % fijo sobre el total, sea a 30, 60 o 90 días
+export const INTERES_POR_PLAZO = { 30: 0.033, 60: 0.033, 90: 0.033 };
 
 /**
  * Venta a crédito: cuota inicial de al menos el 30 % del total (el 70 %
@@ -134,9 +138,9 @@ export const FLUJO_ESTADOS_ABONO = {
   Rechazado: [],
 };
 
-export const estadosSolicitudCredito = ['Pendiente', 'Aprobada', 'Rechazada'];
-export const FLUJO_ESTADOS_SOLICITUD_CREDITO = {
-  Pendiente: ['Aprobada', 'Rechazada'],
-  Aprobada: [],
-  Rechazada: [],
-};
+// El estado no se cambia a mano: aprobar la solicitud la deja "Pendiente de
+// cuota inicial" (si la lleva) y pasa sola a "Aprobada" al confirmarse ese pago
+export const estadosSolicitudCredito = ['Pendiente', 'Pendiente de cuota inicial', 'Aprobada', 'Rechazada'];
+
+/** Cartera de un crédito que espera la cuota inicial para empezar. */
+export const CREDITO_SIN_INICIAR = 'Pendiente de cuota inicial';

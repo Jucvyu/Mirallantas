@@ -29,5 +29,6 @@ rutasPortal.post('/cotizaciones/:numero/aceptar', validar(esquemaAceptacion), co
 rutasPortal.post('/cotizaciones/:numero/cancelar', validar(esquemaCancelacionCliente), cotizaciones.cancelarDesdePortal);
 rutasPortal.get('/ventas/:numero/pdf', ventas.pdfDesdePortal);
 rutasPortal.post('/cotizaciones/:numero/pago', validar(esquemaPagoCliente), cotizaciones.volverAPagar);
+rutasPortal.post('/cotizaciones/:numero/cuota', validar(esquemaPagoCliente), cotizaciones.pagarCuota);
 rutasPortal.get('/notificaciones', controlador.listarNotificaciones);
 rutasPortal.post('/notificaciones/leidas', controlador.marcarLeidas);

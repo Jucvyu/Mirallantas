@@ -64,6 +64,27 @@ describe('Pago de un servicio de reencauche', () => {
     assert.match(avanzar.cuerpo.error, /pago/);
   });
 
+  test('el precio se asigna después de revisar la carcasa (Apta, con observación y garantía)', async () => {
+    const sinRevision = await e.api(`/solicitudes-servicio/${t.solicitud}`, {
+      metodo: 'PATCH',
+      token: t.admin,
+      cuerpo: { costo: 500000, precio: 640000 },
+    });
+    assert.equal(sinRevision.estado, 422);
+    assert.match(sinRevision.cuerpo.error, /revisa la carcasa/);
+
+    // La revisión exige observación y garantía
+    const sinGarantia = await e.api(`/solicitudes-servicio/${t.solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEvidencia: 'Apta', observacionRevision: 'Sana' } });
+    assert.equal(sinGarantia.estado, 422);
+    const revisada = await e.api(`/solicitudes-servicio/${t.solicitud}`, {
+      metodo: 'PATCH',
+      token: t.admin,
+      cuerpo: { estadoEvidencia: 'Apta', observacionRevision: 'Carcasa sana, sin cortes', garantia: true },
+    });
+    assert.equal(revisada.estado, 200, JSON.stringify(revisada.cuerpo));
+    assert.equal(revisada.cuerpo.datos.garantia, true);
+  });
+
   test('al ponerle precio, el cliente recibe la notificación', async () => {
     const r = await e.api(`/solicitudes-servicio/${t.solicitud}`, {
       metodo: 'PATCH',
@@ -136,7 +157,11 @@ describe('Pago de un servicio de reencauche', () => {
       token: t.admin,
       cuerpo: { estado: 'En proceso' },
     });
-    assert.equal(avanzar.estado, 200);
+    assert.equal(avanzar.estado, 200, JSON.stringify(avanzar.cuerpo));
+
+    // Aprobada, sus datos ya no se editan; cancelarla exige el motivo
+    assert.equal((await e.api(`/solicitudes-servicio/${t.solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { medidas: '295/80 R22.5' } })).estado, 422);
+    assert.equal((await e.api(`/solicitudes-servicio/${t.solicitud}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Cancelado' } })).estado, 422);
 
     const otroPrecio = await e.api(`/solicitudes-servicio/${t.solicitud}`, {
       metodo: 'PATCH',
@@ -160,7 +185,7 @@ describe('Abono rechazado', () => {
     const abono = await e.api(`/creditos/${credito.numero}/abonos`, {
       metodo: 'POST',
       token: t.maria,
-      cuerpo: { monto: 10000, medioPago: 'Transferencia', comprobante: PNG },
+      cuerpo: { monto: 20000, medioPago: 'Transferencia', comprobante: PNG },
     });
     assert.equal(abono.estado, 201);
 
@@ -184,9 +209,48 @@ describe('Abono rechazado', () => {
     const otraVez = await e.api(`/creditos/${credito.numero}/abonos`, {
       metodo: 'POST',
       token: t.maria,
-      cuerpo: { monto: 10000, medioPago: 'Transferencia', comprobante: PNG },
+      cuerpo: { monto: 20000, medioPago: 'Transferencia', comprobante: PNG },
     });
     assert.equal(otraVez.estado, 201);
     assert.equal(otraVez.cuerpo.datos.estado, 'Pendiente');
+  });
+});
+
+describe('Carcasa no apta', () => {
+  test('cancela el reencauche solo, con la observación como motivo, y cierra el proceso', async () => {
+    const r = await e.api('/cotizaciones', {
+      metodo: 'POST',
+      token: t.luis,
+      cuerpo: {
+        metodoPago: 'Contado',
+        direccionEntrega: 'Cra 5 #10-22, Pereira',
+        lineas: [{ tipo: 'servicio', cantidad: 1, medidas: '11R22.5', descripcion: 'Llanta con cortes laterales', foto: PNG }],
+      },
+    });
+    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
+    const numero = r.cuerpo.datos.detalle[0].solicitudServicio;
+    const ruta = `/solicitudes-servicio/${numero}`;
+
+    const revisada = await e.api(ruta, {
+      metodo: 'PATCH',
+      token: t.admin,
+      cuerpo: { estadoEvidencia: 'No apta', observacionRevision: 'Cortes profundos en el costado' },
+    });
+    assert.equal(revisada.estado, 200, JSON.stringify(revisada.cuerpo));
+    assert.equal(revisada.cuerpo.datos.estado, 'Cancelado');
+    assert.equal(revisada.cuerpo.datos.motivoCancelacion, 'Cortes profundos en el costado');
+
+    // La revisión no se repite y el reencauche cancelado ya no cambia
+    const otraRevision = await e.api(ruta, {
+      metodo: 'PATCH',
+      token: t.admin,
+      cuerpo: { estadoEvidencia: 'Apta', observacionRevision: 'Me equivoqué al revisar', garantia: true },
+    });
+    assert.equal(otraRevision.estado, 422);
+    assert.equal((await e.api(ruta, { metodo: 'PATCH', token: t.admin, cuerpo: { medidas: '12R22.5' } })).estado, 422);
+
+    // El cliente recibe el aviso con el motivo
+    const avisos = await e.api('/portal/notificaciones', { token: t.luis });
+    assert.ok(avisos.cuerpo.datos.notificaciones.some((n) => n.titulo.includes(numero) && n.mensaje.includes('Cortes profundos')));
   });
 });

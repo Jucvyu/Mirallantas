@@ -11,12 +11,14 @@ import {
   pesos,
   pesosPositivos,
   texto,
+  textoExplicado,
+  textoExplicadoOpcional,
   textoOpcional,
 } from './comunes.validator.js';
 
 /** POST /portal/cotizaciones/:numero/cancelar — el motivo es obligatorio. */
 export const esquemaCancelacionCliente = z.object({
-  motivo: texto(300),
+  motivo: textoExplicado(300),
 });
 
 /** GET /cotizaciones */
@@ -34,11 +36,13 @@ const lineaServicio = z.object({
   servicioId: idRelacion.optional(),
   cantidad: cantidad(),
   medidas: textoOpcional(30),
-  descripcion: texto(500),
-  foto: imagen,
+  descripcion: textoExplicado(500),
+  // Hasta 3 fotos de la llanta (`foto` sola se sigue aceptando)
+  foto: imagen.optional(),
+  fotos: z.array(imagen).max(3, 'Puedes adjuntar máximo 3 fotos.').optional(),
   // Solo el asesor califica la carcasa; al cliente siempre le queda pendiente
   estadoEvidencia: z.enum(ESTADOS_EVIDENCIA).optional(),
-});
+}).refine((l) => l.foto || l.fotos?.length, { error: 'Adjunta al menos una foto de la llanta.', path: ['fotos'] });
 
 /**
  * POST /cotizaciones (asesor o cliente del portal): la solicitud. Solo
@@ -68,6 +72,11 @@ export const esquemaEmision = z.object({
         // Lo que cobra el proveedor (precio de compra) y lo que paga el cliente
         costoProveedor: pesosPositivos('Indica el precio de compra.'),
         precioUnitario: pesosPositivos('Indica el precio de venta.'),
+      })
+      // Regla de negocio: nunca se vende por debajo de lo que se compra
+      .refine((l) => l.precioUnitario >= l.costoProveedor, {
+        error: 'El precio de venta no puede ser menor que el precio de compra.',
+        path: ['precioUnitario'],
       }),
     )
     .min(1, 'Confirma el precio de al menos una llanta.'),
@@ -87,7 +96,8 @@ export const esquemaAceptacion = z.object({
   metodoPago,
   plazoDias: z.coerce.number().int().optional(),
   pago: pagoConComprobante.optional(),
-  cuotaInicial: pagoConComprobante.extend({ monto: pesos.optional() }).optional(),
+  // (la cuota inicial del crédito ya no se paga al aceptar: se ignora si llega)
+  cuotaInicial: z.unknown().optional(),
 });
 
 /** PATCH /cotizaciones/:numero (solo personal). */
@@ -95,7 +105,7 @@ export const esquemaCambio = objetoEstricto(
   {
     estado: z.enum(estadosDe('cotizacion')).optional(),
     estadoEntrega: z.enum(estadosDe('entrega')).optional(),
-    motivoCancelacion: textoOpcional(500),
+    motivoCancelacion: textoExplicadoOpcional(500),
     proveedorId: idRelacion.nullable().optional(),
     direccionEntrega: texto(200).optional(),
   },
@@ -105,7 +115,7 @@ export const esquemaCambio = objetoEstricto(
 /** POST /cotizaciones/:numero/pago — el asesor aprueba o rechaza la consignación. */
 export const esquemaRevisionPago = z.object({
   estado: z.enum(['Aprobado', 'Rechazado'], { error: 'Indica si apruebas o rechazas el pago.' }),
-  motivo: textoOpcional(300),
+  motivo: textoExplicadoOpcional(300),
 });
 
 /** POST /portal/cotizaciones/:numero/pago — el cliente vuelve a subir el pago rechazado. */

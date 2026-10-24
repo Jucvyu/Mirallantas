@@ -21,11 +21,11 @@ const COLOR_LINEA = '#E2E8F0';
 /** 1500000 → "$ 1.500.000" (pesos colombianos, sin decimales). */
 const pesos = (valor) => `$ ${Number(valor || 0).toLocaleString('es-CO')}`;
 
-/** "2026-10-20" → "20/10/2026" (sin pasar por Date: no hay desfase de zona horaria). */
+/** "2026-10-20" → "2026-10-20" (formato estándar; sin pasar por Date: no hay desfase de zona horaria). */
 const fechaCorta = (fecha) => {
   if (!fecha) return '—';
-  const [anio, mes, dia] = String(fecha).slice(0, 10).split('-');
-  return `${dia}/${mes}/${anio}`;
+  // Formato estándar del sistema: AAAA-MM-DD
+  return String(fecha).slice(0, 10);
 };
 
 // ---- Piezas comunes --------------------------------------------------------
@@ -288,5 +288,76 @@ export function enviarPdfVenta(res, { empresa, venta, cliente, lineas }) {
   nota(doc, 'Observaciones', observaciones);
 
   pie(doc, 'Documento generado por MiraLlantas ERP');
+  doc.end();
+}
+
+// ---- Comprobante de abono (tirilla) ---------------------------------------------
+
+/** Ancho de una tirilla de 80 mm, en puntos (1 mm = 2,8346 pt). */
+const ANCHO_TIRILLA = 227;
+const MARGEN_TIRILLA = 12;
+
+/**
+ * Comprobante de un abono confirmado, en formato tirilla (80 mm de ancho,
+ * como un recibo de caja). Solo con los datos guardados del abono.
+ */
+export function enviarPdfAbono(res, { empresa, abono }) {
+  const nombre = `Abono-${abono.numero}`;
+  const doc = new PDFDocument({
+    size: [ANCHO_TIRILLA, 470],
+    margin: MARGEN_TIRILLA,
+    info: { Title: nombre },
+  });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}.pdf"`);
+  doc.pipe(res);
+
+  const ancho = ANCHO_TIRILLA - MARGEN_TIRILLA * 2;
+  const x = MARGEN_TIRILLA;
+  const centro = (texto, { tam = 8, negrita = false, color = COLOR_TEXTO } = {}) =>
+    doc.font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(tam).fillColor(color).text(texto, x, doc.y, { width: ancho, align: 'center' });
+  const separador = (guion = '-') => {
+    doc.moveDown(0.3);
+    centro(guion.repeat(46), { tam: 7, color: COLOR_SUAVE });
+    doc.moveDown(0.3);
+  };
+  const fila = (etiqueta, valor, { negrita = false, tam = 8 } = {}) => {
+    const y = doc.y;
+    doc.font('Helvetica').fontSize(tam).fillColor(COLOR_SUAVE).text(etiqueta, x, y, { width: ancho * 0.42 });
+    doc.font(negrita ? 'Helvetica-Bold' : 'Helvetica').fontSize(tam).fillColor(COLOR_TEXTO)
+      .text(valor, x + ancho * 0.42, y, { width: ancho * 0.58, align: 'right' });
+    doc.moveDown(0.2);
+  };
+
+  // Empresa (lo que no está registrado no se imprime)
+  centro((empresa?.nombre ?? 'MiraLlantas').toUpperCase(), { tam: 12, negrita: true });
+  for (const linea of [
+    empresa?.razonSocial && empresa.razonSocial !== empresa.nombre ? empresa.razonSocial : null,
+    empresa?.nit ? `NIT ${empresa.nit}` : null,
+    [empresa?.direccion, empresa?.ciudad].filter(Boolean).join(', ') || null,
+    empresa?.telefono ? `Tel. ${empresa.telefono}` : null,
+  ].filter(Boolean)) {
+    centro(linea, { tam: 7, color: COLOR_SUAVE });
+  }
+
+  separador('=');
+  centro('COMPROBANTE DE ABONO', { tam: 10, negrita: true, color: COLOR_ACENTO });
+  doc.moveDown(0.4);
+  fila('Documento', abono.numero, { negrita: true });
+  fila('Fecha', String(abono.fecha).slice(0, 10));
+  fila('Cliente', abono.cliente ?? '—');
+  if (abono.numeroDocumento) fila('Documento cliente', `${abono.tipoDocumento ?? ''} ${abono.numeroDocumento}`.trim());
+  fila('Crédito', abono.credito);
+  if (abono.factura) fila('Factura', abono.factura);
+  fila('Medio de pago', abono.medioPago);
+
+  separador();
+  fila('MONTO ABONADO', pesos(abono.monto), { negrita: true, tam: 10 });
+  if (abono.saldoCredito !== undefined && abono.saldoCredito !== null) fila('Saldo del crédito', pesos(abono.saldoCredito));
+  separador('=');
+
+  if (empresa?.correo) centro(empresa.correo, { tam: 7, color: COLOR_SUAVE });
+  centro('Abono validado por MiraLlantas.', { tam: 7, color: COLOR_SUAVE });
+  centro('Comprobante interno. No es factura electrónica.', { tam: 6, color: COLOR_SUAVE });
   doc.end();
 }

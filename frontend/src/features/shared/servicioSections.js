@@ -44,17 +44,7 @@ const DESCRIPCION = {
   placeholder: 'Marca, medida, kilometraje aproximado, estado del labrado...',
 };
 
-// ---- Variante del portal del cliente ------------------------------------
-export const servicioSectionsCliente = [
-  {
-    title: 'Servicio solicitado',
-    fields: [CANTIDAD, MEDIDAS],
-  },
-  {
-    title: 'Evidencia de la carcasa',
-    fields: [FOTO, DESCRIPCION],
-  },
-];
+// (El portal del cliente usa su propio formulario: features/portal/SolicitudReencaucheModal.jsx)
 
 // ---- Variante del administrador -----------------------------------------
 // Solo hay un servicio ("Reencauche"), así que no se elige: el asesor

@@ -13,7 +13,9 @@ import { actualizarCampos, consultarListado } from './listado.model.js';
 const SELECT_ABONO = `
   a.id, a.numero, a.fecha, a.monto, a.medio_pago AS "medioPago",
   a.comprobante_url AS "comprobanteUrl", a.estado, a.motivo_rechazo AS "motivoRechazo",
-  cr.numero AS credito, v.numero AS factura, cl.nombre_completo AS cliente`;
+  cr.numero AS credito, v.numero AS factura, cl.nombre_completo AS cliente,
+  cl.tipo_documento AS "tipoDocumento", cl.numero_documento AS "numeroDocumento",
+  cr.saldo_pendiente AS "saldoCredito"`;
 
 const DESDE = `
   FROM abono a
@@ -120,7 +122,7 @@ export async function facturasConSaldo({ clienteId } = {}) {
 export async function facturaBloqueada(db, numeroVenta) {
   const { rows } = await db.query(
     `SELECT v.id AS venta_id, v.numero, v.estado, cr.id AS credito_id, cr.numero AS credito,
-            cr.activo, cr.saldo_pendiente, cr.cliente_id
+            cr.activo, cr.iniciado, cr.saldo_pendiente, cr.cliente_id
        FROM venta v
        JOIN credito cr ON cr.venta_id = v.id
       WHERE v.numero = $1

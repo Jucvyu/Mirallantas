@@ -114,6 +114,8 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     if (type === 'money') return onChange(key, formatoMiles(bruto));
     if (type === 'number') return onChange(key, soloDigitos(bruto));
     if (type === 'tel') return onChange(key, soloTelefono(bruto));
+    // Documento: dígitos, letras (CE y pasaporte) y el guion del NIT
+    if (type === 'documento') return onChange(key, bruto.replace(/[^0-9A-Za-z-]/g, '').toUpperCase().slice(0, 15));
     // Ninguna fecha del sistema puede ser posterior a hoy (tampoco si se escribe a mano)
     if (type === 'date') return onChange(key, bruto > hoyISO() ? hoyISO() : bruto);
     return onChange(key, bruto);
@@ -416,7 +418,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
           <input
             id={id}
             // Los numéricos van como texto para poder filtrar lo que se teclea
-            type={esNumerico ? 'text' : type}
+            type={esNumerico || type === 'documento' ? 'text' : type}
             inputMode={esNumerico ? 'numeric' : undefined}
             max={type === 'date' ? hoyISO() : undefined}
             readOnly={readOnly}

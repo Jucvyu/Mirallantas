@@ -12,7 +12,7 @@ const CREDITO = {
   select: `
     cr.id, cr.numero, cr.monto_total AS "montoTotal", cr.saldo_pendiente AS "saldoPendiente",
     cr.plazo_dias AS "plazoDias", cr.fecha_apertura AS "fechaApertura", cr.fecha_limite AS "fechaLimite",
-    cr.activo, cr.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+    cr.activo, cr.iniciado, cr.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
     v.numero AS venta, co.numero AS cotizacion`,
   desde: `
     FROM credito cr
@@ -63,16 +63,37 @@ export async function creditoDeCotizacion(db, cotizacionId) {
 /**
  * Abre un crédito por todo su valor, con su número consecutivo
  * (CRE-AAAA-NNN). La fecha límite es hoy + el plazo. Devuelve el número.
+ *
+ * `iniciado: false` lo deja esperando la cuota inicial: no recibe abonos y
+ * su plazo empieza a correr cuando se paga (ver iniciar).
  */
-export async function crear(db, { clienteId, ventaId, cotizacionId, montoTotal, plazoDias }) {
+export async function crear(db, { clienteId, ventaId, cotizacionId, montoTotal, plazoDias, iniciado = true }) {
   const { rows } = await db.query(
     `INSERT INTO credito (numero, cliente_id, venta_id, cotizacion_id, monto_total, saldo_pendiente,
-                          plazo_dias, fecha_limite)
-     VALUES (siguiente_numero('CRE'), $1, $2, $3, $4, $4, $5, CURRENT_DATE + $5::int)
+                          plazo_dias, fecha_limite, iniciado)
+     VALUES (siguiente_numero('CRE'), $1, $2, $3, $4, $4, $5, CURRENT_DATE + $5::int, $6)
      RETURNING numero`,
-    [clienteId, ventaId ?? null, cotizacionId ?? null, montoTotal, plazoDias],
+    [clienteId, ventaId ?? null, cotizacionId ?? null, montoTotal, plazoDias, iniciado],
   );
   return rows[0].numero;
+}
+
+/** Pagada la cuota inicial, el crédito empieza: el plazo corre desde hoy. */
+export async function iniciar(db, creditoId) {
+  await db.query(
+    `UPDATE credito SET iniciado = TRUE, fecha_apertura = CURRENT_DATE, fecha_limite = CURRENT_DATE + plazo_dias
+      WHERE id = $1 AND NOT iniciado`,
+    [creditoId],
+  );
+}
+
+/** La cotización se rechazó antes de pagar la cuota inicial: su crédito no llegó a empezar y se elimina. */
+export async function eliminarSinIniciar(db, cotizacionId) {
+  await db.query(
+    `DELETE FROM credito cr WHERE cr.cotizacion_id = $1 AND NOT cr.iniciado
+        AND NOT EXISTS (SELECT 1 FROM abono a WHERE a.credito_id = cr.id)`,
+    [cotizacionId],
+  );
 }
 
 /** Activa o desactiva. Devuelve true si el crédito existía. */

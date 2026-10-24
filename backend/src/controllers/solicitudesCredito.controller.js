@@ -1,18 +1,16 @@
 import { enTransaccion } from '../db.js';
 import { HttpError } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
-import * as abonosModel from '../models/abonos.model.js';
 import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import { POOL } from '../models/listado.model.js';
 import * as solicitudesModel from '../models/solicitudesCredito.model.js';
-import * as solicitudesServicioModel from '../models/solicitudesServicio.model.js';
-import { validarTransicion } from '../reglas.js';
+import { pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirSinCreditoAbierto } from './creditos.controller.js';
 import { exigirActivo } from './estados.js';
-import { generarCompras, registrarVentaPagada, sincronizarVenta } from './documentosAutomaticos.js';
+import { sincronizarVenta } from './documentosAutomaticos.js';
 
 /**
  * Controlador de solicitudes de crédito.
@@ -20,10 +18,15 @@ import { generarCompras, registrarVentaPagada, sincronizarVenta } from './docume
  * Una cotización-pedido a crédito crea su solicitud (Pendiente). El asesor
  * revisa el detalle y la consignación de la cuota inicial y la aprueba o no:
  *
- *   Aprobada  → se abre el crédito en la cartera del cliente por el total,
- *               la cuota inicial queda como su primer abono (confirmado) y
- *               la cotización pasa a "Aprobada". El saldo usable del
- *               cliente baja en lo que queda debiendo.
+ *   Aprobada  → se abre el crédito en la cartera del cliente por el total.
+ *               Si la cotización lleva cuota inicial, la solicitud queda
+ *               "Pendiente de cuota inicial" y el crédito sin empezar (no
+ *               recibe abonos y su plazo no corre). Cuando se confirma el
+ *               pago de la cuota, queda como su primer abono, el crédito
+ *               empieza, la solicitud pasa sola a "Aprobada" y la cotización
+ *               también.
+ *
+ * El estado no se cambia a mano: lo mueven estas acciones.
  *   Rechazada → la cotización se rechaza.
  *
  * También existen solicitudes sueltas (monto y plazo, sin cotización) que
@@ -66,36 +69,26 @@ export async function obtener(req, res) {
   enviarDato(res, { ...solicitud, detalle });
 }
 
-/** Aprobar la solicitud de una cotización: crédito + cuota inicial + cotización aprobada. */
+/**
+ * Aprobar la solicitud de una cotización: se abre el crédito por el total. La
+ * cuota inicial se paga ahora (desde el portal o en el local); cuando el
+ * asesor la confirma queda como abono y la cotización pasa a "Aprobada".
+ */
 async function aprobarDeCotizacion(db, solicitud) {
   const cotizacion = await cotizacionesModel.fila(db, solicitud.cotizacion_id);
   if (cotizacion.estado !== 'Pendiente') {
     throw new HttpError(422, `La cotización ${cotizacion.numero} está "${cotizacion.estado}": ya no se puede aprobar.`);
   }
-  const numero = await creditosModel.crear(db, {
+  await creditosModel.crear(db, {
     clienteId: cotizacion.cliente_id,
     cotizacionId: cotizacion.id,
     montoTotal: cotizacion.total,
     plazoDias: cotizacion.plazo_dias,
+    // Con cuota inicial, el crédito empieza cuando se pague
+    iniciado: !(cotizacion.cuota_inicial > 0),
   });
-  // La cuota inicial ya se pagó (la consignación que revisó el asesor)
-  if (cotizacion.cuota_inicial > 0) {
-    const credito = await creditosModel.buscarPorNumero(numero, {}, db);
-    await abonosModel.crear(db, {
-      creditoId: credito.id,
-      monto: cotizacion.cuota_inicial,
-      medioPago: cotizacion.cuota_inicial_medio ?? 'Efectivo',
-      comprobante: cotizacion.cuota_inicial_comprobante,
-      estado: 'Confirmado',
-    });
-    await creditosModel.descontarSaldo(db, credito.id, cotizacion.cuota_inicial);
-  }
-  await cotizacionesModel.actualizar(db, cotizacion.id, [['estado', 'Aprobada']]);
-  // Pagó la cuota inicial y se le financió el resto: el reencauche (dentro del
-  // total) queda pagado con la cotización; venta y compra al proveedor
-  await solicitudesServicioModel.pagarConCotizacion(db, cotizacion.id, cotizacion.cuota_inicial_medio);
-  await registrarVentaPagada(db, cotizacion.id);
-  await generarCompras(db, cotizacion.id);
+  await cotizacionesModel.marcarCambio(db, cotizacion.id);
+  return cotizacion;
 }
 
 /** No aprobar la solicitud de una cotización: la cotización se rechaza. */
@@ -122,10 +115,11 @@ export async function revisar(req, res) {
     if (estado === 'Rechazada' && !motivo) throw new HttpError(422, 'Indica el motivo del rechazo.');
 
     // Al aprobarla se abre el crédito en la cartera
+    let cotizacion = null;
     if (estado === 'Aprobada') {
       await exigirSinCreditoAbierto(db, solicitud.cliente_id);
       if (solicitud.cotizacion_id) {
-        await aprobarDeCotizacion(db, solicitud);
+        cotizacion = await aprobarDeCotizacion(db, solicitud);
       } else {
         await creditosModel.crear(db, {
           clienteId: solicitud.cliente_id,
@@ -135,14 +129,19 @@ export async function revisar(req, res) {
       }
     }
     if (estado === 'Rechazada' && solicitud.cotizacion_id) await rechazarDeCotizacion(db, solicitud, motivo);
-    await solicitudesModel.resolver(db, solicitud.id, { estado, motivo: estado === 'Rechazada' ? motivo : null });
+    // Aprobada con cuota inicial: queda esperando ese pago
+    const estadoFinal = cotizacion?.cuota_inicial > 0 ? 'Pendiente de cuota inicial' : estado;
+    await solicitudesModel.resolver(db, solicitud.id, { estado: estadoFinal, motivo: estado === 'Rechazada' ? motivo : null });
     await notificaciones.crear(
       estado === 'Aprobada'
         ? {
             clienteId: solicitud.cliente_id,
             titulo: `Crédito aprobado · ${solicitud.numero}`,
-            mensaje: 'Tu crédito ya aparece en "Mi cartera". Desde allí puedes registrar tus abonos.',
-            enlace: '/portal/cartera',
+            // De una cotización: falta pagar la cuota inicial para que siga el pedido
+            mensaje: cotizacion
+              ? `Paga la cuota inicial de ${pesos(cotizacion.cuota_inicial)} desde "Mis cotizaciones" para continuar con la cotización ${cotizacion.numero}.`
+              : 'Tu crédito ya aparece en "Mi cartera". Desde allí puedes registrar tus abonos.',
+            enlace: cotizacion ? '/portal/pedidos' : '/portal/cartera',
             tipo: 'exito',
           }
         : {

@@ -11,7 +11,8 @@ import { HttpError } from './errores.js';
  */
 
 /** Interés que se suma al total según el plazo del crédito (en días). */
-export const INTERES_POR_PLAZO = { 30: 0.03, 60: 0.06, 90: 0.09 };
+// 3,3 % fijo sobre el total, sea a 30, 60 o 90 días
+export const INTERES_POR_PLAZO = { 30: 0.033, 60: 0.033, 90: 0.033 };
 
 export const PLAZOS_CREDITO = [30, 60, 90];
 
@@ -36,6 +37,19 @@ export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
 export function exigirMedioDelCliente(medio) {
   if (medio && !MEDIOS_PAGO_CLIENTE.includes(medio)) {
     throw new HttpError(422, `Desde el portal se paga con ${MEDIOS_PAGO_CLIENTE.join(' o ').toLowerCase()}.`);
+  }
+}
+
+/**
+ * Abono mínimo de un crédito, en pesos. El último pago (el que deja el saldo
+ * en cero) puede ser menor.
+ */
+export const ABONO_MINIMO = 20_000;
+
+/** Lanza 422 si el abono es menor al mínimo y no es el pago que salda la deuda. */
+export function exigirAbonoMinimo(monto, saldo) {
+  if (monto < ABONO_MINIMO && monto !== saldo) {
+    throw new HttpError(422, `El abono mínimo es de ${pesos(ABONO_MINIMO)} (salvo el último pago, por el saldo exacto de ${pesos(saldo)}).`);
   }
 }
 
@@ -89,6 +103,8 @@ export const FLUJOS = {
   },
   solicitudCredito: {
     Pendiente: ['Aprobada', 'Rechazada'],
+    // Pasa sola a "Aprobada" cuando se confirma el pago de la cuota inicial
+    'Pendiente de cuota inicial': [],
     Aprobada: [],
     Rechazada: [],
   },

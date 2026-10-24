@@ -7,6 +7,7 @@ import {
   medioPago,
   objetoEstricto,
   pesosPositivos,
+  textoExplicadoOpcional,
   textoOpcional,
 } from './comunes.validator.js';
 
@@ -60,7 +61,7 @@ export const esquemaCambioAbono = objetoEstricto(
     monto: pesosPositivos('El monto debe ser mayor que cero.').optional(),
     medioPago: medioPago.optional(),
     // Por qué se rechaza: el cliente lo ve y vuelve a subir el abono
-    motivo: textoOpcional(300),
+    motivo: textoExplicadoOpcional(300),
   },
   'Este campo no se puede modificar en un abono.',
 );
@@ -79,5 +80,5 @@ export const esquemaSolicitud = z.object({
 /** PATCH /solicitudes-credito/:numero — el asesor aprueba o rechaza. */
 export const esquemaRevision = z.strictObject({
   estado: z.enum(estadosDe('solicitudCredito')),
-  motivo: textoOpcional(500),
+  motivo: textoExplicadoOpcional(500),
 });

@@ -72,7 +72,62 @@ export async function actualizar(req, res) {
     if (!actual) throw new HttpError(404, 'La solicitud no existe.');
 
     const { precio, costo, ...datos } = resto;
+
+    // Cancelado, el proceso del reencauche quedó cerrado
+    if (actual.estado === 'Cancelado') {
+      throw new HttpError(422, 'El reencauche fue cancelado: ya no se modifica.');
+    }
+    // La revisión de la carcasa se registra una sola vez
+    if (datos.estadoEvidencia && actual.estado_evidencia !== 'Pendiente de revisión') {
+      throw new HttpError(422, `La carcasa ya fue revisada ("${actual.estado_evidencia}"): la revisión no se repite.`);
+    }
+
+    // Con la carcasa ya aprobada ("Apta"), los datos de la llanta no cambian
+    const DATOS_DE_LA_LLANTA = ['medidas', 'descripcion', 'foto', 'cantidad', 'estadoEvidencia', 'fecha', 'servicioId'];
+    if (actual.estado_evidencia === 'Apta' && DATOS_DE_LA_LLANTA.some((c) => datos[c] !== undefined)) {
+      throw new HttpError(422, 'La solicitud ya fue aprobada (carcasa apta): sus datos no se pueden editar.');
+    }
+    // La revisión de la carcasa exige su observación y decir si lleva garantía
+    if (datos.estadoEvidencia && datos.estadoEvidencia !== 'Pendiente de revisión') {
+      if (!datos.observacionRevision?.trim()) throw new HttpError(422, 'Escribe la observación de la revisión de la carcasa.');
+      if (datos.estadoEvidencia === 'Apta' && typeof datos.garantia !== 'boolean') {
+        throw new HttpError(422, 'Indica si el servicio lleva garantía.');
+      }
+    }
+    // Regla de negocio: el precio (de compra o de venta) se asigna después de
+    // revisar la carcasa, y solo si quedó apta
+    if ((precio !== undefined || costo !== undefined) && (datos.estadoEvidencia ?? actual.estado_evidencia) !== 'Apta') {
+      throw new HttpError(422, 'Antes de asignar el precio, revisa la carcasa: solo se cotiza si queda Apta.');
+    }
+    // Regla de negocio: el precio de venta nunca es menor que el de compra
+    const compraFinal = costo ?? actual.costo;
+    const ventaFinal = precio ?? actual.precio;
+    if (compraFinal && ventaFinal && ventaFinal < compraFinal) {
+      throw new HttpError(422, 'El precio de venta no puede ser menor que el precio de compra.');
+    }
+
     await solicitudesModel.actualizar(db, actual.id, aPares(datos, solicitudesModel.COLUMNAS));
+
+    // ---- Carcasa no apta: el reencauche se cancela solo, con la observación
+    // de la revisión como motivo, y se le avisa al cliente
+    if (datos.estadoEvidencia === 'No apta') {
+      const motivo = datos.observacionRevision.trim();
+      await solicitudesModel.actualizar(db, actual.id, [
+        ['estado', 'Cancelado'],
+        ['motivo_cancelacion', motivo],
+      ]);
+      await notificaciones.crear(
+        {
+          clienteId: actual.cliente_id,
+          titulo: `Reencauche cancelado · ${actual.numero}`,
+          mensaje: `La carcasa no es apta para reencauche. Motivo: ${motivo}`,
+          enlace: EN_PEDIDOS,
+          tipo: 'alerta',
+        },
+        db,
+      );
+      return;
+    }
     // El precio de compra es interno: se puede corregir aunque el servicio ya esté pagado
     if (costo !== undefined) await solicitudesModel.actualizar(db, actual.id, [['costo', costo]]);
 
@@ -93,6 +148,7 @@ export async function actualizar(req, res) {
         ['precio', precio],
         ['pago_estado', pagoEstado],
       ]);
+      if (cotizacion) await cotizacionesModel.marcarCambio(db, cotizacion.id);
       if (cotizacion?.confirmado && !cotizacion.metodoPago) {
         // Ya emitida (sin aceptar): su línea y su total se actualizan
         await cotizacionesModel.preciarServicios(db, cotizacion.id);
@@ -116,8 +172,16 @@ export async function actualizar(req, res) {
     // ---- Estado del reencauche: avanza solo con el pago aprobado
     if (estado && estado !== actual.estado) {
       validarTransicion('servicio', actual.estado, estado);
+      // Cancelarlo exige el motivo
+      if (estado === 'Cancelado' && !resto.motivoCancelacion?.trim()) {
+        throw new HttpError(422, 'Indica el motivo de la cancelación del reencauche.');
+      }
+      // No avanza con el pago sin aprobar ni sin la revisión de la carcasa (aprobada)
       if (estado !== 'Cancelado' && actual.pago_estado !== PAGO.aprobado) {
         throw new HttpError(422, 'El reencauche avanza cuando el pago del servicio esté aprobado.');
+      }
+      if (estado !== 'Cancelado' && (datos.estadoEvidencia ?? actual.estado_evidencia) !== 'Apta') {
+        throw new HttpError(422, 'Primero revisa la carcasa (debe quedar Apta, con su observación y la garantía).');
       }
       await solicitudesModel.actualizar(db, actual.id, [['estado', estado]]);
     }

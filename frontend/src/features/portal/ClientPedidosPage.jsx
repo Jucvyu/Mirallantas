@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Ban,
+  Eye,
   CalendarClock,
   CalendarDays,
   Check,
@@ -19,10 +20,12 @@ import {
 import Badge from '../../components/base/Badge';
 import CardList from '../../components/base/CardList';
 import LiquidGlass from '../../components/base/LiquidGlass';
+import Modal from '../../components/base/Modal';
 import MotivoModal from '../../components/base/MotivoModal';
 import {
   ESTADO_COTIZACION_COMPLETADA,
   estadosCotizacion,
+  CREDITO_SIN_INICIAR,
   estadosEntrega,
   estadosServicio,
   ESTADOS_PAGO,
@@ -40,6 +43,8 @@ import PagoServicio from './PagoServicio';
 import ReencaucheModal from './ReencaucheModal';
 import RegistrarAbonoModal from './RegistrarAbonoModal';
 import ComprobanteVentaModal from '../shared/ComprobanteVentaModal';
+import { fechaISO } from '../../utils/formato';
+import Tooltip from '../../components/base/Tooltip';
 
 // -------------------------------------------------------------------------
 // Aspecto de la carta según cómo va el crédito: contorno marcado y, solo en
@@ -50,6 +55,7 @@ const ESTILO_CREDITO = {
   'Al día': 'border-emerald-400 bg-emerald-50 dark:border-emerald-400/70 dark:bg-brand-navy-800',
   Vencido: 'border-red-400 bg-red-50 dark:border-red-400/70 dark:bg-brand-navy-800',
   Pagado: 'border-slate-300 bg-slate-100/70 dark:border-white/25 dark:bg-brand-navy-800',
+  [CREDITO_SIN_INICIAR]: 'border-amber-400 bg-amber-50 dark:border-amber-400/70 dark:bg-brand-navy-800',
 };
 
 const ESTILO_NEUTRO = 'border-slate-200 bg-white dark:border-white/10 dark:bg-brand-navy-800';
@@ -74,12 +80,13 @@ const aNumero = (v) => Number(String(v ?? '').replace(/\D/g, '')) || 0;
  */
 function condicionCredito(credito) {
   if (!credito) return null;
+  if (!credito.iniciado) return CREDITO_SIN_INICIAR;
   if (aNumero(credito.saldoPendiente) === 0) return 'Pagado';
   return new Date(credito.fechaLimite) < new Date() ? 'Vencido' : 'Al día';
 }
 
-/** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
-const fechaCorta = (f) => (f ? String(f).slice(0, 10).split('-').reverse().join('/') : '');
+/** Fecha en el formato estándar AAAA-MM-DD */
+const fechaCorta = (f) => fechaISO(f);
 
 /** Cómo se le nombra cada etapa al cliente. */
 const ETIQUETA_ETAPA = {
@@ -105,8 +112,9 @@ export default function ClientPedidosPage() {
     await recargar();
   };
 
-  // Detalles abiertos. Son objetos (y no un solo id) a propósito: se pueden
-  // desplegar varias cotizaciones —y varios servicios— al mismo tiempo.
+  // Detalles abiertos: el de cada cotización se ve en un modal aparte; los
+  // servicios, dentro de él, se despliegan uno a uno. Son objetos (y no un id)
+  // para que cada uno se abra y cierre por separado.
   const [cotizacionesAbiertas, setCotizacionesAbiertas] = useState({});
   const [serviciosAbiertos, setServiciosAbiertos] = useState({});
   const [reencaucheDe, setReencaucheDe] = useState(null);
@@ -164,7 +172,7 @@ export default function ClientPedidosPage() {
     {
       key: 'filtroCredito',
       label: 'Crédito',
-      options: ['Al día', 'Vencido', 'Pagado', SIN_CREDITO],
+      options: ['Al día', 'Vencido', 'Pagado', CREDITO_SIN_INICIAR, SIN_CREDITO],
       match: (c, valor) => (valor === SIN_CREDITO ? !c.credito : c.condicion === valor),
     },
     {
@@ -186,6 +194,8 @@ export default function ClientPedidosPage() {
   };
 
   const ordenes = [
+    // Por defecto, el orden de la API: primero la que el asesor cambió por última vez
+    { value: 'actualizadas', label: 'Últimas actualizadas', compare: () => 0 },
     { value: 'fecha-desc', label: 'Fecha: más recientes', compare: porGrupoYFecha(-1) },
     { value: 'fecha-asc', label: 'Fecha: más antiguas', compare: porGrupoYFecha(1) },
   ];
@@ -324,14 +334,15 @@ export default function ClientPedidosPage() {
                       >
                         <HandCoins size={12} /> Aceptar cotización
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => descargarPdf(c)}
-                        className="flex items-center justify-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white dark:border-white/10 dark:text-slate-300"
-                        title="Descargar la cotización en PDF"
-                      >
-                        <FileDown size={12} /> PDF
-                      </button>
+                      <Tooltip texto="Descargar la cotización en PDF">
+                        <button
+                          type="button"
+                          onClick={() => descargarPdf(c)}
+                          className="flex items-center justify-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white dark:border-white/10 dark:text-slate-300"
+                        >
+                          <FileDown size={12} /> PDF
+                        </button>
+                      </Tooltip>
                     </div>
                   </>
                 )}
@@ -364,29 +375,40 @@ export default function ClientPedidosPage() {
                 )}
               </div>
 
-              {/* ---- Botón que despliega el detalle ---- */}
+              {/* ---- Crédito aprobado: pagar la cuota sin abrir el detalle ---- */}
+              {c.metodoPago === 'Crédito' && c.credito && !c.pagoEstado && (
+                <PagoCotizacion cotizacion={c} onPagado={recargar} />
+              )}
+
+              {/* ---- El detalle completo se abre en un modal aparte ---- */}
               <button
                 type="button"
                 onClick={() => alternarCotizacion(c.id)}
-                aria-expanded={abierto}
-                aria-controls={`detalle-${c.id}`}
+                aria-haspopup="dialog"
+                title="Ver productos, servicios, pagos, entrega y crédito de esta cotización"
                 className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white/60 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-white dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:bg-white/5"
               >
-                {abierto ? 'Ocultar detalle' : 'Ver detalle'}
-                <ChevronDown
-                  size={14}
-                  className={`transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`}
-                />
+                <Eye size={14} /> Ver detalle completo
               </button>
 
-              {/* ---- Detalle desplegable (animado con grid-rows) ---- */}
-              <div
-                id={`detalle-${c.id}`}
-                className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
-                  abierto ? 'mt-3 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                }`}
-              >
-                <div className="overflow-hidden">
+              {abierto && (
+                <Modal
+                  title={`Cotización ${c.id}`}
+                  subtitle={`${c.estado} · ${c.etapa}`}
+                  icon={<FileText size={17} />}
+                  size="lg"
+                  onClose={() => alternarCotizacion(c.id)}
+                  footer={(cerrar) => (
+                    <button
+                      type="button"
+                      onClick={cerrar}
+                      className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200"
+                    >
+                      Cerrar
+                    </button>
+                  )}
+                >
+                <div>
                   {/* ---- Fechas y vigencia ---- */}
                   <dl className="mb-4 grid grid-cols-2 gap-2 text-xs">
                     {[
@@ -423,6 +445,8 @@ export default function ClientPedidosPage() {
                       // Pago rechazado: el servicio se marca en rojo hasta que se vuelva a subir
                       const pagoRechazado = solicitud?.pagoEstado === 'Rechazado';
                       const pagado = solicitud?.pagoEstado === 'Aprobado';
+                      // Cancelado (por ejemplo, la carcasa no fue apta): ya no se paga ni avanza
+                      const servicioCancelado = solicitud?.estado === 'Cancelado';
                       // Su precio va dentro del total de la cotización: se paga con ella
                       const incluido = esServicio && linea.precioUnitarioValor > 0;
 
@@ -481,7 +505,9 @@ export default function ClientPedidosPage() {
                               >
                                 {servicioAbierto
                                   ? 'Ocultar servicio'
-                                  : pagoRechazado
+                                  : servicioCancelado
+                                    ? 'Reencauche cancelado · ver detalle'
+                                    : pagoRechazado
                                     ? 'Pago rechazado · ver detalle'
                                     : 'Ver detalle del servicio'}
                                 <ChevronDown
@@ -498,8 +524,16 @@ export default function ClientPedidosPage() {
                                 }`}
                               >
                                 <div className="overflow-hidden">
-                                  {/* Incluido: se paga con la cotización. Si no, se cobra aparte */}
-                                  {incluido ? (
+                                  {/* Cancelado: el motivo. Incluido: se paga con la cotización. Si no, se cobra aparte */}
+                                  {servicioCancelado ? (
+                                    <div className="rounded-md border border-red-400/40 bg-red-500/5 px-3 py-2 text-[11px] dark:bg-red-500/10">
+                                      <p className="font-bold text-red-600 dark:text-red-400">Reencauche cancelado</p>
+                                      <p className="mt-0.5 text-slate-600 dark:text-slate-300">
+                                        <span className="font-semibold">Motivo:</span>{' '}
+                                        {solicitud.motivoCancelacion || 'Comunícate con tu asesor para más información.'}
+                                      </p>
+                                    </div>
+                                  ) : incluido ? (
                                     <p
                                       className={`rounded-md px-3 py-2 text-[11px] font-semibold ${
                                         pagado
@@ -518,13 +552,15 @@ export default function ClientPedidosPage() {
                                       ['Solicitud', solicitud.id],
                                       ['Modalidad', solicitud.servicio],
                                       ['Recepción', solicitud.fecha],
+                                      // Revisión de la carcasa y, ya revisada, si lleva garantía
+                                      ['Revisión de la carcasa', solicitud.estadoEvidencia],
+                                      ...(solicitud.estadoEvidencia === 'Apta' ? [['Garantía', solicitud.garantia]] : []),
+                                      ...(solicitud.observacionRevision ? [['Observación', solicitud.observacionRevision]] : []),
                                       // El seguimiento del reencauche aparece con el pago aprobado
                                       ...(pagado
                                         ? [
                                             ['Estado', solicitud.estado],
-                                            ['Reencauchadora', solicitud.tercero || 'Sin asignar'],
                                             ['Tiempo estimado', solicitud.tiempoEstimado || 'Por definir'],
-                                            ['Garantía', solicitud.garantia],
                                           ]
                                         : []),
                                     ].map(([etiqueta, valor]) => (
@@ -546,7 +582,7 @@ export default function ClientPedidosPage() {
                                     </p>
                                   </dl>
 
-                                  {pagado && (
+                                  {pagado && !servicioCancelado && (
                                     <button
                                       type="button"
                                       onClick={() => setReencaucheDe(solicitud)}
@@ -620,6 +656,9 @@ export default function ClientPedidosPage() {
                           <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                             Crédito pagado
                           </span>
+                        ) : !c.credito.iniciado ? (
+                          // La cartera empieza con la cuota inicial pagada
+                          <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">{CREDITO_SIN_INICIAR}</span>
                         ) : (
                           <button
                             type="button"
@@ -636,7 +675,7 @@ export default function ClientPedidosPage() {
                           ['MONTO', c.credito.montoTotal],
                           ['SALDO', c.credito.saldoPendiente],
                           ['PLAZO', `${c.credito.plazoDias} días`],
-                          ['VENCE', c.credito.fechaLimite],
+                          ['VENCE', c.credito.iniciado ? c.credito.fechaLimite : 'Al pagar la cuota'],
                         ].map(([etiqueta, valor]) => (
                           <div key={etiqueta} className="rounded-md bg-slate-100/80 p-2 dark:bg-white/5">
                             <p className="text-[10px] font-bold tracking-wide text-slate-400 dark:text-slate-500">
@@ -679,7 +718,8 @@ export default function ClientPedidosPage() {
                     </button>
                   )}
                 </div>
-              </div>
+                </Modal>
+              )}
             </LiquidGlass>
           );
         }}

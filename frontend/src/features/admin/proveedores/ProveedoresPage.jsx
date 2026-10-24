@@ -20,7 +20,7 @@ const formSections = [
     fields: [
       { key: 'nombreRazonSocial', label: 'Nombre o razón social', required: true, span: 2 },
       { key: 'tipoDocumento', label: 'Tipo de documento', type: 'select', required: true, options: tiposDocumento },
-      { key: 'numeroDocumento', label: 'Número de documento', type: 'number', required: true },
+      { key: 'numeroDocumento', label: 'Número de documento', type: 'documento', required: true },
     ],
   },
   {

@@ -20,7 +20,8 @@ export async function cotizaciones(clienteId) {
             ${SUBCONSULTA_TOTAL_SERVICIOS} AS "totalServicios"
        FROM cotizacion c
       WHERE c.cliente_id = $1
-      ORDER BY c.fecha DESC, c.id DESC`,
+      -- Primero la que el asesor cambió por última vez (aprobó, emitió, despachó…)
+      ORDER BY c.actualizado_en DESC, c.id DESC`,
     [clienteId],
   );
   return rows;
@@ -34,6 +35,8 @@ export async function lineasDeCotizaciones(clienteId) {
             d.precio_unitario AS "precioUnitario", d.subtotal,
             ss.numero AS "solicitudServicio", ss.estado AS "estadoServicio",
             ss.estado_evidencia AS "estadoEvidencia", ss.descripcion AS "descripcionCarcasa",
+            ss.observacion_revision AS "observacionRevision", ss.motivo_cancelacion AS "motivoCancelacionServicio",
+            ss.foto_url AS foto, ss.fotos,
             ss.tiempo_estimado AS "tiempoEstimado", ss.garantia, ss.fecha AS "fechaServicio",
             ss.medidas AS "medidasServicio", ss.cantidad AS "cantidadServicio",
             sv.nombre AS servicio, te.nombre_razon_social AS tercero,
@@ -57,7 +60,7 @@ export async function creditos(clienteId) {
   const { rows } = await query(
     `SELECT cr.id, cr.numero, cr.monto_total AS "montoTotal", cr.saldo_pendiente AS "saldoPendiente",
             cr.plazo_dias AS "plazoDias", cr.fecha_apertura AS "fechaApertura", cr.fecha_limite AS "fechaLimite",
-            cr.activo, v.numero AS venta, co.numero AS cotizacion
+            cr.activo, cr.iniciado, v.numero AS venta, co.numero AS cotizacion
        FROM credito cr
        LEFT JOIN venta v ON v.id = cr.venta_id
        LEFT JOIN cotizacion co ON co.id = cr.cotizacion_id

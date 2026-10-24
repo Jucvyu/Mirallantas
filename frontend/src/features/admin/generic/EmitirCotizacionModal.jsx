@@ -10,15 +10,15 @@ import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { cotizacionesService, proveedoresService } from '../../../services';
-import { formatCOP } from '../../../utils/formato';
+import { formatCOP, fechaISO } from '../../../utils/formato';
 import { opcionesEmpresas } from '../../../utils/opciones';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /** "$ 1.250.000" o "1.250.000" → 1250000 */
 const aNumero = (texto) => Number(String(texto ?? '').replace(/\D/g, '')) || 0;
 
-/** "2026-10-20T15:04:00Z" → "20/10/2026" */
-const fecha = (iso) => (iso ? new Date(iso).toLocaleDateString('es-CO') : '');
+/** "2026-10-20T15:04:00Z" → "2026-10-20" (formato estándar AAAA-MM-DD) */
+const fecha = (iso) => fechaISO(iso);
 
 /**
  * "Confirmar precios y emitir" (Pedidos-Cotización).
@@ -90,6 +90,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     if (!f.proveedorId) e.proveedor = 'Elige el proveedor';
     if (aNumero(f.compra) <= 0) e.compra = 'Escribe el precio que te da el proveedor';
     if (precio <= 0) e.precio = 'Escribe el precio de venta';
+    else if (precio < aNumero(f.compra)) e.precio = 'El precio de venta no puede ser menor que el de compra';
     if (!f.verificado) e.verificado = 'Confirma que verificaste el precio con el proveedor';
     return e;
   };

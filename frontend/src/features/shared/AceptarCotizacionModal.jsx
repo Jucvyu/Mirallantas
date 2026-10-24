@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { HandCoins } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Modal from '../../components/base/Modal';
-import { BORDER_ERR, BORDER_OK, INPUT, LABEL, formatoMiles } from '../../components/base/formStyles';
+import { LABEL } from '../../components/base/formStyles';
 import {
   CUOTA_INICIAL_PORCENTAJE,
   cuotaMinimaDe,
@@ -12,22 +12,19 @@ import {
 } from '../../constantes';
 import { useEnvio } from '../../hooks/useEnvio';
 import { cotizacionesService } from '../../services';
-import { formatCOP } from '../../utils/formato';
+import { formatCOP, fechaISO } from '../../utils/formato';
 import { CamposPago, pideComprobante } from './PagoConsignacion';
 
-/** "$ 1.250.000" o "1.250.000" → 1250000 */
-const aNumero = (texto) => Number(String(texto ?? '').replace(/\D/g, '')) || 0;
-
-/** "2026-10-28" → "28/10/2026" (sin pasar por Date: no hay desfase de zona horaria) */
-const fechaCorta = (f) => (f ? f.slice(0, 10).split('-').reverse().join('/') : '');
+/** Fecha en el formato estándar AAAA-MM-DD */
+const fechaCorta = (f) => fechaISO(f);
 
 /**
  * Aceptar la cotización formal (dentro de su vigencia):
  *
  *   Contado → se paga el 100 %: medio de pago y consignación (salvo en efectivo).
- *   Crédito → plazo (30, 60 o 90 días, con su interés) y cuota inicial de al
- *             menos el 30 % del total; el resto se financia y queda una
- *             solicitud de crédito para que el asesor la apruebe.
+ *   Crédito → solo el plazo (30, 60 o 90 días, con su interés). No se paga
+ *             nada al aceptar: queda una solicitud de crédito; cuando el
+ *             asesor la aprueba, el cliente paga la cuota inicial (30 %).
  *
  * Lo usa el cliente desde su portal (`desdePortal`) y el asesor en el local.
  * En los dos casos solo se ofrece efectivo o transferencia (tarjeta y
@@ -39,7 +36,6 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
   const [metodoPago, setMetodoPago] = useState('Contado');
   const [plazo, setPlazo] = useState(30);
   const [pago, setPago] = useState({ medioPago: '', comprobante: '' });
-  const [cuotaTexto, setCuotaTexto] = useState('');
   const [intento, setIntento] = useState(false);
 
   const esCredito = metodoPago === 'Crédito';
@@ -47,17 +43,14 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
   const interes = esCredito ? Math.round(subtotal * (INTERES_POR_PLAZO[plazo] ?? 0)) : 0;
   const total = subtotal + interes;
   const cuotaMinima = esCredito ? cuotaMinimaDe(total) : 0;
-  const cuota = cuotaTexto === '' ? cuotaMinima : aNumero(cuotaTexto);
+  // La cuota inicial es el 30 %: se paga después de aprobado el crédito
+  const cuota = cuotaMinima;
   const medios = MEDIOS_PAGO_CLIENTE;
 
-  // Errores (se muestran después del primer intento)
+  // Errores (se muestran después del primer intento). A crédito no se paga nada aquí.
   const errores = {};
-  if (!pago.medioPago) errores.medioPago = 'Elige el medio de pago';
-  else if (pideComprobante(pago.medioPago) && !pago.comprobante) errores.comprobante = 'Sube el comprobante del pago';
-  if (esCredito && cuota < cuotaMinima) {
-    errores.cuota = `La cuota inicial debe ser de al menos ${formatCOP(cuotaMinima)} (${CUOTA_INICIAL_PORCENTAJE} % del total).`;
-  }
-  if (esCredito && cuota >= total) errores.cuota = 'Si pagas todo de una vez, elige contado.';
+  if (!esCredito && !pago.medioPago) errores.medioPago = 'Elige el medio de pago';
+  else if (!esCredito && pideComprobante(pago.medioPago) && !pago.comprobante) errores.comprobante = 'Sube el comprobante del pago';
   const visibles = intento ? errores : {};
 
   const aceptar = (cerrar) => {
@@ -66,9 +59,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
     enviar(async () => {
       await cotizacionesService.aceptar(
         cotizacion.id,
-        esCredito
-          ? { metodoPago, plazoDias: plazo, cuotaInicial: { ...pago, monto: cuota } }
-          : { metodoPago, pago },
+        esCredito ? { metodoPago, plazoDias: plazo } : { metodoPago, pago },
         { desdePortal },
       );
       await onAceptada?.();
@@ -128,42 +119,28 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
               <div className="flex gap-2">
                 {PLAZOS_CREDITO.map((p) => (
                   <button key={p} type="button" onClick={() => setPlazo(p)} aria-pressed={plazo === p} className={opcionBoton(plazo === p)}>
-                    {p} días · {(INTERES_POR_PLAZO[p] * 100).toFixed(0)} %
+                    {p} días · {(INTERES_POR_PLAZO[p] * 100).toLocaleString('es-CO')} %
                   </button>
                 ))}
               </div>
             </div>
-            <div>
-              <label htmlFor="ac-cuota" className={LABEL}>
-                Cuota inicial (COP)
-              </label>
-              <input
-                id="ac-cuota"
-                inputMode="numeric"
-                value={cuotaTexto === '' ? formatoMiles(String(cuotaMinima)) : cuotaTexto}
-                onChange={(e) => setCuotaTexto(formatoMiles(e.target.value))}
-                className={`${INPUT} ${visibles.cuota ? BORDER_ERR : BORDER_OK}`}
-              />
-              <p className={`mt-1 text-xs ${visibles.cuota ? 'font-medium text-red-500' : 'text-slate-400'}`}>
-                {visibles.cuota ?? `Mínimo ${formatCOP(cuotaMinima)}, el ${CUOTA_INICIAL_PORCENTAJE} % del total.`}
-              </p>
-            </div>
+            <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+              No pagas nada ahora. Cuando aprobemos tu crédito, pagas la cuota inicial de{' '}
+              <strong>{formatCOP(cuota)}</strong> ({CUOTA_INICIAL_PORCENTAJE} % del total) desde "Mis cotizaciones".
+            </p>
           </>
         )}
 
-        <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-4">
-          <CamposPago
-            pago={pago}
-            onCambio={setPago}
-            errores={visibles}
-            medios={medios}
-            etiqueta={esCredito ? 'Medio de pago de la cuota inicial' : 'Medio de pago'}
-          />
-        </div>
+        {/* De contado se paga ya; a crédito, la cuota se paga después de aprobar */}
+        {!esCredito && (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-4">
+            <CamposPago pago={pago} onCambio={setPago} errores={visibles} medios={medios} etiqueta="Medio de pago" />
+          </div>
+        )}
 
         <dl className="space-y-1.5 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4 text-sm">
           <div className="flex justify-between text-slate-600 dark:text-slate-300">
-            <dt>Valor de las llantas</dt>
+            <dt>Valor de la cotización</dt>
             <dd className="font-semibold">{formatCOP(subtotal)}</dd>
           </div>
           {esCredito && (
@@ -173,7 +150,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
                 <dd className="font-semibold">{formatCOP(interes)}</dd>
               </div>
               <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                <dt>Cuota inicial</dt>
+                <dt>Cuota inicial (después de aprobar)</dt>
                 <dd className="font-semibold">{formatCOP(cuota)}</dd>
               </div>
               <div className="flex justify-between text-slate-600 dark:text-slate-300">
@@ -191,7 +168,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
         </dl>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           {esCredito
-            ? 'Un asesor revisa la cuota inicial y aprueba el crédito; luego sigue el pedido.'
+            ? 'Un asesor revisa y aprueba el crédito; luego pagas la cuota inicial y sigue el pedido.'
             : 'Tu pedido sigue su proceso cuando un asesor confirme el pago.'}
         </p>
       </div>

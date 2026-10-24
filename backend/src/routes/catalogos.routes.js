@@ -4,7 +4,7 @@ import { autenticar, requierePermiso } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
 import * as modelos from '../models/catalogos.model.js';
 import * as esquemas from '../validators/catalogos.validator.js';
-import { esquemaId, esquemaListado } from '../validators/comunes.validator.js';
+import { documentoSegunTipo, esquemaId, esquemaListado } from '../validators/comunes.validator.js';
 
 /**
  * Rutas de los catálogos simples. Todos tienen las mismas rutas:
@@ -34,8 +34,9 @@ function rutasCatalogo({ modelo, que, permiso, lecturaLibre = false, esquema }) 
   rutas.use(autenticar);
   rutas.get('/', ...lectura, validar(esquemaListado, 'query'), controlador.listar);
   rutas.get('/:id', ...lectura, conId, controlador.obtener);
-  rutas.post('/', escritura, validar(esquema), controlador.crear);
-  rutas.put('/:id', escritura, conId, validar(esquema.partial()), controlador.actualizar);
+  // El número de documento se revisa según su tipo (clientes, proveedores, terceros)
+  rutas.post('/', escritura, validar(esquema.superRefine(documentoSegunTipo)), controlador.crear);
+  rutas.put('/:id', escritura, conId, validar(esquema.partial().superRefine(documentoSegunTipo)), controlador.actualizar);
   if (modelo.conActivo) {
     rutas.patch('/:id/estado', escritura, conId, validar(esquemas.esquemaEstado), controlador.cambiarEstado);
   }

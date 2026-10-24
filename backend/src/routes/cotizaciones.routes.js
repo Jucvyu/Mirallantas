@@ -8,6 +8,7 @@ import {
   esquemaEmision,
   esquemaListado,
   esquemaNueva,
+  esquemaPagoCliente,
   esquemaRevisionPago,
 } from '../validators/cotizaciones.validator.js';
 
@@ -35,4 +36,6 @@ rutasCotizaciones.post('/:numero/aceptar', soloPersonal, validar(esquemaAceptaci
 rutasCotizaciones.patch('/:numero', soloPersonal, validar(esquemaCambio), controlador.actualizar);
 // Aprobar o rechazar la consignación del pago de contado
 rutasCotizaciones.post('/:numero/pago', soloPersonal, validar(esquemaRevisionPago), controlador.revisarPago);
+// La cuota inicial del crédito aprobado, cuando el cliente la paga en el local
+rutasCotizaciones.post('/:numero/cuota', soloPersonal, validar(esquemaPagoCliente), controlador.pagarCuota);
 rutasCotizaciones.delete('/:numero', soloPersonal, controlador.eliminar);

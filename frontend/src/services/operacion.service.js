@@ -45,6 +45,8 @@ const lineaServicio = (l) => ({
   medidas: l.medidas || null,
   descripcion: l.descripcion,
   foto: l.foto,
+  // Hasta 3 fotos de la llanta
+  fotos: l.fotos?.length ? l.fotos : undefined,
   estadoEvidencia: l.estadoEvidencia,
 });
 
@@ -95,7 +97,8 @@ export const cotizacionesService = {
    * Acepta la cotización formal: contado (con su pago) o crédito (plazo y
    * cuota inicial). El cliente lo hace desde el portal; el asesor, por él en
    * el local.
-   *   datos: { metodoPago, plazoDias, pago: { medioPago, comprobante }, cuotaInicial: { monto, medioPago, comprobante } }
+   *   datos: { metodoPago, plazoDias, pago: { medioPago, comprobante } }
+   *   (a crédito no se paga nada al aceptar: la cuota se paga ya aprobado el crédito)
    */
   aceptar(numero, datos, { desdePortal = false } = {}) {
     const esCredito = datos.metodoPago === 'Crédito';
@@ -104,9 +107,7 @@ export const cotizacionesService = {
       metodo: 'POST',
       cuerpo: {
         metodoPago: datos.metodoPago,
-        ...(esCredito
-          ? { plazoDias: datos.plazoDias, cuotaInicial: { ...conComprobante(datos.cuotaInicial), monto: datos.cuotaInicial.monto } }
-          : { pago: conComprobante(datos.pago) }),
+        ...(esCredito ? { plazoDias: datos.plazoDias } : { pago: conComprobante(datos.pago) }),
       },
     });
   },
@@ -121,6 +122,13 @@ export const cotizacionesService = {
   /** El cliente vuelve a subir el pago de contado que fue rechazado. */
   volverAPagar: (numero, pago) =>
     api(`/portal/cotizaciones/${encodeURIComponent(numero)}/pago`, {
+      metodo: 'POST',
+      cuerpo: { medioPago: pago.medioPago, comprobante: pago.comprobante || undefined },
+    }),
+
+  /** Cuota inicial de un crédito ya aprobado (cliente desde el portal o asesor en el local). */
+  pagarCuota: (numero, pago, { desdePortal = true } = {}) =>
+    api(`${desdePortal ? '/portal' : ''}/cotizaciones/${encodeURIComponent(numero)}/cuota`, {
       metodo: 'POST',
       cuerpo: { medioPago: pago.medioPago, comprobante: pago.comprobante || undefined },
     }),
@@ -163,8 +171,6 @@ function ventaHaciaApi(v, fila, { proveedores = [], terceros = [] } = {}) {
     return {
       proveedorId,
       terceroId,
-      estado: v.estado,
-      estadoEntrega: v.estadoEntrega,
       comprobante: imagenCambiada(v.comprobantePago, fila.comprobantePago),
     };
   }

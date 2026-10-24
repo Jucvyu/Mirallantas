@@ -4,19 +4,11 @@ import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
-import {
-  CUOTA_INICIAL_PORCENTAJE,
-  cuotaMinimaDe,
-  estadosEntrega,
-  estadosVenta,
-  FLUJO_ESTADOS_VENTA,
-  metodosPago,
-} from '../../../constantes';
+import { CUOTA_INICIAL_PORCENTAJE, cuotaMinimaDe, metodosPago } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { clientesService, proveedoresService, tercerosService, ventasService } from '../../../services';
 import { parseCOP } from '../../../utils/formato';
 import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
-import EstadoEntrega from '../shared/EstadoEntrega';
 import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 
@@ -53,7 +45,8 @@ function soloAlCrear(campo) {
 
 // Tabla `venta`. La venta nace sola cuando la cotización llega a
 // "Completada" (con todas sus líneas), y también puede registrarse una
-// venta directa con su valor total.
+// venta directa con su valor total. El estado y la entrega son del
+// pedido-cotización: aquí no se muestran (solo se marca la venta anulada).
 const columns = [
   // La fecha va debajo del número: así la tabla cabe sin desplazarse de lado
   {
@@ -63,6 +56,7 @@ const columns = [
       <span className="flex flex-col">
         <span className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">{row.id}</span>
         <span className="whitespace-nowrap text-[11px] text-slate-400">{row.fecha}</span>
+        {row.estado === 'Anulada' && <span className="text-[11px] font-semibold text-red-500">Anulada</span>}
       </span>
     ),
   },
@@ -71,13 +65,6 @@ const columns = [
   { key: 'metodoPago', label: 'Método de pago' },
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Venta directa' },
   { key: 'total', label: 'Total' },
-  { key: 'estado', label: 'Estado' },
-  {
-    key: 'estadoEntrega',
-    label: 'Entrega',
-    // La de una cotización sigue sola a su cotización: aquí solo se ve
-    render: (row, { update }) => <EstadoEntrega row={row} update={row.cotizacion ? undefined : update} />,
-  },
 ];
 
 function seccionesFormulario({ clientes, proveedores, terceros }) {
@@ -117,8 +104,6 @@ function seccionesFormulario({ clientes, proveedores, terceros }) {
           emptyLabel: 'tercero',
           hint: 'Solo si la venta incluye un servicio de reencauche.',
         },
-        { key: 'estado', label: 'Estado', type: 'select', options: estadosVenta, only: ['edit', 'view'] },
-        { key: 'estadoEntrega', label: 'Estado de la entrega', type: 'select', options: estadosEntrega, only: ['edit', 'view'] },
       ],
     },
     {
@@ -177,11 +162,8 @@ export default function VentasPage() {
         onRecargar={ventas.recargar}
         onCreate={(valores) => ventas.crear(valores, contexto)}
         onEdit={(fila, valores) => ventas.editar(fila, valores, contexto)}
-        onStatusChange={(fila, estado) => ventas.ejecutar(() => ventasService.cambiarEstado(fila, estado))}
-        // El estado de una venta que viene de una cotización lo pone la cotización
-        canChangeStatus={(row) => !row.cotizacion}
+        // Solo para anular la venta (botón de la fila)
         onRowUpdate={(fila, cambios) => ventas.ejecutar(() => ventasService.actualizar(fila, cambios))}
-        statusKey="estado"
         newLabel="Nueva venta"
         formSections={seccionesFormulario({
           clientes: clientes.filas,
@@ -192,12 +174,8 @@ export default function VentasPage() {
         titleKey="cliente"
         // Una venta no se borra: se anula, y queda en el historial
         canDelete={false}
-        statusOptions={estadosVenta}
-        statusFlow={FLUJO_ESTADOS_VENTA}
         formValidate={validarCuotaInicial}
         filters={[
-          { key: 'estado', label: 'Estado', options: estadosVenta },
-          { key: 'estadoEntrega', label: 'Entrega', options: estadosEntrega },
           { key: 'metodoPago', label: 'Pago', options: metodosPago },
           { key: 'cliente', label: 'Cliente' },
         ]}
