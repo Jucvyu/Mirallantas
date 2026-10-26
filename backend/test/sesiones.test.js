@@ -54,6 +54,7 @@ describe('Cancelar una cotización', () => {
     const despues = await e.api(`/cotizaciones/${numero}`, { token: admin });
     assert.equal(despues.estado, 200, 'sigue existiendo');
     assert.equal(despues.cuerpo.datos.estado, 'Rechazada');
+    assert.equal(despues.cuerpo.datos.estadoEntrega, 'Cancelado', 'la entrega se cancela sola');
   });
 });
 
@@ -75,6 +76,7 @@ describe('El cliente cancela su cotización', () => {
     const ok = await cancelar(luis, { motivo: 'Ya conseguí las llantas' });
     assert.equal(ok.estado, 200, JSON.stringify(ok.cuerpo));
     assert.equal(ok.cuerpo.datos.estado, 'Rechazada');
+    assert.equal(ok.cuerpo.datos.estadoEntrega, 'Cancelado', 'la entrega se cancela sola');
     assert.equal((await cancelar(luis, { motivo: 'Otra vez' })).estado, 422, 'ya no está pendiente');
   });
 });

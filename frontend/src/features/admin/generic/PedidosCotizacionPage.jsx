@@ -99,10 +99,9 @@ const columns = [
   {
     key: 'estadoEntrega',
     label: 'Entrega',
-    // Con el pago sin aprobar, la entrega tampoco se mueve
-    render: (row, { update }) => (
-      <EstadoEntrega row={row} update={bloqueada(row) || row.etapa !== 'Aceptada' ? undefined : update} />
-    ),
+    // La entrega se mueve con la cotización "Completada" (compra recibida y
+    // reencauches terminados); antes solo se ve
+    render: (row, { update }) => <EstadoEntrega row={row} update={row.estado === 'Completada' ? update : undefined} />,
   },
 ];
 

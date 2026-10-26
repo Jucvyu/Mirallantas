@@ -441,6 +441,20 @@ export async function actualizar(req, res) {
     }
     const cambiaEstado = cambios.estado && cambios.estado !== actual.estado;
     if (cambiaEstado) validarTransicion('cotizacion', actual.estado, cambios.estado);
+
+    // ---- La entrega se mueve cuando la cotización está "Completada" (para
+    // eso ya se exige la compra recibida y los reencauches terminados). La
+    // única excepción: cancelar la entrega de una cotización que se cancela.
+    if (cambios.estadoEntrega && cambios.estadoEntrega !== actual.estadoEntrega) {
+      const estadoFinal = cambios.estado ?? actual.estado;
+      const cancelaConLaCotizacion = cambios.estadoEntrega === 'Cancelado' && estadoFinal === 'Rechazada';
+      if (estadoFinal !== 'Completada' && !cancelaConLaCotizacion) {
+        throw new HttpError(
+          422,
+          'La entrega cambia cuando la cotización esté "Completada": primero recibe la compra y termina los reencauches.',
+        );
+      }
+    }
     // Cancelar una cotización (sin borrarla) exige decir por qué
     if (cambiaEstado && cambios.estado === 'Rechazada' && !cambios.motivoCancelacion?.trim()) {
       throw new HttpError(422, 'Indica el motivo de la cancelación.');

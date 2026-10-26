@@ -126,11 +126,10 @@ describe('Pago de contado de una cotización', () => {
     assert.equal(deLaCotizacion.length, 1, 'sale una sola compra con todas sus llantas');
     assert.ok(deLaCotizacion.every((c) => c.estado === 'Pendiente'));
 
-    // La venta sigue sola a la cotización: la entrega en camino se ve en ventas
-    const enCamino = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega: 'En camino' } });
-    assert.equal(enCamino.estado, 200, JSON.stringify(enCamino.cuerpo));
-    const ventaEnCamino = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
-    assert.equal(ventaEnCamino.cuerpo.datos.estadoEntrega, 'En camino');
+    // La entrega no se mueve hasta que la cotización esté completada
+    const temprano = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega: 'En camino' } });
+    assert.equal(temprano.estado, 422);
+    assert.match(temprano.cuerpo.error, /Completada/);
     const aMano = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Anulada' } });
     assert.equal(aMano.estado, 422, 'su estado no se cambia desde ventas');
 
@@ -150,6 +149,12 @@ describe('Pago de contado de una cotización', () => {
     }
     const completada = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
     assert.equal(completada.cuerpo.datos.estado, 'Completada');
+
+    // Completada, la entrega ya avanza y la venta la sigue sola
+    const enCamino = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega: 'En camino' } });
+    assert.equal(enCamino.estado, 200, JSON.stringify(enCamino.cuerpo));
+    const ventaEnCamino = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
+    assert.equal(ventaEnCamino.cuerpo.datos.estadoEntrega, 'En camino');
     const otra = await e.api('/compras?porPagina=100', { token: t.admin });
     assert.equal(otra.cuerpo.datos.filter((c) => c.cotizacion === t.numero).length, deLaCotizacion.length);
   });
