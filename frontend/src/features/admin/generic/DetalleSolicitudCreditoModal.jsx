@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Check, HandCoins, Package, ReceiptText, Wrench, X } from 'lucide-react';
+import { Check, Eye, HandCoins, Package, ReceiptText, Wrench, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
-import { solicitudesCreditoService } from '../../../services';
+import { cotizacionesService, solicitudesCreditoService } from '../../../services';
+import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
 
 /**
@@ -14,7 +15,8 @@ import { SkeletonLineas } from '../../../components/base/Skeleton';
  *
  * Muestra lo que el asesor necesita para decidir: el detalle de la
  * cotización-pedido (productos y servicios), cuánto se financia y la
- * consignación de la cuota inicial. Si sigue pendiente, desde aquí mismo
+ * consignación de la cuota inicial. "Ver cotización" abre el detalle completo
+ * de la cotización sin salir de aquí. Si sigue pendiente, desde aquí mismo
  * se aprueba o no (no aprobarla pide el motivo).
  *
  *   Aprobar     → se abre el crédito en la cartera del cliente.
@@ -24,6 +26,8 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
   const { documento: solicitud, cargando, error } = useDetalle(inicial, solicitudesCreditoService);
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
+  // Detalle completo de la cotización, abierto encima de este modal
+  const [viendoCotizacion, setViendoCotizacion] = useState(false);
   const { enviando, errorEnvio, enviar } = useEnvio();
   const lineas = solicitud.detalle ?? [];
   const pendiente = solicitud.estado === 'Pendiente';
@@ -126,9 +130,18 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
         {/* ---- Detalle de la cotización ---- */}
         {solicitud.cotizacion && (
           <section>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-              Detalle del pedido
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                Detalle del pedido
+              </p>
+              <button
+                type="button"
+                onClick={() => setViendoCotizacion(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 px-2.5 py-1.5 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-400/10 dark:text-amber-400"
+              >
+                <Eye size={13} /> Ver cotización {solicitud.cotizacion}
+              </button>
+            </div>
             <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 dark:bg-brand-navy-900">
@@ -220,6 +233,14 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
           </label>
         )}
       </div>
+      {viendoCotizacion && (
+        <DetalleCotizacionModal
+          cotizacion={{ id: solicitud.cotizacion }}
+          servicio={cotizacionesService}
+          onDescargarPdf={(c) => cotizacionesService.descargarPdf(c.id)}
+          onClose={() => setViendoCotizacion(false)}
+        />
+      )}
     </Modal>
   );
 }

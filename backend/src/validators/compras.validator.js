@@ -11,12 +11,23 @@ export const esquemaNueva = z.object({
   cotizacion: z.string().trim().min(1).max(30).nullable().optional(),
   lineas: z
     .array(
-      z.object({
-        productoId: idRelacion,
-        cantidad: cantidad(9999),
-        precioUnitario: pesos,
-        origen: z.enum(['Cotización', 'Adicional']).default('Adicional'),
-      }),
+      z
+        .object({
+          productoId: idRelacion,
+          cantidad: cantidad(9999),
+          precioUnitario: pesos,
+          origen: z.enum(['Cotización', 'Adicional']).default('Adicional'),
+          // Proveedor de un producto adicional (las de la cotización ya lo traen)
+          proveedorId: idRelacion.nullable().optional(),
+        })
+        // Un producto que no estaba en la cotización exige su proveedor y su precio
+        .superRefine((l, ctx) => {
+          if (l.origen !== 'Adicional') return;
+          if (!l.proveedorId) ctx.addIssue({ code: 'custom', path: ['proveedorId'], message: 'Elige el proveedor del producto adicional.' });
+          if (!(l.precioUnitario > 0)) {
+            ctx.addIssue({ code: 'custom', path: ['precioUnitario'], message: 'Indica el precio de compra del producto adicional.' });
+          }
+        }),
     )
     .min(1, 'Agrega al menos un producto a la compra.'),
 });

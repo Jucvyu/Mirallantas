@@ -20,6 +20,7 @@
     "migrate:status": "npm run migrate:status --prefix database",
     "admin:crear": "npm run admin:crear --prefix database --",
     "db:limpiar": "npm run db:limpiar --prefix database --",
+    "db:eliminargestion": "npm run db:eliminargestion --prefix database --",
     "db:respaldo": "npm run db:respaldo --prefix database",
     "db:restaurar": "npm run db:restaurar --prefix database --"
   }

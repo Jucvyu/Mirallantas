@@ -16,6 +16,7 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { comprasService, productosService } from '../../../services';
 import { formatCOP as pesos, parseCOP, fechaISO } from '../../../utils/formato';
 import SelectorCotizaciones from '../shared/SelectorCotizaciones';
+import ProductoAdicionalModal from './ProductoAdicionalModal';
 
 /**
  * Cotizaciones que se pueden abastecer: aprobadas o en proceso y con alguna
@@ -33,8 +34,9 @@ const totalDeProductos = (c) => c.totalSoloProductos;
  * La cotización de origen se elige de un listado con buscador y filtros.
  * Al elegirla, sus líneas de producto pasan directamente al detalle de la
  * compra —que es lo que hay que abastecer— y el asesor puede sumar
- * productos extra. No se elige proveedor: cada llanta ya trae el proveedor
- * con el que se verificó en la cotización. Cada línea guarda
+ * productos extra. Las llantas de la cotización ya traen el proveedor con
+ * el que se verificaron; un producto que no estaba en ella pide su
+ * proveedor y su precio de compra al agregarlo. Cada línea guarda
  * cantidad y precio de compra, igual que `detalle_compra`: el precio se
  * propone con el último conocido del producto y el asesor lo ajusta al que
  * acordó con el proveedor. La fecha es la de hoy y la compra nace
@@ -47,6 +49,8 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
   const [cotizacion, setCotizacion] = useState('');
   const [lineas, setLineas] = useState([]);
   const [query, setQuery] = useState('');
+  // Producto que no estaba en la cotización: se le pide proveedor y precio
+  const [adicionalDe, setAdicionalDe] = useState(null);
 
   const catalogo = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,16 +78,19 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     }
   };
 
+  /** Si el producto ya está en la compra, suma uno; si es nuevo, pide su proveedor y su precio. */
   const agregar = (p) => {
     tocar('lineas');
-    setLineas((prev) => {
-      const existente = prev.find((l) => l.id === p.id);
-      if (existente) {
-        return prev.map((l) => (l.id === p.id ? { ...l, cantidad: l.cantidad + 1 } : l));
-      }
-      // El precio de compra lo escribe el asesor: el catálogo no maneja precios
-      return [...prev, { id: p.id, nombre: p.nombre, medidas: p.medidas, precioCompra: 0, cantidad: 1 }];
-    });
+    if (lineas.some((l) => l.id === p.id)) {
+      setLineas((prev) => prev.map((l) => (l.id === p.id ? { ...l, cantidad: l.cantidad + 1 } : l)));
+      return;
+    }
+    setAdicionalDe(p);
+  };
+
+  const agregarAdicional = ({ proveedorId, proveedor, precioCompra, cantidad }) => {
+    const p = adicionalDe;
+    setLineas((prev) => [...prev, { id: p.id, nombre: p.nombre, medidas: p.medidas, precioCompra, cantidad, proveedorId, proveedor }]);
   };
 
   const setCantidad = (id, cantidad) =>
@@ -102,6 +109,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     const next = {};
     if (lineas.length === 0) next.lineas = 'Agrega al menos un producto a la compra';
     else if (lineas.some((l) => !l.precioCompra)) next.lineas = 'Indica el precio de compra de cada producto';
+    else if (lineas.some((l) => !l.deCotizacion && !l.proveedorId)) next.lineas = 'Cada producto adicional necesita su proveedor';
     return next;
   });
 
@@ -271,6 +279,9 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                           )}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-500">{l.medidas}</p>
+                        {!l.deCotizacion && l.proveedor && (
+                          <p className="mt-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400">Proveedor: {l.proveedor}</p>
+                        )}
                         {/* ¿El costo se confirmó con el proveedor al emitir la cotización? */}
                         {l.deCotizacion &&
                           (l.costoConfirmadoEn ? (
@@ -333,6 +344,10 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
           </div>
         </section>
       </div>
+
+      {adicionalDe && (
+        <ProductoAdicionalModal producto={adicionalDe} onConfirmar={agregarAdicional} onClose={() => setAdicionalDe(null)} />
+      )}
     </Modal>
   );
 }

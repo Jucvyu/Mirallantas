@@ -217,6 +217,8 @@ function compraHaciaApi(v, fila) {
       precioUnitario: l.precioCompra,
       // Distingue lo que pedía la cotización de lo que sumó el asesor
       origen: l.deCotizacion ? 'Cotización' : 'Adicional',
+      // Un adicional lleva el proveedor que se eligió al agregarlo
+      ...(l.deCotizacion ? {} : { proveedorId: l.proveedorId }),
     })),
   };
 }

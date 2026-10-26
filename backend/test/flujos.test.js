@@ -453,7 +453,6 @@ describe('Compras', () => {
       metodo: 'POST',
       token: t.admin,
       cuerpo: {
-        proveedorId: 1,
         cotizacion: 'PED-2024-005',
         lineas: [{ productoId: 5, cantidad: 4, precioUnitario: 468000, origen: 'Cotización' }],
       },
@@ -462,21 +461,32 @@ describe('Compras', () => {
   });
 
   test('registra la compra de una cotización en proceso con un producto adicional', async () => {
-    const r = await e.api('/compras', {
-      metodo: 'POST',
-      token: t.admin,
-      cuerpo: {
-        proveedorId: 1,
-        cotizacion: 'PED-2024-002',
-        lineas: [
-          { productoId: 1, cantidad: 2, precioUnitario: 218000, origen: 'Cotización' },
-          { productoId: 2, cantidad: 1, precioUnitario: 342000, origen: 'Adicional' },
-        ],
-      },
-    });
+    const comprar = (adicional) =>
+      e.api('/compras', {
+        metodo: 'POST',
+        token: t.admin,
+        cuerpo: {
+          cotizacion: 'PED-2024-002',
+          lineas: [
+            { productoId: 1, cantidad: 2, precioUnitario: 218000, origen: 'Cotización' },
+            { productoId: 2, cantidad: 1, origen: 'Adicional', ...adicional },
+          ],
+        },
+      });
+
+    // El producto adicional exige su proveedor y su precio de compra
+    const sinProveedor = await comprar({ precioUnitario: 342000 });
+    assert.equal(sinProveedor.estado, 422);
+    assert.ok(sinProveedor.cuerpo.detalles.some((d) => d.campo.endsWith('proveedorId')), JSON.stringify(sinProveedor.cuerpo));
+    const sinPrecio = await comprar({ proveedorId: 2, precioUnitario: 0 });
+    assert.equal(sinPrecio.estado, 422);
+
+    const r = await comprar({ proveedorId: 2, precioUnitario: 342000 });
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.total, 778000);
     assert.equal(r.cuerpo.datos.detalle.length, 2);
+    const adicional = r.cuerpo.datos.detalle.find((l) => l.origen === 'Adicional');
+    assert.equal(adicional.proveedorId, 2, 'guarda el proveedor del producto adicional');
 
     // Al anularla, la entrega se cancela
     const anulada = await e.api(`/compras/${r.cuerpo.datos.numero}`, {
@@ -491,7 +501,7 @@ describe('Compras', () => {
     const r = await e.api('/compras', {
       metodo: 'POST',
       token: t.admin,
-      cuerpo: { proveedorId: 1, lineas: [{ productoId: 3, cantidad: 5, precioUnitario: 200000, origen: 'Adicional' }] },
+      cuerpo: { lineas: [{ productoId: 3, cantidad: 5, precioUnitario: 200000, origen: 'Adicional', proveedorId: 1 }] },
     });
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
     assert.ok(!('stockAplicado' in r.cuerpo.datos));
@@ -501,8 +511,9 @@ describe('Compras', () => {
     assert.equal(temprano.estado, 422);
     assert.match(temprano.cuerpo.error, /Entregado/);
     await cambiar({ estadoEntrega: 'En camino' });
-    await cambiar({ estadoEntrega: 'Entregado' });
-    assert.equal((await cambiar({ estado: 'Recibida' })).estado, 200);
+    // Con la entrega completada pasa sola a "Recibida"
+    const entregada = await cambiar({ estadoEntrega: 'Entregado' });
+    assert.equal(entregada.cuerpo.datos.estado, 'Recibida');
     const { rows } = await e.db.query('SELECT precio_compra FROM producto WHERE id = 3');
     assert.equal(Number(rows[0].precio_compra), 200000, 'guarda el último precio de compra');
   });
@@ -524,11 +535,10 @@ describe('Compras', () => {
       metodo: 'POST',
       token: t.admin,
       cuerpo: {
-        proveedorId: 1,
         cotizacion: numero,
         lineas: [
           { productoId: 1, cantidad: 2, precioUnitario: 210000, origen: 'Cotización' },
-          { productoId: 2, cantidad: 1, precioUnitario: 342000, origen: 'Adicional' },
+          { productoId: 2, cantidad: 1, precioUnitario: 342000, origen: 'Adicional', proveedorId: 1 },
         ],
       },
     });

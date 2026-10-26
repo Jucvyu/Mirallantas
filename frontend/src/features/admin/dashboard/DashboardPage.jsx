@@ -6,7 +6,6 @@ import StatCard from '../../../components/base/StatCard';
 import Badge from '../../../components/base/Badge';
 import LiquidGlass from '../../../components/base/LiquidGlass';
 import RejillaOrdenable from '../../../components/base/RejillaOrdenable';
-import SobreProyecto from '../../../components/base/SobreProyecto';
 import Skeleton, { SkeletonLineas } from '../../../components/base/Skeleton';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -246,7 +245,6 @@ export default function DashboardPage() {
     { id: 'reencauches', etiqueta: 'Reencauches por mes', contenido: tarjetaReencauches },
     { id: 'marcas', etiqueta: 'Ventas por marca', contenido: tarjetaMarcas },
     { id: 'ultimos', etiqueta: 'Últimos pedidos', clase: 'sm:col-span-2', contenido: tarjetaUltimos },
-    { id: 'sobre', etiqueta: 'Sobre Mirallantas', clase: 'sm:col-span-2', contenido: <SobreProyecto compacto /> },
   ].filter((b) => b.contenido);
 
   return (

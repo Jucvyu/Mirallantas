@@ -124,6 +124,17 @@ describe('Estado Inactivo', () => {
     assert.match(r.cuerpo.error, /categoría está inactiva/);
   });
 
+  test('al desactivar una categoría se desactivan sus productos', async () => {
+    const { id } = (await e.db.query('SELECT c.id FROM categoria c WHERE c.activo AND EXISTS (SELECT 1 FROM producto p WHERE p.categoria_id = c.id AND p.activo) LIMIT 1')).rows[0];
+    const r = await e.api(`/categorias/${id}/estado`, { metodo: 'PATCH', token: t.admin, cuerpo: { activo: false } });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    const { rows } = await e.db.query('SELECT count(*)::int AS activos FROM producto WHERE categoria_id = $1 AND activo', [id]);
+    assert.equal(rows[0].activos, 0, 'no queda ningún producto activo en la categoría');
+    // Se deja como estaba para las demás pruebas
+    await e.api(`/categorias/${id}/estado`, { metodo: 'PATCH', token: t.admin, cuerpo: { activo: true } });
+    await e.db.query('UPDATE producto SET activo = TRUE WHERE categoria_id = $1', [id]);
+  });
+
   test('un crédito inactivo no recibe abonos', async () => {
     const maria = await e.iniciarSesion('maria@gmail.com');
     const credito = (await e.api('/creditos', { token: maria })).cuerpo.datos.find((c) => c.saldoPendiente > 0);

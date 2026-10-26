@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
@@ -5,7 +7,8 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { categoriasService, productosService } from '../../../services';
 
 // Tabla `categoria`: nombre, descripcion, color, estado. El color se usa
-// para marcar la categoría en el catálogo del cliente.
+// para marcar la categoría en el catálogo del cliente. Al desactivarla, la
+// base desactiva también sus productos (migración 0019).
 const formSections = [
   {
     title: 'Datos de la categoría',
@@ -33,6 +36,18 @@ export default function CategoriasPage() {
   const categorias = useRecurso(categoriasService);
   // Los productos se piden solo para contar cuántos hay en cada categoría
   const productos = useRecurso(productosService);
+  // Categoría con productos activos que se va a desactivar (se confirma antes)
+  const [desactivando, setDesactivando] = useState(null);
+
+  const productosActivosDe = (categoria) => productos.filas.filter((p) => p.categoriaId === categoria.id && p.activo).length;
+
+  const cambiarEstado = (fila, estado) => {
+    if (estado === 'Inactivo' && productosActivosDe(fila) > 0) {
+      setDesactivando(fila);
+      return Promise.resolve();
+    }
+    return categorias.ejecutar(() => categoriasService.cambiarEstado(fila, estado)).then(productos.recargar);
+  };
 
   const columns = [
     {
@@ -54,6 +69,7 @@ export default function CategoriasPage() {
       label: 'Productos',
       render: (row) => productos.filas.filter((p) => p.categoriaId === row.id).length,
     },
+    { key: 'estado', label: 'Estado' },
   ];
 
   return (
@@ -68,6 +84,10 @@ export default function CategoriasPage() {
         onRecargar={categorias.recargar}
         onCreate={categorias.crear}
         onEdit={categorias.editar}
+        onStatusChange={cambiarEstado}
+        statusKey="estado"
+        statusOptions={estadosActivo}
+        statusVariant="switch"
         newLabel="Nueva categoría"
         formSections={formSections}
         entityName="categoría"
@@ -76,6 +96,19 @@ export default function CategoriasPage() {
         canDelete={false}
         filters={[{ key: 'estado', label: 'Estado', options: estadosActivo }]}
       />
+
+      {desactivando && (
+        <ConfirmDialog
+          title="¿Desactivar la categoría?"
+          message={`También se desactivarán sus ${productosActivosDe(desactivando)} productos activos: dejarán de verse en el catálogo. Si luego reactivas la categoría, los productos se activan uno por uno.`}
+          confirmLabel="Desactivar"
+          record={{ title: desactivando.nombre, subtitle: desactivando.descripcion }}
+          onConfirm={() =>
+            categorias.ejecutar(() => categoriasService.cambiarEstado(desactivando, 'Inactivo')).then(productos.recargar)
+          }
+          onClose={() => setDesactivando(null)}
+        />
+      )}
     </div>
   );
 }

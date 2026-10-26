@@ -45,10 +45,12 @@ export async function lineas(compraId, db = POOL) {
     `SELECT d.id, d.producto_id AS "productoId", p.codigo AS "codigoProducto", p.nombre AS producto,
             p.medidas AS medida, d.cantidad, d.precio_unitario AS "precioUnitario", d.subtotal, d.origen,
             conf.costo_proveedor AS "costoConfirmado", conf.costo_confirmado_en AS "costoConfirmadoEn",
-            conf.proveedor AS "proveedorConfirmado"
+            conf.proveedor AS "proveedorConfirmado",
+            d.proveedor_id AS "proveedorId", prl.nombre_razon_social AS proveedor
        FROM compra_detalle d
        JOIN compra c ON c.id = d.compra_id
        JOIN producto p ON p.id = d.producto_id
+       LEFT JOIN proveedor prl ON prl.id = d.proveedor_id
        LEFT JOIN LATERAL (
          SELECT cd.costo_proveedor, cd.costo_confirmado_en, pr.nombre_razon_social AS proveedor
            FROM cotizacion_detalle cd LEFT JOIN proveedor pr ON pr.id = cd.proveedor_id
@@ -123,13 +125,19 @@ export async function lineasParaComprar(db, cotizacionId) {
   return rows;
 }
 
-/** Agrega una línea con su precio acordado (queda fijo para esta compra). */
+/** Agrega una línea con su precio acordado (queda fijo para esta compra) y su proveedor. */
 export async function crearLinea(db, compraId, l) {
   await db.query(
-    `INSERT INTO compra_detalle (compra_id, producto_id, cantidad, precio_unitario, subtotal, origen)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [compraId, l.productoId, l.cantidad, l.precioUnitario, l.cantidad * l.precioUnitario, l.origen],
+    `INSERT INTO compra_detalle (compra_id, producto_id, cantidad, precio_unitario, subtotal, origen, proveedor_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [compraId, l.productoId, l.cantidad, l.precioUnitario, l.cantidad * l.precioUnitario, l.origen, l.proveedorId ?? null],
   );
+}
+
+/** ¿El proveedor existe y está activo? */
+export async function proveedorActivo(db, proveedorId) {
+  const { rows } = await db.query('SELECT activo FROM proveedor WHERE id = $1', [proveedorId]);
+  return Boolean(rows[0]?.activo);
 }
 
 /** Actualiza las columnas indicadas: pares [['columna', valor], …]. */

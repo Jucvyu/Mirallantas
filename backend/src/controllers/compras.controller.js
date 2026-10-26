@@ -10,7 +10,8 @@ import { exigirActivo } from './estados.js';
  * Controlador de compras al proveedor (solo personal interno).
  *
  * La compra parte de una cotización de origen: trae sus productos y el
- * asesor puede sumar productos adicionales. El precio de cada línea es el
+ * asesor puede sumar productos adicionales, con su proveedor y su precio de
+ * compra (obligatorios). El precio de cada línea es el
  * acordado en esta compra y queda guardado aunque el producto cambie. Cada
  * línea muestra si su costo se confirmó con el proveedor en la cotización.
  *
@@ -60,16 +61,27 @@ export async function crear(req, res) {
       cotizacionId = cotizacion.id;
     }
 
-    // No se compran productos que ya no se comercializan
-    for (const linea of datos.lineas) await exigirActivo('producto', linea.productoId, db);
+    // No se compran productos que ya no se comercializan, ni a un proveedor inactivo
+    for (const linea of datos.lineas) {
+      await exigirActivo('producto', linea.productoId, db);
+      if (linea.proveedorId && !(await comprasModel.proveedorActivo(db, linea.proveedorId))) {
+        throw new HttpError(422, 'El proveedor elegido no existe o está inactivo.');
+      }
+    }
 
-    // El total lo calcula el servidor con los precios de cada línea. Sin
-    // campo de proveedor: se toma el de las llantas de la cotización si
-    // todas son del mismo
-    const total = datos.lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
-    const proveedorId = cotizacionId ? comprasModel.proveedorComun(await comprasModel.lineasParaComprar(db, cotizacionId)) : null;
-    const compra = await comprasModel.crear(db, { proveedorId, cotizacionId, total });
-    for (const linea of datos.lineas) await comprasModel.crearLinea(db, compra.id, linea);
+    // Las llantas de la cotización llevan el proveedor con el que se verificaron
+    const deLaCotizacion = cotizacionId ? await comprasModel.lineasParaComprar(db, cotizacionId) : [];
+    const lineas = datos.lineas.map((l) =>
+      l.origen === 'Cotización'
+        ? { ...l, proveedorId: deLaCotizacion.find((c) => c.productoId === l.productoId)?.proveedorId ?? null }
+        : l,
+    );
+
+    // El total lo calcula el servidor con los precios de cada línea. La
+    // cabecera guarda el proveedor solo si todas las líneas son del mismo
+    const total = lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
+    const compra = await comprasModel.crear(db, { proveedorId: comprasModel.proveedorComun(lineas), cotizacionId, total });
+    for (const linea of lineas) await comprasModel.crearLinea(db, compra.id, linea);
     return compra.numero;
   });
 
@@ -97,13 +109,19 @@ export async function actualizar(req, res) {
       await comprasModel.actualizar(db, actual.id, [['estado_entrega', cambios.estadoEntrega]]);
     }
 
-    // Recibida y entregada: se guarda el último costo de compra de cada llanta
-    const estado = cambios.estado ?? actual.estado;
+    let estado = cambios.estado ?? actual.estado;
     const entrega = cambios.estadoEntrega ?? actual.estadoEntrega;
     // No se da por recibida mientras su entrega no esté completada
     if (estado === 'Recibida' && actual.estado !== 'Recibida' && entrega !== 'Entregado') {
       throw new HttpError(422, 'La compra se marca como "Recibida" cuando su entrega esté completada ("Entregado").');
     }
+    // Con la entrega completada, la compra pendiente pasa sola a "Recibida"
+    if (entrega === 'Entregado' && estado === 'Pendiente') {
+      await comprasModel.actualizar(db, actual.id, [['estado', 'Recibida']]);
+      estado = 'Recibida';
+    }
+
+    // Recibida y entregada: se guarda el último costo de compra de cada llanta
     if (estado === 'Recibida' && entrega === 'Entregado') {
       for (const linea of await comprasModel.lineas(actual.id, db)) {
         await productosModel.actualizarPrecioCompra(db, linea.productoId, linea.precioUnitario);

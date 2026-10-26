@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
 import { migrarArriba } from '../../database/migrate.js';
+import { eliminarGestion, esLocal } from '../../database/eliminarGestion.js';
 import { limpiar } from '../../database/limpiar.js';
 import { crearRespaldo, restaurarRespaldo } from '../../database/respaldo.js';
 import { codigoActual } from '../src/utils/totp.js';
@@ -360,5 +361,29 @@ describe('Copias de seguridad', () => {
     assert.equal(despues.tablas.cliente.length, 0);
     assert.equal(despues.tablas.producto.length, 0);
     assert.deepEqual(despues.tablas.rol.map((r) => r.nombre).sort(), ['Administrador', 'Cliente']);
+  });
+
+  test('db:eliminargestion borra la gestión comercial y conserva lo demás', async () => {
+    const respaldo = await crearRespaldo(e.databaseUrl);
+    const url = await baseNueva('sin_gestion');
+    await restaurarRespaldo(url, respaldo);
+    assert.ok(respaldo.tablas.cotizacion.length > 0, 'la base de prueba trae cotizaciones');
+
+    const resumen = Object.fromEntries(await eliminarGestion(url));
+    assert.equal(resumen['Pedidos-cotización'], respaldo.tablas.cotizacion.length);
+
+    const despues = await crearRespaldo(url);
+    for (const tabla of ['cotizacion', 'cotizacion_detalle', 'compra', 'compra_detalle', 'solicitud_servicio', 'credito', 'abono', 'solicitud_credito']) {
+      assert.equal(despues.tablas[tabla].length, 0, `${tabla} quedó vacía`);
+    }
+    // Las ventas directas quedan; las de cotizaciones, no
+    assert.ok(despues.tablas.venta.every((v) => v.cotizacion_id === null));
+    // Lo demás no se toca
+    for (const tabla of ['cliente', 'usuario', 'producto', 'proveedor', 'rol']) {
+      assert.equal(despues.tablas[tabla].length, respaldo.tablas[tabla].length, `${tabla} se conserva`);
+    }
+    // Solo se ejecuta sin el permiso extra en la base local
+    assert.equal(esLocal('postgres://u:c@localhost:5433/db'), true);
+    assert.equal(esLocal('postgres://u:c@db.abc.supabase.co:5432/postgres'), false);
   });
 });

@@ -16,7 +16,12 @@ function separarMedidas(texto = '') {
 }
 
 /** Rin: solo números y un punto decimal ("22.5"). */
-const soloRin = (texto) => texto.replace(',', '.').replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 4);
+const soloRin = (texto) =>
+  texto
+    .replace(',', '.')
+    .replace(/[^\d.]/g, '')
+    .replace(/(\..*)\./g, '$1')
+    .slice(0, 4);
 
 /** Consejos para tomar las fotos de la llanta (desplegable). */
 const CONSEJOS_FOTOS = [
@@ -104,135 +109,160 @@ export default function SolicitudReencaucheModal({ inicial, onGuardar, onClose }
       )}
     >
       <div className="space-y-5">
-        {/* ---- Cantidad ---- */}
-        <div className="max-w-[12rem]">
-          <label htmlFor="rq-cantidad" className={LABEL}>
-            Cantidad de llantas <span className="text-red-500">*</span>
-          </label>
-          <input
-            id="rq-cantidad"
-            inputMode="numeric"
-            value={cantidad}
-            onChange={(e) => setCantidad(soloDigitos(e.target.value).slice(0, 3))}
-            placeholder="4"
-            className={`${INPUT} ${borde('cantidad')}`}
-          />
-          {visibles.cantidad && <p className="mt-1 text-xs text-red-500">{visibles.cantidad}</p>}
-        </div>
-
-        {/* ---- Medidas en tres campos ---- */}
-        <div>
-          <span className={`${LABEL} flex items-center gap-1.5`}>
-            <Tooltip texto="Escribe el ancho, el perfil y el rin por separado">
-              <Ruler size={14} className="text-amber-500" aria-hidden="true" />
-            </Tooltip>
-            Medidas de la llanta <span className="text-red-500">*</span>
-            <Tooltip texto="Están escritas en el costado de la llanta, por ejemplo 275/80 R22.5">
-              <span tabIndex={0} className="cursor-help text-slate-400">
-                <Info size={13} aria-label="Dónde encontrar las medidas" />
-              </span>
-            </Tooltip>
-          </span>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <input
-                aria-label="Ancho de sección"
-                inputMode="numeric"
-                value={medidas.ancho}
-                onChange={(e) => setMedidas((m) => ({ ...m, ancho: soloDigitos(e.target.value).slice(0, 3) }))}
-                placeholder="275"
-                className={`${INPUT} ${borde('ancho')} text-center`}
-              />
-              <p className={`mt-1 text-center text-[11px] ${visibles.ancho ? 'text-red-500' : 'text-slate-400'}`}>
-                {visibles.ancho ?? 'Ancho de sección'}
-              </p>
-            </div>
-            <div>
-              <input
-                aria-label="Perfil o serie"
-                inputMode="numeric"
-                value={medidas.perfil}
-                onChange={(e) => setMedidas((m) => ({ ...m, perfil: soloDigitos(e.target.value).slice(0, 2) }))}
-                placeholder="80"
-                className={`${INPUT} ${borde('perfil')} text-center`}
-              />
-              <p className={`mt-1 text-center text-[11px] ${visibles.perfil ? 'text-red-500' : 'text-slate-400'}`}>
-                {visibles.perfil ?? 'Perfil o serie'}
-              </p>
-            </div>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-[11px] text-sm font-semibold text-slate-400">R</span>
-              <input
-                aria-label="Rin (con la letra R)"
-                inputMode="decimal"
-                value={medidas.rin}
-                onChange={(e) => setMedidas((m) => ({ ...m, rin: soloRin(e.target.value) }))}
-                placeholder="22.5"
-                className={`${INPUT} ${borde('rin')} pl-7 text-center`}
-              />
-              <p className={`mt-1 text-center text-[11px] ${visibles.rin ? 'text-red-500' : 'text-slate-400'}`}>
-                {visibles.rin ?? 'Rin (con la letra R)'}
-              </p>
-            </div>
+        {/* ---- Cantidad y medidas en una fila ---- */}
+        <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
+          <div>
+            <label htmlFor="rq-cantidad" className={LABEL}>
+              Cantidad de llantas <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="rq-cantidad"
+              inputMode="numeric"
+              value={cantidad}
+              onChange={(e) => setCantidad(soloDigitos(e.target.value).slice(0, 3))}
+              placeholder="4"
+              className={`${INPUT} ${borde('cantidad')}`}
+            />
+            {visibles.cantidad && <p className="mt-1 text-xs text-red-500">{visibles.cantidad}</p>}
           </div>
-          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-            {combinadas ? (
-              <>
-                Quedará así: <strong className="text-slate-700 dark:text-slate-200">{combinadas}</strong>
-              </>
-            ) : (
-              <>Ejemplo del formato combinado: 275 / 80 R22.5</>
-            )}
-          </p>
+
+          {/* ---- Medidas en tres campos ---- */}
+          <div>
+            <span className={`${LABEL} flex items-center gap-1.5`}>
+              <Tooltip texto="Escribe el ancho, el perfil y el rin por separado">
+                <Ruler size={14} className="text-amber-500" aria-hidden="true" />
+              </Tooltip>
+              Medidas de la llanta <span className="text-red-500">*</span>
+              <Tooltip texto="Están escritas en el costado de la llanta, por ejemplo 275/80 R22.5">
+                <span tabIndex={0} className="cursor-help text-slate-400">
+                  <Info size={13} aria-label="Dónde encontrar las medidas" />
+                </span>
+              </Tooltip>
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <input
+                  aria-label="Ancho de sección"
+                  inputMode="numeric"
+                  value={medidas.ancho}
+                  onChange={(e) => setMedidas((m) => ({ ...m, ancho: soloDigitos(e.target.value).slice(0, 3) }))}
+                  placeholder="275"
+                  className={`${INPUT} ${borde('ancho')} text-center`}
+                />
+                <p className={`mt-1 text-center text-[11px] ${visibles.ancho ? 'text-red-500' : 'text-slate-400'}`}>
+                  {visibles.ancho ?? 'Ancho de sección'}
+                </p>
+              </div>
+              <div>
+                <input
+                  aria-label="Perfil o serie"
+                  inputMode="numeric"
+                  value={medidas.perfil}
+                  onChange={(e) => setMedidas((m) => ({ ...m, perfil: soloDigitos(e.target.value).slice(0, 2) }))}
+                  placeholder="80"
+                  className={`${INPUT} ${borde('perfil')} text-center`}
+                />
+                <p className={`mt-1 text-center text-[11px] ${visibles.perfil ? 'text-red-500' : 'text-slate-400'}`}>
+                  {visibles.perfil ?? 'Perfil o serie'}
+                </p>
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-[11px] text-sm font-semibold text-slate-400">R</span>
+                <input
+                  aria-label="Rin (con la letra R)"
+                  inputMode="decimal"
+                  value={medidas.rin}
+                  onChange={(e) => setMedidas((m) => ({ ...m, rin: soloRin(e.target.value) }))}
+                  placeholder="22.5"
+                  className={`${INPUT} ${borde('rin')} pl-7 text-center`}
+                />
+                <p className={`mt-1 text-center text-[11px] ${visibles.rin ? 'text-red-500' : 'text-slate-400'}`}>
+                  {visibles.rin ?? 'Rin (con la letra R)'}
+                </p>
+              </div>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {combinadas ? (
+                <>
+                  Quedará así: <strong className="text-slate-700 dark:text-slate-200">{combinadas}</strong>
+                </>
+              ) : (
+                <>Ejemplo del formato combinado: 275 / 80 R22.5</>
+              )}
+            </p>
+          </div>
         </div>
 
-        {/* ---- Fotos (máximo 3) ---- */}
-        <div>
-          <span className={`${LABEL} flex items-center gap-1.5`}>
-            <Tooltip texto="Adjunta de 1 a 3 fotos de la llanta que quieres reencauchar">
-              <Camera size={14} className="text-amber-500" aria-hidden="true" />
-            </Tooltip>
-            Fotos de la llanta <span className="text-red-500">*</span>
-            <span className="font-normal text-slate-400">
-              ({fotos.length}/{MAXIMO_FOTOS})
+        {/* ---- Fotos y descripción lado a lado ---- */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* ---- Fotos (máximo 3) ---- */}
+          <div>
+            <span className={`${LABEL} flex items-center gap-1.5`}>
+              <Tooltip texto="Adjunta de 1 a 3 fotos de la llanta que quieres reencauchar">
+                <Camera size={14} className="text-amber-500" aria-hidden="true" />
+              </Tooltip>
+              Fotos de la llanta <span className="text-red-500">*</span>
+              <span className="font-normal text-slate-400">
+                ({fotos.length}/{MAXIMO_FOTOS})
+              </span>
             </span>
-          </span>
-          <div className="grid grid-cols-3 gap-2">
-            {fotos.map((foto, i) => (
-              <div key={i} className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
-                <img src={foto} alt={`Foto ${i + 1} de la llanta`} className="h-24 w-full object-cover" />
-                <Tooltip texto="Quitar esta foto" className="absolute right-1 top-1">
+            <div className="grid grid-cols-3 gap-2">
+              {fotos.map((foto, i) => (
+                <div key={i} className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
+                  <img src={foto} alt={`Foto ${i + 1} de la llanta`} className="h-24 w-full object-cover" />
+                  <Tooltip texto="Quitar esta foto" className="absolute right-1 top-1">
+                    <button
+                      type="button"
+                      onClick={() => setFotos((f) => f.filter((_, j) => j !== i))}
+                      aria-label={`Quitar la foto ${i + 1}`}
+                      className="rounded-md bg-white/90 p-1 text-red-500 shadow hover:bg-white dark:bg-brand-navy-900/90"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </Tooltip>
+                </div>
+              ))}
+              {fotos.length < MAXIMO_FOTOS && (
+                <Tooltip texto="Agregar una foto de la llanta (JPG, PNG o WEBP, máximo 3 MB)" className="block">
                   <button
                     type="button"
-                    onClick={() => setFotos((f) => f.filter((_, j) => j !== i))}
-                    aria-label={`Quitar la foto ${i + 1}`}
-                    className="rounded-md bg-white/90 p-1 text-red-500 shadow hover:bg-white dark:bg-brand-navy-900/90"
+                    onClick={() => archivo.current?.click()}
+                    className={`flex h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-xs font-semibold text-slate-500 hover:border-amber-400 hover:text-amber-600 dark:text-slate-400 ${
+                      visibles.fotos ? 'border-red-400' : 'border-slate-200 dark:border-white/10'
+                    }`}
                   >
-                    <Trash2 size={13} />
+                    <ImagePlus size={20} aria-hidden="true" />
+                    Agregar foto
                   </button>
                 </Tooltip>
-              </div>
-            ))}
-            {fotos.length < MAXIMO_FOTOS && (
-              <Tooltip texto="Agregar una foto de la llanta (JPG, PNG o WEBP, máximo 3 MB)" className="block">
-              <button
-                type="button"
-                onClick={() => archivo.current?.click()}
-                className={`flex h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-xs font-semibold text-slate-500 hover:border-amber-400 hover:text-amber-600 dark:text-slate-400 ${
-                  visibles.fotos ? 'border-red-400' : 'border-slate-200 dark:border-white/10'
-                }`}
-              >
-                <ImagePlus size={20} aria-hidden="true" />
-                Agregar foto
-              </button>
-              </Tooltip>
-            )}
+              )}
+            </div>
+            <input ref={archivo} type="file" accept={TIPOS_IMAGEN} onChange={agregarFoto} className="hidden" />
+            {(visibles.fotos || errorFoto) && <p className="mt-1 text-xs text-red-500">{errorFoto || visibles.fotos}</p>}
           </div>
-          <input ref={archivo} type="file" accept={TIPOS_IMAGEN} onChange={agregarFoto} className="hidden" />
-          {(visibles.fotos || errorFoto) && <p className="mt-1 text-xs text-red-500">{errorFoto || visibles.fotos}</p>}
 
+          {/* ---- Descripción ---- */}
+          <div>
+            <label htmlFor="rq-descripcion" className={LABEL}>
+              Descripción de la llanta <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="rq-descripcion"
+              rows={4}
+              maxLength={500}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Marca, kilometraje aproximado, estado del labrado..."
+              className={`${INPUT} ${borde('descripcion')} h-24 resize-none sm:h-[6.25rem]`}
+            />
+            {visibles.descripcion && <p className="mt-1 text-xs text-red-500">{visibles.descripcion}</p>}
+          </div>
+        </div>
+
+        {/* ---- Guía para tomar las fotos (a todo el ancho) ---- */}
+        <div>
           {/* Guía para tomar las fotos */}
-          <Tooltip texto={verGuia ? 'Ocultar la guía' : 'Ver cómo tomar las fotos de la llanta'} className="mt-2">
+          <Tooltip texto={verGuia ? 'Ocultar la guía' : 'Ver cómo tomar las fotos de la llanta'}>
             <button
               type="button"
               onClick={() => setVerGuia((v) => !v)}
@@ -262,23 +292,6 @@ export default function SolicitudReencaucheModal({ inicial, onGuardar, onClose }
               </p>
             </div>
           )}
-        </div>
-
-        {/* ---- Descripción ---- */}
-        <div>
-          <label htmlFor="rq-descripcion" className={LABEL}>
-            Descripción de la llanta <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="rq-descripcion"
-            rows={3}
-            maxLength={500}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Marca, kilometraje aproximado, estado del labrado..."
-            className={`${INPUT} ${borde('descripcion')} resize-none`}
-          />
-          {visibles.descripcion && <p className="mt-1 text-xs text-red-500">{visibles.descripcion}</p>}
         </div>
       </div>
     </Modal>
