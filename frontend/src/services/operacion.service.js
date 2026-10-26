@@ -204,12 +204,12 @@ export const ventasService = {
 
 /**
  * Al editar solo viajan el estado y la entrega. Al crear, el formulario
- * "Nueva compra" entrega { proveedor, cotizacion, lineas }.
+ * "Nueva compra" entrega { cotizacion, lineas }.
  */
-function compraHaciaApi(v, fila, contexto) {
+function compraHaciaApi(v, fila) {
   if (fila) return { estado: v.estado, estadoEntrega: v.estadoEntrega };
+  // Sin proveedor: la API lo toma de las llantas de la cotización
   return {
-    proveedorId: v.proveedorId || idPorNombre(contexto.proveedores ?? [], v.proveedor, 'nombreRazonSocial'),
     cotizacion: v.cotizacion || null,
     lineas: v.lineas.map((l) => ({
       productoId: l.id,

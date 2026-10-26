@@ -7,7 +7,6 @@ export const esquemaListado = listadoCon(['estado', 'estadoEntrega', 'proveedorI
 
 /** POST /compras */
 export const esquemaNueva = z.object({
-  proveedorId: idRelacion,
   // Número de la cotización de origen (PED-2024-002…)
   cotizacion: z.string().trim().min(1).max(30).nullable().optional(),
   lineas: z

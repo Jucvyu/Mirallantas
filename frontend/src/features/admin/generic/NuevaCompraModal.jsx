@@ -2,12 +2,10 @@ import { useMemo, useState } from 'react';
 import { BadgeCheck, Check, FileText, Plus, Search, ShoppingCart, Trash2, TriangleAlert } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
-import SearchSelect from '../../../components/base/SearchSelect';
 import {
   BORDER_ERR as BORDE_ERR,
   BORDER_OK as BORDE_OK,
   INPUT as CAMPO,
-  LABEL,
   SECTION,
   formatoMiles,
   soloDigitos,
@@ -15,24 +13,28 @@ import {
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { comprasService, productosService, proveedoresService } from '../../../services';
+import { comprasService, productosService } from '../../../services';
 import { formatCOP as pesos, parseCOP, fechaISO } from '../../../utils/formato';
-import { opcionesEmpresas } from '../../../utils/opciones';
 import SelectorCotizaciones from '../shared/SelectorCotizaciones';
 
 /**
- * Cotizaciones que se pueden abastecer. Es la regla que ya tenía el
- * sistema; la API la vuelve a comprobar al guardar.
+ * Cotizaciones que se pueden abastecer: aprobadas o en proceso y con alguna
+ * llanta (las que solo tienen reencauche no se le compran a nadie). La API
+ * vuelve a comprobar el estado al guardar.
  */
-const esAbastecible = (c) => c.estado === 'Aprobada' || c.estado === 'En proceso';
+const esAbastecible = (c) => (c.estado === 'Aprobada' || c.estado === 'En proceso') && c.lineasProducto > 0;
+
+/** En Compras solo cuenta lo de las llantas: el reencauche no se suma. */
+const totalDeProductos = (c) => c.totalSoloProductos;
 
 /**
  * "Nueva compra" (orden de compra al proveedor).
  *
  * La cotización de origen se elige de un listado con buscador y filtros.
  * Al elegirla, sus líneas de producto pasan directamente al detalle de la
- * compra —que es lo que hay que abastecer— y el asesor puede sumar los
- * productos extra que quiera pedirle al mismo proveedor. Cada línea guarda
+ * compra —que es lo que hay que abastecer— y el asesor puede sumar
+ * productos extra. No se elige proveedor: cada llanta ya trae el proveedor
+ * con el que se verificó en la cotización. Cada línea guarda
  * cantidad y precio de compra, igual que `detalle_compra`: el precio se
  * propone con el último conocido del producto y el asesor lo ajusta al que
  * acordó con el proveedor. La fecha es la de hoy y la compra nace
@@ -40,11 +42,8 @@ const esAbastecible = (c) => c.estado === 'Aprobada' || c.estado === 'En proceso
  */
 export default function NuevaCompraModal({ onSubmit, onClose }) {
   const productos = useRecurso(productosService);
-  const proveedores = useRecurso(proveedoresService);
   const { enviando, errorEnvio, setErrorEnvio, enviar } = useEnvio();
 
-  const [proveedorId, setProveedorId] = useState('');
-  const opcionesProveedor = useMemo(() => opcionesEmpresas(proveedores.filas), [proveedores.filas]);
   const [cotizacion, setCotizacion] = useState('');
   const [lineas, setLineas] = useState([]);
   const [query, setQuery] = useState('');
@@ -101,7 +100,6 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
   // Reglas del formulario: se revisan en vivo mientras el usuario escribe
   const { errores, tocar, validar } = useValidacion(() => {
     const next = {};
-    if (!proveedorId) next.proveedor = 'Busca y selecciona el proveedor';
     if (lineas.length === 0) next.lineas = 'Agrega al menos un producto a la compra';
     else if (lineas.some((l) => !l.precioCompra)) next.lineas = 'Indica el precio de compra de cada producto';
     return next;
@@ -111,13 +109,13 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     if (!validar()) return;
 
     // El servicio de compras arma lo que pide la API; el total lo calcula el servidor
-    enviar(() => onSubmit({ proveedorId, cotizacion, lineas }, { proveedores: proveedores.filas }), close);
+    enviar(() => onSubmit({ cotizacion, lineas }), close);
   };
 
   return (
     <Modal
       title="Nueva compra"
-      subtitle="Abastece una cotización aprobada con los productos de un proveedor."
+      subtitle="Abastece las llantas de una cotización aprobada."
       icon={<ShoppingCart size={17} />}
       size="xl"
       onClose={onClose}
@@ -153,38 +151,14 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
           <SelectorCotizaciones
             value={cotizacion}
             filtro={esAbastecible}
-            vacioLabel="No hay cotizaciones aprobadas por abastecer."
+            totalDe={totalDeProductos}
+            vacioLabel="No hay cotizaciones aprobadas con llantas por abastecer."
             onChange={elegirCotizacion}
           />
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            Al elegirla, sus productos pasan al detalle de la compra; las cantidades deben coincidir.
+            Al elegirla, sus productos pasan al detalle de la compra. El valor que se muestra es solo el de las llantas
+            (sin reencauches).
           </p>
-        </section>
-
-        {/* ---- Proveedor ---- */}
-        <section>
-          <div className="mb-3 flex items-center gap-3">
-            <span className={SECTION}>Proveedor</span>
-            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-          </div>
-          <div className="sm:w-1/2">
-            <label htmlFor="co-proveedor" className={LABEL}>
-              Proveedor <span className="text-red-500">*</span>
-            </label>
-            <SearchSelect
-              id="co-proveedor"
-              value={proveedorId}
-              options={opcionesProveedor}
-              onChange={(id) => {
-                setProveedorId(id);
-                tocar('proveedor');
-              }}
-              placeholder="Buscar proveedor…"
-              placeholderBusqueda="Razón social o NIT"
-              error={Boolean(errores.proveedor)}
-            />
-            {errores.proveedor && <p className="mt-1 text-xs font-medium text-red-500">{errores.proveedor}</p>}
-          </div>
         </section>
 
         {/* ---- Productos del catálogo ---- */}

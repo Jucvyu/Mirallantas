@@ -177,6 +177,9 @@ export const cotizacionDesdeApi = (f) => ({
   total: formatCOP(f.total + (f.totalServicios ?? 0)),
   totalProductos: formatCOP(f.total),
   totalServicios: formatCOP(f.totalServicios ?? 0),
+  // Solo las llantas (sin reencauches): lo que muestra el módulo de Compras
+  totalSoloProductos: formatCOP(f.totalSoloProductos ?? 0),
+  lineasProducto: f.lineasProducto ?? 0,
   conServicios: (f.totalServicios ?? 0) > 0,
   // Reencauches que todavía esperan su precio en "Solicitudes de servicio"
   serviciosSinPrecio: f.serviciosSinPrecio ?? 0,

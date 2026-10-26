@@ -20,8 +20,9 @@ const CAMPO = `${INPUT} ${BORDER_OK} py-2`;
  *
  * Las cotizaciones las entrega el servicio de cotizaciones. `onChange`
  * recibe la fila elegida, sin sus líneas: quien las necesite las pide.
+ * `totalDe(c)` cambia el valor que se muestra (por defecto, el total).
  */
-export default function SelectorCotizaciones({ value, onChange, error, filtro, vacioLabel }) {
+export default function SelectorCotizaciones({ value, onChange, error, filtro, vacioLabel, totalDe = (c) => c.total }) {
   const [query, setQuery] = useState('');
   const [fecha, setFecha] = useState('');
   const [cliente, setCliente] = useState([]);
@@ -41,12 +42,12 @@ export default function SelectorCotizaciones({ value, onChange, error, filtro, v
   const listado = useMemo(() => {
     const q = query.trim().toLowerCase();
     return disponibles.filter((c) => {
-      const coincideTexto = !q || `${c.id} ${c.cliente} ${c.total}`.toLowerCase().includes(q);
+      const coincideTexto = !q || `${c.id} ${c.cliente} ${totalDe(c)}`.toLowerCase().includes(q);
       const coincideFecha = !fecha || c.fecha === fecha;
       const coincideCliente = !cliente.length || cliente.includes(c.cliente);
       return coincideTexto && coincideFecha && coincideCliente;
     });
-  }, [disponibles, query, fecha, cliente]);
+  }, [disponibles, query, fecha, cliente, totalDe]);
 
   return (
     <div>
@@ -121,7 +122,7 @@ export default function SelectorCotizaciones({ value, onChange, error, filtro, v
                 </div>
 
                 <span className="shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {c.total}
+                  {totalDe(c)}
                 </span>
                 <Badge>{c.estado}</Badge>
               </button>

@@ -151,6 +151,9 @@ describe('Pago de un servicio de reencauche', () => {
     assert.ok(cotizacion.cuerpo.datos.totalServicios > 0);
     const avisos = await e.api('/notificaciones', { token: t.admin });
     assert.ok(avisos.cuerpo.datos.notificaciones.some((n) => n.titulo === 'Pago completo'));
+    // Solo tiene reencauche: no hay llantas que comprar
+    const compras = await e.api('/compras?porPagina=100', { token: t.admin });
+    assert.ok(!compras.cuerpo.datos.some((c) => c.cotizacion === cotizacion.cuerpo.datos.numero), 'sin compra');
 
     const avanzar = await e.api(`/solicitudes-servicio/${t.solicitud}`, {
       metodo: 'PATCH',

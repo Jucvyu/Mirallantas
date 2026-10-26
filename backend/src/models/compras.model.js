@@ -11,7 +11,7 @@ const COMPRA = {
     co.numero AS cotizacion`,
   desde: `
     FROM compra c
-    JOIN proveedor pr ON pr.id = c.proveedor_id
+    LEFT JOIN proveedor pr ON pr.id = c.proveedor_id
     LEFT JOIN cotizacion co ON co.id = c.cotizacion_id`,
   columnaCliente: null,
   columnaNumero: 'c.numero',
@@ -62,10 +62,13 @@ export async function lineas(compraId, db = POOL) {
   return rows;
 }
 
-/** ¿El proveedor existe y está activo? */
-export async function proveedorActivo(db, proveedorId) {
-  const { rows } = await db.query('SELECT activo FROM proveedor WHERE id = $1', [proveedorId]);
-  return Boolean(rows[0]?.activo);
+/**
+ * Proveedor de una compra: el de sus llantas si todas son del mismo
+ * proveedor; si son de varios (o de ninguno), null.
+ */
+export function proveedorComun(lineas) {
+  const proveedores = [...new Set(lineas.map((l) => l.proveedorId ?? null))];
+  return proveedores.length === 1 ? proveedores[0] : null;
 }
 
 /**
@@ -77,8 +80,11 @@ export async function cotizacionBloqueada(db, numero) {
   return rows[0] ?? null;
 }
 
-/** Crea la cabecera con su número consecutivo (COM-AAAA-NNN) → { id, numero }. */
-export async function crear(db, { proveedorId, cotizacionId, total }) {
+/**
+ * Crea la cabecera con su número consecutivo (COM-AAAA-NNN) → { id, numero }.
+ * El proveedor es opcional: solo se guarda si todas las llantas son del mismo.
+ */
+export async function crear(db, { proveedorId = null, cotizacionId, total }) {
   const { rows } = await db.query(
     `INSERT INTO compra (numero, proveedor_id, cotizacion_id, total)
      VALUES (siguiente_numero('COM'), $1, $2, $3)

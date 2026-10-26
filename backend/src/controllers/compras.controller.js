@@ -48,10 +48,6 @@ export async function crear(req, res) {
   const datos = req.validado.body;
 
   const numero = await enTransaccion(async (db) => {
-    if (!(await comprasModel.proveedorActivo(db, datos.proveedorId))) {
-      throw new HttpError(422, 'El proveedor no existe o está inactivo.');
-    }
-
     // La cotización se vuelve a validar aquí, bloqueada, por si cambió de
     // estado mientras el asesor llenaba el formulario.
     let cotizacionId = null;
@@ -67,9 +63,12 @@ export async function crear(req, res) {
     // No se compran productos que ya no se comercializan
     for (const linea of datos.lineas) await exigirActivo('producto', linea.productoId, db);
 
-    // El total lo calcula el servidor con los precios de cada línea
+    // El total lo calcula el servidor con los precios de cada línea. Sin
+    // campo de proveedor: se toma el de las llantas de la cotización si
+    // todas son del mismo
     const total = datos.lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
-    const compra = await comprasModel.crear(db, { proveedorId: datos.proveedorId, cotizacionId, total });
+    const proveedorId = cotizacionId ? comprasModel.proveedorComun(await comprasModel.lineasParaComprar(db, cotizacionId)) : null;
+    const compra = await comprasModel.crear(db, { proveedorId, cotizacionId, total });
     for (const linea of datos.lineas) await comprasModel.crearLinea(db, compra.id, linea);
     return compra.numero;
   });
@@ -101,6 +100,10 @@ export async function actualizar(req, res) {
     // Recibida y entregada: se guarda el último costo de compra de cada llanta
     const estado = cambios.estado ?? actual.estado;
     const entrega = cambios.estadoEntrega ?? actual.estadoEntrega;
+    // No se da por recibida mientras su entrega no esté completada
+    if (estado === 'Recibida' && actual.estado !== 'Recibida' && entrega !== 'Entregado') {
+      throw new HttpError(422, 'La compra se marca como "Recibida" cuando su entrega esté completada ("Entregado").');
+    }
     if (estado === 'Recibida' && entrega === 'Entregado') {
       for (const linea of await comprasModel.lineas(actual.id, db)) {
         await productosModel.actualizarPrecioCompra(db, linea.productoId, linea.precioUnitario);

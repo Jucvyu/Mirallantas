@@ -37,6 +37,11 @@ const COTIZACION = {
     ${SUBCONSULTA_ESTADO} AS "pagoEstado",
     ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago",
     ${SUBCONSULTA_TOTAL_SERVICIOS} AS "totalServicios",
+    -- Solo las llantas (sin reencauches): lo que se le compra al proveedor
+    (SELECT COALESCE(sum(d.subtotal), 0)::bigint FROM cotizacion_detalle d
+      WHERE d.cotizacion_id = c.id AND d.tipo = 'producto') AS "totalSoloProductos",
+    (SELECT count(*)::int FROM cotizacion_detalle d
+      WHERE d.cotizacion_id = c.id AND d.tipo = 'producto') AS "lineasProducto",
     -- Reencauches sin precio: mientras haya alguno, la cotización no se emite
     (SELECT count(*)::int FROM cotizacion_detalle d JOIN solicitud_servicio ss ON ss.id = d.solicitud_servicio_id
       WHERE d.cotizacion_id = c.id AND ss.precio IS NULL) AS "serviciosSinPrecio"`,

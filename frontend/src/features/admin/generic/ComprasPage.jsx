@@ -10,11 +10,12 @@ import { comprasService } from '../../../services';
 import EstadoEntrega from '../shared/EstadoEntrega';
 import NuevaCompraModal from './NuevaCompraModal';
 
-// Tabla `compra` (+ `compra_detalle`). Cada compra abastece una cotización
-// aprobada. La recepción de la mercancía se sigue con `estadoEntrega`.
+// Tabla `compra` (+ `compra_detalle`). Cada compra abastece las llantas de
+// una cotización aprobada (sale sola cuando el cliente paga). La recepción
+// se sigue con `estadoEntrega`: solo con la entrega completada ("Entregado")
+// la compra pasa a "Recibida".
 const columns = [
   { key: 'id', label: 'Nº Compra' },
-  { key: 'proveedor', label: 'Proveedor' },
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Compra directa' },
   { key: 'fecha', label: 'Fecha' },
   { key: 'total', label: 'Total' },
@@ -32,7 +33,6 @@ const formSections = [
   {
     title: 'Datos de la compra',
     fields: [
-      { key: 'proveedor', label: 'Proveedor', soloLectura: true },
       { key: 'cotizacion', label: 'Cotización de origen', soloLectura: true },
       { key: 'fecha', label: 'Fecha', soloLectura: true },
       { key: 'total', label: 'Valor total (COP)', soloLectura: true },
@@ -57,22 +57,22 @@ export default function ComprasPage() {
         cargando={compras.cargando}
         error={compras.error}
         onRecargar={compras.recargar}
-        // NuevaCompraModal entrega los datos del formulario y la lista de proveedores
-        onCreate={(datos, contexto) => compras.crear(datos, contexto)}
+        onCreate={(datos) => compras.crear(datos)}
         onEdit={compras.editar}
         onStatusChange={(fila, estado) => compras.ejecutar(() => comprasService.cambiarEstado(fila, estado))}
         onRowUpdate={(fila, cambios) => compras.ejecutar(() => comprasService.actualizar(fila, cambios))}
+        // Se recibe solo con la entrega completada (la API también lo exige)
+        canChangeStatus={(row) => row.estado !== 'Pendiente' || row.estadoEntrega === 'Entregado'}
         statusKey="estado"
         newLabel="Nueva compra"
         formSections={formSections}
         entityName="compra"
-        titleKey="proveedor"
+        titleKey="id"
         statusOptions={estadosCompra}
         statusFlow={FLUJO_ESTADOS_COMPRA}
         filters={[
           { key: 'estado', label: 'Estado', options: estadosCompra },
           { key: 'estadoEntrega', label: 'Entrega', options: estadosEntrega },
-          { key: 'proveedor', label: 'Proveedor' },
         ]}
         createModal={({ onSubmit, onClose }) => <NuevaCompraModal onSubmit={onSubmit} onClose={onClose} />}
         canDelete={false}
@@ -94,7 +94,7 @@ export default function ComprasPage() {
           title="¿Anular la orden de compra?"
           message="La orden queda anulada y no se enviará al proveedor."
           confirmLabel="Anular orden"
-          record={{ title: anulando.row.id, subtitle: `${anulando.row.proveedor} · ${anulando.row.total}` }}
+          record={{ title: anulando.row.id, subtitle: `${anulando.row.cotizacion || 'Compra directa'} · ${anulando.row.total}` }}
           // La API cancela también la entrega pendiente
           onConfirm={() => anulando.update({ estado: 'Anulada' })}
           onClose={() => setAnulando(null)}

@@ -13,7 +13,7 @@ import * as ventasModel from '../models/ventas.model.js';
  *
  *   pago aprobado      → venta "Pendiente" (registrarVentaPagada)
  *   todo el pago aprobado → la cotización pasa a "Aprobada" (aprobarSiPagada)
- *   cotización Aprobada → una compra por proveedor (generarCompras)
+ *   cotización Aprobada → la compra de sus llantas (generarCompras)
  *   cotización Completada → su venta pasa a "Completada" (completarVenta)
  *   cualquier cambio      → la venta copia estado y entrega (sincronizarVenta)
  *
@@ -114,24 +114,19 @@ export async function completarVenta(db, cotizacionId) {
 }
 
 /**
- * La cotización quedó "Aprobada": se le compran las llantas al proveedor.
- * Sale una compra "Pendiente" por cada proveedor, con el costo conocido de
- * cada llanta. Las llantas sin proveedor (ni en la línea ni en la
- * cotización) se dejan para que el asesor las compre a mano.
+ * La cotización quedó "Aprobada" (el cliente ya pagó): sale sola la compra
+ * de sus llantas, "Pendiente", con el costo conocido de cada una (el que se
+ * verificó con el proveedor o el último de compra). Una sola compra por
+ * cotización; si solo tiene reencauches, no hay nada que comprar.
  */
 export async function generarCompras(db, cotizacionId) {
   if (await comprasModel.hayDeCotizacion(db, cotizacionId)) return;
 
-  const porProveedor = new Map();
-  for (const linea of await comprasModel.lineasParaComprar(db, cotizacionId)) {
-    if (!linea.proveedorId) continue;
-    if (!porProveedor.has(linea.proveedorId)) porProveedor.set(linea.proveedorId, []);
-    porProveedor.get(linea.proveedorId).push(linea);
-  }
+  // Solo llantas: los reencauches los hace un tercero y no se compran
+  const lineas = await comprasModel.lineasParaComprar(db, cotizacionId);
+  if (lineas.length === 0) return;
 
-  for (const [proveedorId, lineas] of porProveedor) {
-    const total = lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
-    const compra = await comprasModel.crear(db, { proveedorId, cotizacionId, total });
-    for (const linea of lineas) await comprasModel.crearLinea(db, compra.id, { ...linea, origen: 'Cotización' });
-  }
+  const total = lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
+  const compra = await comprasModel.crear(db, { proveedorId: comprasModel.proveedorComun(lineas), cotizacionId, total });
+  for (const linea of lineas) await comprasModel.crearLinea(db, compra.id, { ...linea, origen: 'Cotización' });
 }

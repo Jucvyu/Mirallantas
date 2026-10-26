@@ -123,7 +123,7 @@ describe('Pago de contado de una cotización', () => {
 
     const compras = await e.api('/compras?porPagina=100', { token: t.admin });
     const deLaCotizacion = compras.cuerpo.datos.filter((c) => c.cotizacion === t.numero);
-    assert.ok(deLaCotizacion.length >= 1, 'se genera la compra al proveedor');
+    assert.equal(deLaCotizacion.length, 1, 'sale una sola compra con todas sus llantas');
     assert.ok(deLaCotizacion.every((c) => c.estado === 'Pendiente'));
 
     // La venta sigue sola a la cotización: la entrega en camino se ve en ventas
@@ -137,6 +137,10 @@ describe('Pago de contado de una cotización', () => {
     // Volver a pasar por "Aprobada" no duplica nada: completarla deja la misma venta completada
     // (antes se recibe la compra al proveedor: sin eso no se completa)
     for (const c of deLaCotizacion) {
+      // Se recibe cuando la entrega está completada
+      for (const estadoEntrega of ['En camino', 'Entregado']) {
+        await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega } });
+      }
       const r = await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Recibida' } });
       assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     }

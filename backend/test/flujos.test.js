@@ -336,6 +336,10 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     // Se recibe la compra al proveedor y se termina el reencauche
     const compras = await e.api('/compras?porPagina=100', { token: t.admin });
     for (const c of compras.cuerpo.datos.filter((x) => x.cotizacion === t.cotizacionLuis)) {
+      // Se recibe cuando la entrega está completada
+      for (const estadoEntrega of ['En camino', 'Entregado']) {
+        await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega } });
+      }
       const r = await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Recibida' } });
       assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     }
@@ -492,9 +496,13 @@ describe('Compras', () => {
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
     assert.ok(!('stockAplicado' in r.cuerpo.datos));
     const cambiar = (cuerpo) => e.api(`/compras/${r.cuerpo.datos.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo });
-    await cambiar({ estado: 'Recibida' });
+    // Sin la entrega completada no se puede dar por recibida
+    const temprano = await cambiar({ estado: 'Recibida' });
+    assert.equal(temprano.estado, 422);
+    assert.match(temprano.cuerpo.error, /Entregado/);
     await cambiar({ estadoEntrega: 'En camino' });
     await cambiar({ estadoEntrega: 'Entregado' });
+    assert.equal((await cambiar({ estado: 'Recibida' })).estado, 200);
     const { rows } = await e.db.query('SELECT precio_compra FROM producto WHERE id = 3');
     assert.equal(Number(rows[0].precio_compra), 200000, 'guarda el último precio de compra');
   });
