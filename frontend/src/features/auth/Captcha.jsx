@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { LoaderCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { TURNSTILE_SITE_KEY } from '../../config';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -29,6 +30,10 @@ function cargarScript() {
  * entrega ''. El token sirve una sola vez: después de cada intento de
  * inicio de sesión se llama a `ref.current.reiniciar()` para pedir otro.
  * Sin VITE_TURNSTILE_SITE_KEY no se muestra (la API tampoco lo exige).
+ *
+ * Minimalista: el recuadro de Cloudflare solo aparece si hace falta que la
+ * persona interactúe ("interaction-only"); el resto del tiempo se ve una
+ * línea discreta con el estado de la verificación.
  */
 export default function Captcha({ onToken, ref }) {
   const contenedor = useRef(null);
@@ -39,11 +44,14 @@ export default function Captcha({ onToken, ref }) {
     alCambiar.current = onToken;
   });
   const [error, setError] = useState('');
+  // 'verificando' | 'lista' | 'interaccion' (Cloudflare pide un clic) | 'fallo'
+  const [estado, setEstado] = useState('verificando');
   const { theme } = useTheme();
 
   useImperativeHandle(ref, () => ({
     reiniciar() {
       alCambiar.current('');
+      setEstado('verificando');
       if (widget.current !== null) window.turnstile?.reset(widget.current);
     },
   }));
@@ -59,9 +67,26 @@ export default function Captcha({ onToken, ref }) {
           theme: theme === 'dark' ? 'dark' : 'light',
           language: 'es',
           size: 'flexible',
-          callback: (token) => alCambiar.current(token),
-          'expired-callback': () => alCambiar.current(''),
-          'error-callback': () => alCambiar.current(''),
+          appearance: 'interaction-only',
+          // Los avisos de un captcha ya retirado (p. ej. al cambiar el tema) se ignoran
+          callback: (token) => {
+            if (!vigente) return;
+            setEstado('lista');
+            alCambiar.current(token);
+          },
+          'before-interactive-callback': () => vigente && setEstado('interaccion'),
+          'expired-callback': () => {
+            if (!vigente) return;
+            // Venció sin usarse: se vuelve a verificar sola
+            setEstado('verificando');
+            alCambiar.current('');
+            window.turnstile?.reset(widget.current);
+          },
+          'error-callback': () => {
+            if (!vigente) return;
+            setEstado('fallo');
+            alCambiar.current('');
+          },
         });
       })
       .catch((e) => vigente && setError(e.message));
@@ -75,10 +100,22 @@ export default function Captcha({ onToken, ref }) {
 
   if (!TURNSTILE_SITE_KEY) return null;
 
+  const linea = {
+    verificando: [LoaderCircle, 'Verificando que eres una persona…', 'text-slate-400 dark:text-slate-500', 'animate-spin'],
+    lista: [ShieldCheck, 'Verificación de seguridad completada', 'text-emerald-600 dark:text-emerald-400', ''],
+    interaccion: [ShieldCheck, 'Confirma que eres una persona', 'text-amber-600 dark:text-amber-400', ''],
+    fallo: [ShieldAlert, 'No se pudo verificar. Recarga la página e inténtalo de nuevo.', 'text-red-500', ''],
+  };
+  const [Icono, texto, color, giro] = error ? linea.fallo : linea[estado];
+
   return (
     <div>
-      <div ref={contenedor} className="min-h-[65px] w-full" />
-      {error && <p className="mt-1 text-xs font-medium text-red-500">{error}</p>}
+      {/* Solo ocupa espacio cuando Cloudflare pide interactuar */}
+      <div ref={contenedor} className={estado === 'interaccion' ? 'mb-1.5 w-full' : 'h-0 w-full overflow-hidden'} />
+      <p className={`flex items-center justify-center gap-1.5 text-[11px] font-medium ${color}`} aria-live="polite">
+        <Icono size={13} className={`shrink-0 ${giro}`} />
+        {error || texto}
+      </p>
     </div>
   );
 }
