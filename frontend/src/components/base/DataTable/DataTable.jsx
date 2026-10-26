@@ -81,6 +81,8 @@ function fallbackSections(columns) {
  *   statusKey / statusOptions / statusVariant ('select' | 'switch') / statusFlow
  *   filters: [{ key, label, options? }] filtros de la barra superior
  *   createModal: ({ onSubmit, onClose }) => nodo, formulario de "Nuevo" a medida
+ *   editModal:   ({ row, onSubmit, onClose }) => nodo, formulario de "Editar" a medida
+ *   motivoNoEditable: texto del botón Editar deshabilitado (o (row) => texto)
  *   rowActions: (row, { update }) => nodo, botones extra en cada fila
  *   formValidate: (values) => ({ campo: 'mensaje' }) reglas entre campos
  *   exportable, canView / canEdit / canDelete, entityGender, titleKey
@@ -117,6 +119,8 @@ export default function DataTable({
   statusVariant = 'select',
   filters = [],
   createModal,
+  editModal,
+  motivoNoEditable = 'Este registro ya no se puede editar',
   rowActions,
   statusFlow,
   formValidate,
@@ -256,7 +260,7 @@ export default function DataTable({
           icono={Pencil}
           etiqueta="Editar"
           deshabilitado={!puedeEditar(row)}
-          motivo="Este registro ya no se puede editar"
+          motivo={typeof motivoNoEditable === 'function' ? motivoNoEditable(row) : motivoNoEditable}
           onClick={() => setDialog({ mode: 'edit', row })}
         />
       )}
@@ -491,7 +495,11 @@ export default function DataTable({
         />
       )}
 
-      {dialog?.mode === 'edit' && (
+      {dialog?.mode === 'edit' && editModal
+        ? editModal({ row: dialog.row, onSubmit: (values) => onEdit(dialog.row, values), onClose: () => setDialog(null) })
+        : null}
+
+      {dialog?.mode === 'edit' && !editModal && (
         <FormModal
           mode="edit"
           title={`Editar ${entityName}`}

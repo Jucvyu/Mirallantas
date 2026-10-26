@@ -9,6 +9,7 @@ import { useEnvio } from '../../../hooks/useEnvio';
 import { cotizacionesService, solicitudesCreditoService } from '../../../services';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
+import { MAX_TEXTO } from '../../../utils/validaciones';
 
 /**
  * Detalle de una solicitud de crédito.
@@ -223,6 +224,7 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
           <label className="block">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo para no aprobarla</span>
             <textarea
+              maxLength={MAX_TEXTO}
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

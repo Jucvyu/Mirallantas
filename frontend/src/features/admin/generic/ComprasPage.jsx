@@ -59,6 +59,12 @@ export default function ComprasPage() {
         onRecargar={compras.recargar}
         onCreate={(datos) => compras.crear(datos)}
         onEdit={compras.editar}
+        // El detalle se edita solo con la compra y su entrega pendientes
+        canEdit={(row) => row.estado === 'Pendiente' && row.estadoEntrega === 'Pendiente'}
+        motivoNoEditable={(row) =>
+          row.estado !== 'Pendiente' ? `La compra está "${row.estado}"` : `La entrega está "${row.estadoEntrega}"`
+        }
+        editModal={({ row, onSubmit, onClose }) => <NuevaCompraModal compra={row} onSubmit={onSubmit} onClose={onClose} />}
         onStatusChange={(fila, estado) => compras.ejecutar(() => comprasService.cambiarEstado(fila, estado))}
         onRowUpdate={(fila, cambios) => compras.ejecutar(() => comprasService.actualizar(fila, cambios))}
         // Se recibe solo con la entrega completada (la API también lo exige)

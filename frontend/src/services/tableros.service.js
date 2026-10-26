@@ -76,4 +76,15 @@ export const avisosPersonalService = {
   marcarLeidas() {
     return api('/notificaciones/leidas', { metodo: 'POST' });
   },
+
+  /** Avisos nuevos de cada módulo (burbujas del menú): { '/admin/abonos': 2, … }. */
+  async porModulo() {
+    const { datos } = await api('/notificaciones/por-modulo');
+    return datos;
+  },
+
+  /** El usuario entró a un módulo: su burbuja vuelve a cero. */
+  marcarVista(ruta) {
+    return api('/notificaciones/vista', { metodo: 'POST', cuerpo: { ruta } });
+  },
 };

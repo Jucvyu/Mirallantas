@@ -278,6 +278,7 @@ export default function LoginPage() {
                   <input
                     id="lg-correo"
                     type="email"
+                    maxLength={80}
                     value={correo}
                     onChange={(e) => {
                       setCorreo(e.target.value);
@@ -303,6 +304,7 @@ export default function LoginPage() {
                   <input
                     id="lg-password"
                     type="password"
+                    maxLength={72}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);

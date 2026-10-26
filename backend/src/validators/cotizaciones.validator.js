@@ -18,7 +18,7 @@ import {
 
 /** POST /portal/cotizaciones/:numero/cancelar — el motivo es obligatorio. */
 export const esquemaCancelacionCliente = z.object({
-  motivo: textoExplicado(300),
+  motivo: textoExplicado(80),
 });
 
 /** GET /cotizaciones */
@@ -36,7 +36,7 @@ const lineaServicio = z.object({
   servicioId: idRelacion.optional(),
   cantidad: cantidad(),
   medidas: textoOpcional(30),
-  descripcion: textoExplicado(500),
+  descripcion: textoExplicado(80),
   // Hasta 3 fotos de la llanta (`foto` sola se sigue aceptando)
   foto: imagen.optional(),
   fotos: z.array(imagen).max(3, 'Puedes adjuntar máximo 3 fotos.').optional(),
@@ -53,7 +53,7 @@ export const esquemaNueva = z.object({
   // El asesor elige el cliente; para el portal es el cliente en sesión
   clienteId: idRelacion.optional(),
   proveedorId: idRelacion.nullable().optional(),
-  direccionEntrega: texto(200),
+  direccionEntrega: texto(80),
   lineas: z
     .array(z.discriminatedUnion('tipo', [lineaProducto, lineaServicio]))
     .min(1, 'Agrega al menos un producto o servicio.'),
@@ -105,9 +105,9 @@ export const esquemaCambio = objetoEstricto(
   {
     estado: z.enum(estadosDe('cotizacion')).optional(),
     estadoEntrega: z.enum(estadosDe('entrega')).optional(),
-    motivoCancelacion: textoExplicadoOpcional(500),
+    motivoCancelacion: textoExplicadoOpcional(80),
     proveedorId: idRelacion.nullable().optional(),
-    direccionEntrega: texto(200).optional(),
+    direccionEntrega: texto(80).optional(),
   },
   'Este campo no se puede modificar en una cotización.',
 );
@@ -115,7 +115,7 @@ export const esquemaCambio = objetoEstricto(
 /** POST /cotizaciones/:numero/pago — el asesor aprueba o rechaza la consignación. */
 export const esquemaRevisionPago = z.object({
   estado: z.enum(['Aprobado', 'Rechazado'], { error: 'Indica si apruebas o rechazas el pago.' }),
-  motivo: textoExplicadoOpcional(300),
+  motivo: textoExplicadoOpcional(80),
 });
 
 /** POST /portal/cotizaciones/:numero/pago — el cliente vuelve a subir el pago rechazado. */

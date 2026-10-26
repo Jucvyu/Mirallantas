@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Ban, ClipboardCheck, HandCoins, Pencil, Save, Trash2, Wrench } from 'lucide-react';
+import { Ban, ClipboardCheck, Eye, HandCoins, Pencil, Save, Trash2, Wrench } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import MotivoModal from '../../../components/base/MotivoModal';
 import RevisionCarcasaModal from './RevisionCarcasaModal';
+import DetalleSolicitudServicioModal from './DetalleSolicitudServicioModal';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
 import StatusSelect from '../../../components/base/StatusSelect';
@@ -30,6 +31,8 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
   // false | true | 'avance' | 'precio' (se intentó avanzar o poner precio sin revisar: la revisión es obligatoria)
   const [revisando, setRevisando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  // Detalle con las fotos en grande
+  const [viendoDetalle, setViendoDetalle] = useState(false);
   // Con la carcasa aprobada ("Apta"), los datos de la llanta ya no se editan
   const aprobada = solicitud.estadoEvidencia === 'Apta';
   // Terminado o cancelado, tampoco
@@ -233,6 +236,7 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
 
         {/* ---- Acciones ---- */}
         <div className="flex items-center gap-1">
+          <BotonAccion icono={Eye} etiqueta="Ver el detalle y las fotos de la llanta" tono="acento" onClick={() => setViendoDetalle(true)} />
           <BotonAccion
             icono={ClipboardCheck}
             etiqueta={
@@ -265,6 +269,13 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
             onClick={() => intentar(onEliminar)}
           />
         </div>
+        {viendoDetalle && (
+          <DetalleSolicitudServicioModal
+            solicitud={solicitud}
+            onRevisar={() => setRevisando(true)}
+            onClose={() => setViendoDetalle(false)}
+          />
+        )}
         {revisando && (
           <RevisionCarcasaModal
             solicitud={solicitud}

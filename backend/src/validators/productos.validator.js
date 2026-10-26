@@ -17,8 +17,8 @@ export const esquemaFiltros = esquemaListado.extend({
 });
 
 const campos = {
-  nombre: nombreEntidad(150),
-  descripcion: textoExplicadoOpcional(500),
+  nombre: nombreEntidad(80),
+  descripcion: textoExplicadoOpcional(80),
   categoriaId: idRelacion,
   marcaId: idRelacion,
   // Sin espacios y en mayúsculas: "195/65 r15" y "195/65R15" son la misma medida

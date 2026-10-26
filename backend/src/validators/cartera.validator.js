@@ -61,7 +61,7 @@ export const esquemaCambioAbono = objetoEstricto(
     monto: pesosPositivos('El monto debe ser mayor que cero.').optional(),
     medioPago: medioPago.optional(),
     // Por qué se rechaza: el cliente lo ve y vuelve a subir el abono
-    motivo: textoExplicadoOpcional(300),
+    motivo: textoExplicadoOpcional(80),
   },
   'Este campo no se puede modificar en un abono.',
 );
@@ -80,5 +80,5 @@ export const esquemaSolicitud = z.object({
 /** PATCH /solicitudes-credito/:numero — el asesor aprueba o rechaza. */
 export const esquemaRevision = z.strictObject({
   estado: z.enum(estadosDe('solicitudCredito')),
-  motivo: textoExplicadoOpcional(500),
+  motivo: textoExplicadoOpcional(80),
 });

@@ -5,6 +5,7 @@ import * as cotizacionesModel from '../models/cotizaciones.model.js';
 import * as creditosModel from '../models/creditos.model.js';
 import * as solicitudesCreditoModel from '../models/solicitudesCredito.model.js';
 import * as ventasModel from '../models/ventas.model.js';
+import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 
 /**
  * Documentos que nacen solos de una cotización-pedido. Todas las funciones
@@ -129,4 +130,13 @@ export async function generarCompras(db, cotizacionId) {
   const total = lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0);
   const compra = await comprasModel.crear(db, { proveedorId: comprasModel.proveedorComun(lineas), cotizacionId, total });
   for (const linea of lineas) await comprasModel.crearLinea(db, compra.id, { ...linea, origen: 'Cotización' });
+  await avisosPersonal.crear(
+    {
+      modulo: 'Compras',
+      titulo: 'Nueva compra por gestionar',
+      mensaje: `Se generó la compra ${compra.numero} con las llantas de una cotización aprobada.`,
+      enlace: '/admin/compras',
+    },
+    db,
+  );
 }

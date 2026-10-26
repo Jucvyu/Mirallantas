@@ -1,5 +1,5 @@
 -- =========================================================================
--- 0019 · Categoría inactiva → sus productos también
+-- 0019 · Categoría inactiva: sus productos también
 --
 -- Al desactivar una categoría se desactivan los productos asociados a ella
 -- (desde la tabla, el formulario o cualquier otro camino: lo hace la base).

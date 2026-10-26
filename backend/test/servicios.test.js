@@ -48,6 +48,13 @@ describe('Pago de un servicio de reencauche', () => {
     assert.equal(r.cuerpo.datos.total, 0);
     t.solicitud = r.cuerpo.datos.detalle[0].solicitudServicio;
 
+    // El aviso suma en la burbuja de "Solicitudes de servicio" hasta que se entra al módulo
+    const burbujas = await e.api('/notificaciones/por-modulo', { token: t.admin });
+    assert.ok(burbujas.cuerpo.datos['/admin/solicitudes-servicio'] >= 1, JSON.stringify(burbujas.cuerpo));
+    await e.api('/notificaciones/vista', { metodo: 'POST', token: t.admin, cuerpo: { ruta: '/admin/solicitudes-servicio' } });
+    const despues = await e.api('/notificaciones/por-modulo', { token: t.admin });
+    assert.equal(despues.cuerpo.datos['/admin/solicitudes-servicio'] ?? 0, 0);
+
     const solicitud = await e.api(`/solicitudes-servicio/${t.solicitud}`, { token: t.admin });
     assert.equal(solicitud.cuerpo.datos.pagoEstado, 'Sin precio');
     assert.equal(solicitud.cuerpo.datos.cotizacion, r.cuerpo.datos.numero);

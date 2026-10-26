@@ -16,13 +16,13 @@ import {
 /** Rol con los nombres de los módulos marcados ("Clientes", "Ventas"…). */
 export const esquemaRol = z.object({
   nombre: nombreEntidad(60),
-  descripcion: textoExplicadoOpcional(300),
+  descripcion: textoExplicadoOpcional(80),
   permisos: z.array(z.string().trim().min(1)).min(1, 'Marca al menos un módulo.'),
   activo: z.boolean().optional(),
 });
 
 const camposUsuario = {
-  nombre: nombrePersona(150),
+  nombre: nombrePersona(80),
   tipoDocumento,
   numeroDocumento,
   correo,

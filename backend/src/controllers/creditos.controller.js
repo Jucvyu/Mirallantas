@@ -5,6 +5,7 @@ import { claveIdempotencia } from '../middleware/idempotencia.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as clientesModel from '../models/clientes.model.js';
 import * as creditosModel from '../models/creditos.model.js';
+import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import { exigirMedioDelCliente, pesos, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
@@ -112,13 +113,26 @@ export async function registrarAbono(req, res) {
       throw new HttpError(422, `El abono no puede superar el saldo pendiente (${pesos(credito.saldoPendiente)}).`);
     }
     exigirAbonoMinimo(datos.monto, credito.saldoPendiente);
-    return abonosModel.crear(db, {
+    const nuevo = await abonosModel.crear(db, {
       creditoId: credito.id,
       monto: datos.monto,
       medioPago: datos.medioPago,
       comprobante: datos.medioPago === 'Transferencia' ? datos.comprobante : null,
       claveIdempotencia: clave,
     });
+    // Lo subió el cliente: queda por confirmar y se le avisa al personal
+    if (clienteDeSesion(req)) {
+      await avisosPersonal.crear(
+        {
+          modulo: 'Abonos',
+          titulo: 'Abono por confirmar',
+          mensaje: `${credito.cliente} registró un abono de ${pesos(datos.monto)} al crédito ${credito.numero}.`,
+          enlace: '/admin/abonos',
+        },
+        db,
+      );
+    }
+    return nuevo;
   });
 
   enviarDato(res, await abonosModel.buscarPorNumero(numero), repetido ? 200 : 201);

@@ -78,47 +78,55 @@ export function documentoSegunTipo(datos, ctx) {
 const LETRAS_NOMBRE = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ.' ]+$/;
 
 /** Nombre de una persona: mínimo 3 caracteres y solo letras (sin números). */
-export const nombrePersona = (max = 150) =>
+export const nombrePersona = (max = MAX_TEXTO) =>
   z
     .string()
     .trim()
     .min(3, 'El nombre debe tener al menos 3 caracteres.')
-    .max(max)
+    .max(max, `Máximo ${max} caracteres.`)
     .regex(LETRAS_NOMBRE, 'El nombre solo admite letras, espacios, punto y apóstrofo.');
 
 /** Nombre de una empresa o de un elemento del catálogo: mínimo 2 caracteres y con alguna letra. */
-export const nombreEntidad = (max = 150) =>
+export const nombreEntidad = (max = MAX_TEXTO) =>
   z
     .string()
     .trim()
     .min(2, 'El nombre debe tener al menos 2 caracteres.')
-    .max(max)
+    .max(max, `Máximo ${max} caracteres.`)
     .refine((v) => /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(v), { error: 'El nombre no puede ser solo números o símbolos.' });
 
 /** Texto que debe explicar algo (descripciones, motivos, observaciones): mínimo 10 caracteres. */
-export const textoExplicado = (max = 500) =>
-  z.string().trim().min(10, 'Escribe al menos 10 caracteres.').max(max);
+export const textoExplicado = (max = MAX_TEXTO) =>
+  z.string().trim().min(10, 'Escribe al menos 10 caracteres.').max(max, `Máximo ${max} caracteres.`);
 
 /** Igual, pero opcional: si llega con texto, mínimo 10 caracteres; vacío se guarda como null. */
-export const textoExplicadoOpcional = (max = 500) =>
+export const textoExplicadoOpcional = (max = MAX_TEXTO) =>
   z
     .string()
     .trim()
-    .max(max)
+    .max(max, `Máximo ${max} caracteres.`)
     .refine((v) => v === '' || v.length >= 10, { error: 'Escribe al menos 10 caracteres.' })
     .transform((v) => v || null)
     .nullable()
     .optional();
 
+/**
+ * Largo máximo de los textos que escribe la persona (nombres, direcciones,
+ * descripciones, motivos, observaciones). Los campos cortos (medidas,
+ * códigos, tiempos) tienen el suyo, menor.
+ */
+export const MAX_TEXTO = 80;
+
 /** Texto obligatorio con largo máximo. */
-export const texto = (max = 200) => z.string().trim().min(1, 'Este campo es obligatorio.').max(max);
+export const texto = (max = MAX_TEXTO) =>
+  z.string().trim().min(1, 'Este campo es obligatorio.').max(max, `Máximo ${max} caracteres.`);
 
 /** Texto opcional: si llega vacío se guarda como null. */
-export const textoOpcional = (max = 200) =>
+export const textoOpcional = (max = MAX_TEXTO) =>
   z
     .string()
     .trim()
-    .max(max)
+    .max(max, `Máximo ${max} caracteres.`)
     .transform((v) => v || null)
     .nullable()
     .optional();
@@ -179,7 +187,7 @@ export const correo = z
   .string()
   .trim()
   .toLowerCase()
-  .max(150)
+  .max(MAX_TEXTO, `El correo admite máximo ${MAX_TEXTO} caracteres.`)
   .pipe(z.email({ error: 'El correo no es válido.' }));
 
 /**

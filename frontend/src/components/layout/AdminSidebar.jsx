@@ -25,6 +25,7 @@ import {
 import Logo from '../base/Logo';
 import logoOficial from '../../assets/logo-mirallantas.png';
 import { useAuth } from '../../context/AuthContext';
+import { useAvisosPorModulo } from '../../hooks/useAvisosPorModulo';
 import { MODULOS_PORTAL, permisoDeRuta } from '../../permisos';
 
 // El Dashboard queda fuera del acordeón: es el punto de entrada y debe
@@ -90,6 +91,8 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
   const [cerradas, setCerradas] = useState({});
   // cerrarSesion invalida el token en la API y lleva a la página de inicio
   const { tienePermiso, cerrarSesion } = useAuth();
+  // Avisos nuevos por módulo, para las burbujas del menú
+  const avisosPorRuta = useAvisosPorModulo();
 
   // Cada sección se queda solo con los módulos que el rol puede abrir
   const secciones = SECTIONS.map((s) => ({
@@ -199,7 +202,13 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                   aria-label={`${abierta ? 'Ocultar' : 'Mostrar'} ${section.label}`}
                   className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-2.5 py-0.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300"
                 >
-                  <span className="text-[10px] font-bold tracking-wider">{section.label}</span>
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider">
+                    {section.label}
+                    {/* Sección plegada con avisos: un punto para no perderlos de vista */}
+                    {!abierta && section.items.some(({ to }) => avisosPorRuta[to] > 0) && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-label="Hay avisos nuevos" />
+                    )}
+                  </span>
                   <ChevronDown
                     size={13}
                     className={`shrink-0 transition-transform duration-200 ${abierta ? '' : '-rotate-90'}`}
@@ -214,7 +223,9 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
               >
                 <div className="overflow-hidden">
               <ul className="space-y-0.5">
-                {section.items.map(({ to, label, icon: Icon, end }) => (
+                {section.items.map(({ to, label, icon: Icon, end }) => {
+                  const avisos = avisosPorRuta[to] ?? 0;
+                  return (
                   <li key={to}>
                     <NavLink
                       to={to}
@@ -229,11 +240,26 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                       }
                       title={collapsed ? label : undefined}
                     >
-                      <Icon size={16} className="shrink-0" />
+                      <span className="relative shrink-0">
+                        <Icon size={16} />
+                        {/* Burbuja de avisos nuevos (como en WhatsApp); sin avisos no aparece */}
+                        {avisos > 0 && collapsed && (
+                          <span className="absolute -right-1.5 -top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-brand-navy-900" />
+                        )}
+                      </span>
                       {!collapsed && <span className="truncate">{label}</span>}
+                      {avisos > 0 && !collapsed && (
+                        <span
+                          className="ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                          aria-label={`${avisos} avisos nuevos`}
+                        >
+                          {avisos > 9 ? '9+' : avisos}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
                 </div>
               </div>

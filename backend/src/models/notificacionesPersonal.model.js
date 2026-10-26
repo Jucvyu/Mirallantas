@@ -44,6 +44,35 @@ export async function listar(usuarioId, modulos) {
   return { notificaciones: rows, sinLeer: sinLeer[0].n };
 }
 
+/**
+ * Avisos nuevos de cada módulo (por la ruta a la que llevan), para las
+ * burbujas del menú lateral: { '/admin/abonos': 2, … }. Cuenta los que
+ * llegaron después de la última vez que el usuario entró a ese módulo (o,
+ * si nunca entró, desde que abrió la campana por última vez).
+ */
+export async function porRuta(usuarioId, modulos) {
+  const { rows } = await query(
+    `SELECT n.enlace AS ruta, COUNT(*)::int AS n
+       FROM notificacion_personal n
+       JOIN usuario u ON u.id = $1
+       LEFT JOIN notificacion_vista_ruta v ON v.usuario_id = u.id AND v.ruta = n.enlace
+      WHERE n.modulo = ANY($2) AND n.enlace IS NOT NULL
+        AND n.creado_en > COALESCE(v.visto_en, u.notificaciones_vistas_en)
+      GROUP BY n.enlace`,
+    [usuarioId, modulos],
+  );
+  return Object.fromEntries(rows.map((r) => [r.ruta, r.n]));
+}
+
+/** El usuario entró al módulo: su burbuja vuelve a cero. */
+export async function marcarRutaVista(usuarioId, ruta) {
+  await query(
+    `INSERT INTO notificacion_vista_ruta (usuario_id, ruta) VALUES ($1, $2)
+     ON CONFLICT (usuario_id, ruta) DO UPDATE SET visto_en = now()`,
+    [usuarioId, ruta],
+  );
+}
+
 /** Marca como vistos todos los avisos hasta este momento. */
 export async function marcarLeidas(usuarioId) {
   await query('UPDATE usuario SET notificaciones_vistas_en = now() WHERE id = $1', [usuarioId]);

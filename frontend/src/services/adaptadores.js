@@ -229,7 +229,12 @@ export const compraDesdeApi = (f) => ({
   total: formatCOP(f.total),
   cotizacion: f.cotizacion ?? '',
   detalle: f.detalle?.map((l) => ({
+    productoId: l.productoId,
     producto: l.producto,
+    medida: l.medida ?? '',
+    precioUnitarioValor: l.precioUnitario,
+    proveedorId: l.proveedorId ?? null,
+    proveedor: l.proveedor ?? '',
     codigo: l.codigoProducto,
     cantidad: l.cantidad,
     unitario: formatCOP(l.precioUnitario),

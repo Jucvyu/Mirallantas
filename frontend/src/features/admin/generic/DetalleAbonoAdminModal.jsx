@@ -6,6 +6,7 @@ import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { abonosService } from '../../../services';
+import { MAX_TEXTO } from '../../../utils/validaciones';
 
 /**
  * Detalle de un abono para el asesor (módulo Abonos).
@@ -147,6 +148,7 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
           <label className="block">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo del rechazo</span>
             <textarea
+              maxLength={MAX_TEXTO}
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

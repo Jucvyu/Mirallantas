@@ -203,24 +203,27 @@ export const ventasService = {
 // ---- Compras -----------------------------------------------------------------------
 
 /**
- * Al editar solo viajan el estado y la entrega. Al crear, el formulario
- * "Nueva compra" entrega { cotizacion, lineas }.
+ * Al editar viajan el detalle (si se editó) o el estado y la entrega. Al
+ * crear, el formulario "Nueva compra" entrega { cotizacion, lineas }.
  */
 function compraHaciaApi(v, fila) {
-  if (fila) return { estado: v.estado, estadoEntrega: v.estadoEntrega };
+  // Al editar: el detalle (si se editó) o el estado y la entrega
+  if (fila) return v.lineas ? { lineas: lineasCompraHaciaApi(v.lineas) } : { estado: v.estado, estadoEntrega: v.estadoEntrega };
   // Sin proveedor: la API lo toma de las llantas de la cotización
-  return {
-    cotizacion: v.cotizacion || null,
-    lineas: v.lineas.map((l) => ({
-      productoId: l.id,
-      cantidad: l.cantidad,
-      precioUnitario: l.precioCompra,
-      // Distingue lo que pedía la cotización de lo que sumó el asesor
-      origen: l.deCotizacion ? 'Cotización' : 'Adicional',
-      // Un adicional lleva el proveedor que se eligió al agregarlo
-      ...(l.deCotizacion ? {} : { proveedorId: l.proveedorId }),
-    })),
-  };
+  return { cotizacion: v.cotizacion || null, lineas: lineasCompraHaciaApi(v.lineas) };
+}
+
+/** Líneas del formulario de compra → lo que pide la API. */
+function lineasCompraHaciaApi(lineas) {
+  return lineas.map((l) => ({
+    productoId: l.id,
+    cantidad: l.cantidad,
+    precioUnitario: l.precioCompra,
+    // Distingue lo que pedía la cotización de lo que sumó el asesor
+    origen: l.deCotizacion ? 'Cotización' : 'Adicional',
+    // Un adicional lleva el proveedor que se eligió al agregarlo
+    ...(l.deCotizacion ? {} : { proveedorId: l.proveedorId }),
+  }));
 }
 
 export const comprasService = {
@@ -248,5 +251,22 @@ export const comprasService = {
         cantidad: l.cantidad,
         deCotizacion: true,
       }));
+  },
+
+  /** Líneas de una compra ya registrada, con la forma del formulario (para editarla). */
+  async lineasDeCompra(numero) {
+    const compra = await comprasService.obtener(numero);
+    return compra.detalle.map((l) => ({
+      id: l.productoId,
+      nombre: l.producto,
+      medidas: l.medida,
+      precioCompra: l.precioUnitarioValor,
+      cantidad: l.cantidad,
+      deCotizacion: l.origen === 'Cotización',
+      costoConfirmadoEn: l.costoConfirmadoEn,
+      proveedorConfirmado: l.proveedorConfirmado,
+      proveedorId: l.proveedorId,
+      proveedor: l.proveedor,
+    }));
   },
 };

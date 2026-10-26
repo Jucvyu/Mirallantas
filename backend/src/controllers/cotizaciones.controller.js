@@ -230,12 +230,12 @@ export async function crear(req, res) {
       const cliente = await avisosPersonal.nombreCliente(db, clienteId);
       await avisosPersonal.crear(
         {
-          modulo: 'Pedidos-Cotización',
+          modulo: conProductos ? 'Pedidos-Cotización' : 'Solicitudes de servicio',
           titulo: conProductos ? 'Nueva solicitud de cotización' : 'Nueva solicitud de reencauche',
           mensaje: conProductos
             ? `${cliente} pidió la cotización ${cotizacion.numero}: confirma los precios con el proveedor (plazo de respuesta: 24 horas).`
             : `${cliente} pidió un reencauche (${cotizacion.numero}).`,
-          enlace: '/admin/pedidos-cotizacion',
+          enlace: conProductos ? '/admin/pedidos-cotizacion' : '/admin/solicitudes-servicio',
         },
         db,
       );
@@ -403,7 +403,7 @@ export async function aceptar(req, res) {
       const cliente = await avisosPersonal.nombreCliente(db, cotizacion.clienteId);
       await avisosPersonal.crear(
         {
-          modulo: 'Pedidos-Cotización',
+          modulo: esCredito ? 'Cartera' : 'Pedidos-Cotización',
           titulo: 'Cotización aceptada',
           mensaje: `${cliente} aceptó la cotización ${cotizacion.numero} (${esCredito ? `crédito a ${plazoDias} días` : 'de contado'}): ${esCredito ? 'revisa la solicitud de crédito' : 'revisa el pago'}.`,
           enlace: esCredito ? '/admin/solicitudes-credito' : '/admin/pedidos-cotizacion',

@@ -23,13 +23,13 @@ const campos = {
   terceroId: idRelacion.nullable().optional(),
   fecha: fecha.optional(),
   medidas: textoOpcional(30),
-  descripcion: textoExplicado(500),
+  descripcion: textoExplicado(80),
   foto: imagen.nullable().optional(),
   estadoEvidencia: z.enum(ESTADOS_EVIDENCIA).optional(),
   // Lo que anota el asesor al revisar la carcasa (obligatoria si es "No apta")
-  observacionRevision: textoExplicadoOpcional(500),
+  observacionRevision: textoExplicadoOpcional(80),
   // Por qué se cancela el reencauche (obligatorio al cancelarlo)
-  motivoCancelacion: textoExplicadoOpcional(300),
+  motivoCancelacion: textoExplicadoOpcional(80),
   tiempoEstimado: textoOpcional(40),
   garantia: z.boolean().optional(),
   cantidad: cantidad(),
@@ -56,7 +56,7 @@ export const esquemaCambio = objetoEstricto(
 /** POST /solicitudes-servicio/:numero/pago — el asesor aprueba o rechaza el pago. */
 export const esquemaRevisionPago = z.object({
   estado: z.enum(['Aprobado', 'Rechazado'], { error: 'Indica si apruebas o rechazas el pago.' }),
-  motivo: textoOpcional(300),
+  motivo: textoOpcional(80),
 });
 
 /** POST /portal/servicios/:numero/pago — el cliente paga su servicio. */

@@ -30,6 +30,24 @@ const ALGUNA_LETRA = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/;
 /** Mínimo de caracteres de una descripción, motivo u observación. */
 export const MINIMO_EXPLICACION = 10;
 
+/**
+ * Máximo de caracteres de los textos que se escriben (nombres, direcciones,
+ * descripciones, motivos, observaciones, correos). Igual que la API.
+ */
+export const MAX_TEXTO = 80;
+
+/**
+ * Máximo de un campo según su tipo: los textos largos llevan MAX_TEXTO; los
+ * cortos, el suyo (o el que diga `campo.max`).
+ */
+export function maximoDe(campo) {
+  if (campo.max) return campo.max;
+  if (campo.key === 'numeroDocumento' || campo.type === 'documento') return 15;
+  if (campo.type === 'tel') return 20;
+  if (campo.type === 'password') return 72;
+  return MAX_TEXTO;
+}
+
 /** Mensaje de error del número de documento según su tipo, o ''. */
 export function errorDocumento(numero, tipoDocumento) {
   const texto = String(numero ?? '').trim();
@@ -60,7 +78,7 @@ export const estaVacio = (valor) => (Array.isArray(valor) ? valor.length === 0 :
  * Error de un campo del formulario según su tipo, o '' si está bien.
  *
  * campo: { key, type, required, max, nombrePersona, validar }
- *   max            largo máximo del texto (por defecto 200; 500 en textarea)
+ *   max            largo máximo del texto (por defecto MAX_TEXTO = 80)
  *   nombrePersona  nombre de una persona: mínimo 3 y solo letras
  *   validar        (valor, valores) => mensaje | '' para reglas propias del campo
  *
@@ -101,7 +119,7 @@ export function errorDeCampo(campo, valor, valores = {}) {
     if (problema) return problema;
   }
   if (['text', 'textarea', 'email'].includes(type)) {
-    const maximo = campo.max ?? (type === 'textarea' ? 500 : 200);
+    const maximo = maximoDe(campo);
     if (texto.length > maximo) return `Máximo ${maximo} caracteres (llevas ${texto.length})`;
   }
   return campo.validar?.(valor, valores) || '';

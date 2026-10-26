@@ -272,6 +272,7 @@ export default function PedidoPanel({ onClose = null }) {
         </label>
         <input
           id="pp-lugar"
+          maxLength={80}
           value={lugar}
           onChange={(e) => setLugar(e.target.value)}
           onBlur={() => setLugarTocado(true)}

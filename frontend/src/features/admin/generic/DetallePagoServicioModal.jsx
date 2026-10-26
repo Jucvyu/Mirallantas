@@ -7,6 +7,7 @@ import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { solicitudesServicioService } from '../../../services';
 import { TONO_PAGO } from './tonosPago';
+import { MAX_TEXTO } from '../../../utils/validaciones';
 
 /**
  * Pago de un servicio de reencauche (módulo Solicitudes de servicio).
@@ -157,6 +158,7 @@ export default function DetallePagoServicioModal({ solicitud, onResuelto, onClos
           <label className="block">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo del rechazo</span>
             <textarea
+              maxLength={MAX_TEXTO}
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

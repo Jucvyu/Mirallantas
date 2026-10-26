@@ -5,6 +5,9 @@ import { avisosPersonalService } from '../../services';
 import NotificacionesMenu from './NotificacionesMenu';
 import PerfilMenu from './PerfilMenu';
 
+/** Módulos que generan avisos al personal (los mismos de la API). */
+const MODULOS_CON_AVISOS = ['Pedidos-Cotización', 'Solicitudes de servicio', 'Cartera', 'Abonos', 'Compras'];
+
 export default function AdminTopbar({ title, profile, onOpenMenu, onEditarPerfil, onSeguridad }) {
   // cerrarSesion invalida el token en la API y lleva a la página de inicio
   const { cerrarSesion, tienePermiso } = useAuth();
@@ -32,8 +35,8 @@ export default function AdminTopbar({ title, profile, onOpenMenu, onEditarPerfil
 
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
         <ThemeToggle />
-        {/* Avisos de Pedidos-Cotización: solo para quien tiene ese módulo */}
-        {tienePermiso('Pedidos-Cotización') && <NotificacionesMenu servicio={avisosPersonalService} />}
+        {/* Avisos del personal: para quien tiene algún módulo que avisa */}
+        {MODULOS_CON_AVISOS.some((m) => tienePermiso(m)) && <NotificacionesMenu servicio={avisosPersonalService} />}
         <div className="flex items-center gap-2 border-l border-slate-200 pl-3 dark:border-white/10 sm:pl-4">
           <PerfilMenu profile={profile} campos={campos} onEditar={onEditarPerfil} onSeguridad={onSeguridad} />
           <button

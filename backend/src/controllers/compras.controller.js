@@ -44,6 +44,27 @@ export async function obtener(req, res) {
   enviarDocumento(res, await leerCompleta(req.params.numero));
 }
 
+/**
+ * Revisa las líneas que llegan del formulario: productos activos, proveedor
+ * activo y, en las llantas de la cotización, el proveedor con el que se
+ * verificaron. Devuelve las líneas listas para guardar.
+ */
+async function prepararLineas(db, lineasNuevas, cotizacionId) {
+  // No se compran productos que ya no se comercializan, ni a un proveedor inactivo
+  for (const linea of lineasNuevas) {
+    await exigirActivo('producto', linea.productoId, db);
+    if (linea.proveedorId && !(await comprasModel.proveedorActivo(db, linea.proveedorId))) {
+      throw new HttpError(422, 'El proveedor elegido no existe o está inactivo.');
+    }
+  }
+  const deLaCotizacion = cotizacionId ? await comprasModel.lineasParaComprar(db, cotizacionId) : [];
+  return lineasNuevas.map((l) =>
+    l.origen === 'Cotización'
+      ? { ...l, proveedorId: deLaCotizacion.find((c) => c.productoId === l.productoId)?.proveedorId ?? null }
+      : l,
+  );
+}
+
 /** POST /compras */
 export async function crear(req, res) {
   const datos = req.validado.body;
@@ -61,21 +82,7 @@ export async function crear(req, res) {
       cotizacionId = cotizacion.id;
     }
 
-    // No se compran productos que ya no se comercializan, ni a un proveedor inactivo
-    for (const linea of datos.lineas) {
-      await exigirActivo('producto', linea.productoId, db);
-      if (linea.proveedorId && !(await comprasModel.proveedorActivo(db, linea.proveedorId))) {
-        throw new HttpError(422, 'El proveedor elegido no existe o está inactivo.');
-      }
-    }
-
-    // Las llantas de la cotización llevan el proveedor con el que se verificaron
-    const deLaCotizacion = cotizacionId ? await comprasModel.lineasParaComprar(db, cotizacionId) : [];
-    const lineas = datos.lineas.map((l) =>
-      l.origen === 'Cotización'
-        ? { ...l, proveedorId: deLaCotizacion.find((c) => c.productoId === l.productoId)?.proveedorId ?? null }
-        : l,
-    );
+    const lineas = await prepararLineas(db, datos.lineas, cotizacionId);
 
     // El total lo calcula el servidor con los precios de cada línea. La
     // cabecera guarda el proveedor solo si todas las líneas son del mismo
@@ -88,12 +95,26 @@ export async function crear(req, res) {
   enviarDocumento(res, await leerCompleta(numero), false, 201);
 }
 
-/** PATCH /compras/:numero — recibir, anular o avanzar la entrega. */
+/** PATCH /compras/:numero — editar el detalle, recibir, anular o avanzar la entrega. */
 export async function actualizar(req, res) {
   const cambios = req.validado.body;
 
   await enTransaccion(async (db) => {
     const actual = await comprasModel.buscarPorNumero(req.params.numero, { bloquear: 'c' }, db);
+
+    // ---- Detalle: se edita solo con la compra y su entrega pendientes
+    if (cambios.lineas) {
+      if (actual.estado !== 'Pendiente' || actual.estadoEntrega !== 'Pendiente') {
+        throw new HttpError(422, 'El detalle solo se edita con la compra y su entrega en "Pendiente".');
+      }
+      const lineas = await prepararLineas(db, cambios.lineas, actual.cotizacionId);
+      await comprasModel.borrarLineas(db, actual.id);
+      for (const linea of lineas) await comprasModel.crearLinea(db, actual.id, linea);
+      await comprasModel.actualizar(db, actual.id, [
+        ['total', lineas.reduce((suma, l) => suma + l.cantidad * l.precioUnitario, 0)],
+        ['proveedor_id', comprasModel.proveedorComun(lineas)],
+      ]);
+    }
 
     if (cambios.estado && cambios.estado !== actual.estado) {
       validarTransicion('compra', actual.estado, cambios.estado);

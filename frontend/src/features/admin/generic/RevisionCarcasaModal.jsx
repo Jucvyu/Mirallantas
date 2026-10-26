@@ -3,7 +3,7 @@ import { ClipboardCheck } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from '../../../components/base/formStyles';
-import { MINIMO_EXPLICACION } from '../../../utils/validaciones';
+import { MAX_TEXTO, MINIMO_EXPLICACION } from '../../../utils/validaciones';
 
 /**
  * Revisión de la carcasa de una solicitud de reencauche: el asesor la
@@ -156,7 +156,7 @@ export default function RevisionCarcasaModal({ solicitud, aviso, onConfirmar, on
           <textarea
             id="revision-observacion"
             rows={3}
-            maxLength={500}
+            maxLength={MAX_TEXTO}
             value={observacion}
             onChange={(e) => setObservacion(e.target.value)}
             onBlur={() => setTocado(true)}

@@ -9,6 +9,7 @@ import { cotizacionesService } from '../../../services';
 import { MEDIOS_PAGO_CLIENTE } from '../../../constantes';
 import { CamposPago, pideComprobante, TarjetaPago } from '../../shared/PagoConsignacion';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
+import { MAX_TEXTO } from '../../../utils/validaciones';
 
 /**
  * Consignaciones del pago de contado de una cotización (módulo
@@ -145,6 +146,7 @@ export default function PagosCotizacionModal({ cotizacion: inicial, onResuelto, 
           <label className="block">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo</span>
             <textarea
+              maxLength={MAX_TEXTO}
               rows={3}
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}

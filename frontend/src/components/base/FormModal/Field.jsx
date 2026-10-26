@@ -4,6 +4,7 @@ import RecorteCircular from '../RecorteCircular';
 import SearchSelect from '../SearchSelect';
 import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
+import { maximoDe } from '../../../utils/validaciones';
 import {
   BORDER_ERR,
   BORDER_OK,
@@ -363,6 +364,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
           id={id}
           rows={3}
           readOnly={readOnly}
+          maxLength={maximoDe(field)}
           value={value ?? ''}
           placeholder={placeholder}
           onChange={(e) => onChange(key, e.target.value)}
@@ -419,6 +421,8 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             id={id}
             // Los numéricos van como texto para poder filtrar lo que se teclea
             type={esNumerico || type === 'documento' ? 'text' : type}
+            // Los textos no dejan escribir más del máximo (dinero y cantidades ya se filtran)
+            maxLength={['money', 'number', 'date'].includes(type) ? undefined : maximoDe(field)}
             inputMode={esNumerico ? 'numeric' : undefined}
             max={type === 'date' ? hoyISO() : undefined}
             readOnly={readOnly}

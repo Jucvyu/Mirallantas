@@ -215,6 +215,7 @@ export default function RecuperarPasswordModal({ onClose }) {
               <input
                 id="rec-correo"
                 type="email"
+                maxLength={80}
                 value={correo}
                 onChange={(e) => {
                   setCorreo(e.target.value);
@@ -269,6 +270,7 @@ export default function RecuperarPasswordModal({ onClose }) {
               <input
                 id="rec-pass"
                 type="password"
+                maxLength={72}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -288,6 +290,7 @@ export default function RecuperarPasswordModal({ onClose }) {
               <input
                 id="rec-pass2"
                 type="password"
+                maxLength={72}
                 value={password2}
                 onChange={(e) => {
                   setPassword2(e.target.value);

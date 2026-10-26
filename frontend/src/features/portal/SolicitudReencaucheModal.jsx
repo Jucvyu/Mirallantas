@@ -4,7 +4,7 @@ import Modal from '../../components/base/Modal';
 import Tooltip from '../../components/base/Tooltip';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL, soloDigitos } from '../../components/base/formStyles';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
-import { MINIMO_EXPLICACION } from '../../utils/validaciones';
+import { MAX_TEXTO, MINIMO_EXPLICACION } from '../../utils/validaciones';
 
 /** Máximo de fotos por llanta. */
 const MAXIMO_FOTOS = 3;
@@ -249,7 +249,7 @@ export default function SolicitudReencaucheModal({ inicial, onGuardar, onClose }
             <textarea
               id="rq-descripcion"
               rows={4}
-              maxLength={500}
+              maxLength={MAX_TEXTO}
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Marca, kilometraje aproximado, estado del labrado..."

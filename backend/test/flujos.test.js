@@ -548,6 +548,28 @@ describe('Compras', () => {
     assert.equal(adicional.costoConfirmadoEn, null, 'precio sin verificar');
   });
 
+  test('el detalle se edita solo con la compra y su entrega pendientes', async () => {
+    const r = await e.api('/compras', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: { lineas: [{ productoId: 3, cantidad: 2, precioUnitario: 100000, origen: 'Adicional', proveedorId: 1 }] },
+    });
+    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
+    const ruta = `/compras/${r.cuerpo.datos.numero}`;
+    const nuevoDetalle = { lineas: [{ productoId: 3, cantidad: 4, precioUnitario: 110000, origen: 'Adicional', proveedorId: 1 }] };
+
+    const editada = await e.api(ruta, { metodo: 'PATCH', token: t.admin, cuerpo: nuevoDetalle });
+    assert.equal(editada.estado, 200, JSON.stringify(editada.cuerpo));
+    assert.equal(editada.cuerpo.datos.total, 440000, 'recalcula el total');
+    assert.equal(editada.cuerpo.datos.detalle[0].cantidad, 4);
+
+    // Con la entrega en camino ya no se edita
+    await e.api(ruta, { metodo: 'PATCH', token: t.admin, cuerpo: { estadoEntrega: 'En camino' } });
+    const tarde = await e.api(ruta, { metodo: 'PATCH', token: t.admin, cuerpo: nuevoDetalle });
+    assert.equal(tarde.estado, 422);
+    assert.match(tarde.cuerpo.error, /Pendiente/);
+  });
+
   test('un cliente del portal no ve compras', async () => {
     assert.equal((await e.api('/compras', { token: t.luis })).estado, 403);
   });

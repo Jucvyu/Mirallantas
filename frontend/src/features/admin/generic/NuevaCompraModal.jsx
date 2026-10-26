@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Check, FileText, Plus, Search, ShoppingCart, Trash2, TriangleAlert } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
@@ -41,13 +41,30 @@ const totalDeProductos = (c) => c.totalSoloProductos;
  * propone con el último conocido del producto y el asesor lo ajusta al que
  * acordó con el proveedor. La fecha es la de hoy y la compra nace
  * pendiente, con la entrega también pendiente.
+ *
+ * Con `compra` sirve para editar su detalle (solo mientras la compra y su
+ * entrega están pendientes): la cotización de origen ya no cambia.
  */
-export default function NuevaCompraModal({ onSubmit, onClose }) {
+export default function NuevaCompraModal({ compra, onSubmit, onClose }) {
+  const editando = Boolean(compra);
   const productos = useRecurso(productosService);
   const { enviando, errorEnvio, setErrorEnvio, enviar } = useEnvio();
 
-  const [cotizacion, setCotizacion] = useState('');
+  const [cotizacion, setCotizacion] = useState(compra?.cotizacion ?? '');
   const [lineas, setLineas] = useState([]);
+
+  // Al editar, se cargan las líneas que ya tiene la compra
+  useEffect(() => {
+    if (!compra) return undefined;
+    let vigente = true;
+    comprasService
+      .lineasDeCompra(compra.id)
+      .then((actuales) => vigente && setLineas(actuales))
+      .catch((error) => vigente && setErrorEnvio(error.message));
+    return () => {
+      vigente = false;
+    };
+  }, [compra, setErrorEnvio]);
   const [query, setQuery] = useState('');
   // Producto que no estaba en la cotización: se le pide proveedor y precio
   const [adicionalDe, setAdicionalDe] = useState(null);
@@ -94,13 +111,10 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
   };
 
   const setCantidad = (id, cantidad) =>
-    setLineas((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, cantidad: Math.max(1, Number(cantidad) || 1) } : l)),
-    );
+    setLineas((prev) => prev.map((l) => (l.id === id ? { ...l, cantidad: Math.max(1, Number(cantidad) || 1) } : l)));
 
   /** El precio de compra de cada línea es el acordado en esta compra. */
-  const setPrecio = (id, texto) =>
-    setLineas((prev) => prev.map((l) => (l.id === id ? { ...l, precioCompra: parseCOP(texto) } : l)));
+  const setPrecio = (id, texto) => setLineas((prev) => prev.map((l) => (l.id === id ? { ...l, precioCompra: parseCOP(texto) } : l)));
 
   const quitar = (id) => setLineas((prev) => prev.filter((l) => l.id !== id));
 
@@ -117,13 +131,17 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
     if (!validar()) return;
 
     // El servicio de compras arma lo que pide la API; el total lo calcula el servidor
-    enviar(() => onSubmit({ cotizacion, lineas }), close);
+    enviar(() => onSubmit(editando ? { lineas } : { cotizacion, lineas }), close);
   };
 
   return (
     <Modal
-      title="Nueva compra"
-      subtitle="Abastece las llantas de una cotización aprobada."
+      title={editando ? 'Editar compra' : 'Nueva compra'}
+      subtitle={
+        editando
+          ? `${compra.id} · ${compra.cotizacion ? `cotización ${compra.cotizacion}` : 'compra directa'}`
+          : 'Abastece las llantas de una cotización aprobada.'
+      }
       icon={<ShoppingCart size={17} />}
       size="xl"
       onClose={onClose}
@@ -142,7 +160,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
             onClick={() => guardar(close)}
             className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
           >
-            <Check size={16} /> {enviando ? 'Guardando…' : 'Guardar compra'}
+            <Check size={16} /> {enviando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Guardar compra'}
           </button>
         </>
       )}
@@ -150,24 +168,25 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
       <div className="space-y-6">
         <AvisoError mensaje={errorEnvio} />
 
-        {/* ---- Cotización de origen ---- */}
-        <section>
-          <div className="mb-3 flex items-center gap-3">
-            <span className={SECTION}>Cotización de origen</span>
-            <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-          </div>
-          <SelectorCotizaciones
-            value={cotizacion}
-            filtro={esAbastecible}
-            totalDe={totalDeProductos}
-            vacioLabel="No hay cotizaciones aprobadas con llantas por abastecer."
-            onChange={elegirCotizacion}
-          />
-          <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            Al elegirla, sus productos pasan al detalle de la compra. El valor que se muestra es solo el de las llantas
-            (sin reencauches).
-          </p>
-        </section>
+        {/* ---- Cotización de origen (al editar ya no cambia) ---- */}
+        {!editando && (
+          <section>
+            <div className="mb-3 flex items-center gap-3">
+              <span className={SECTION}>Cotización de origen</span>
+              <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+            </div>
+            <SelectorCotizaciones
+              value={cotizacion}
+              filtro={esAbastecible}
+              totalDe={totalDeProductos}
+              vacioLabel="No hay cotizaciones aprobadas con llantas por abastecer."
+              onChange={elegirCotizacion}
+            />
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              Al elegirla, sus productos pasan al detalle de la compra. El valor que se muestra es solo el de las llantas (sin reencauches).
+            </p>
+          </section>
+        )}
 
         {/* ---- Productos del catálogo ---- */}
         <section>
@@ -243,9 +262,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                 errores.lineas ? 'border-red-400' : 'border-slate-200 dark:border-white/10'
               }`}
             >
-              <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
-                La compra todavía no tiene líneas
-              </p>
+              <p className="text-sm font-medium text-slate-400 dark:text-slate-500">La compra todavía no tiene líneas</p>
               <p className="mt-1 text-xs text-slate-400 dark:text-slate-600">
                 Elige una cotización para traer sus productos, o agrégalos del catálogo.
               </p>
@@ -286,8 +303,7 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
                         {l.deCotizacion &&
                           (l.costoConfirmadoEn ? (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              <BadgeCheck size={12} /> Precio verificado el{' '}
-                              {fechaISO(l.costoConfirmadoEn)} con {l.proveedorConfirmado}
+                              <BadgeCheck size={12} /> Precio verificado el {fechaISO(l.costoConfirmadoEn)} con {l.proveedorConfirmado}
                             </p>
                           ) : (
                             <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-600">
@@ -337,17 +353,13 @@ export default function NuevaCompraModal({ onSubmit, onClose }) {
           {errores.lineas && <p className="mt-2 text-xs font-medium text-red-500">{errores.lineas}</p>}
 
           <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-3">
-            <span className="text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-              Total de la compra
-            </span>
+            <span className="text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Total de la compra</span>
             <span className="text-xl font-bold text-slate-900 dark:text-white">{pesos(total)}</span>
           </div>
         </section>
       </div>
 
-      {adicionalDe && (
-        <ProductoAdicionalModal producto={adicionalDe} onConfirmar={agregarAdicional} onClose={() => setAdicionalDe(null)} />
-      )}
+      {adicionalDe && <ProductoAdicionalModal producto={adicionalDe} onConfirmar={agregarAdicional} onClose={() => setAdicionalDe(null)} />}
     </Modal>
   );
 }

@@ -45,15 +45,16 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     [documento.detalle],
   );
 
-  // Valores de cada línea: lo que escribió el asesor o, si no, lo de antes
-  // (si se re-emite) o el proveedor de la cotización. El precio de venta
-  // parte del de compra + la ganancia sugerida.
+  // Valores de cada línea: lo que escribió el asesor o, si se re-emite, lo
+  // que ya tenía. Sin valores predeterminados (ni el último costo ni el
+  // precio de lista): el asesor escribe la compra que le confirmó el
+  // proveedor y la venta se propone con la ganancia sugerida.
   const filas = useMemo(
     () =>
       Object.fromEntries(
         llantas.map((l) => {
-          const compra = l.costoProveedor || l.ultimoCosto || 0;
-          const venta = l.precioUnitarioValor || (compra ? ventaSugerida(compra) : l.precioSugerido) || '';
+          const compra = l.costoProveedor || 0;
+          const venta = l.precioUnitarioValor || '';
           return [
             l.lineaId,
             {

@@ -6,7 +6,7 @@ import { actualizarCampos, consultarListado, consultarPorNumero, POOL } from './
 
 const COMPRA = {
   select: `
-    c.id, c.numero, c.fecha, c.total, c.estado, c.estado_entrega AS "estadoEntrega",
+    c.id, c.numero, c.fecha, c.total, c.estado, c.estado_entrega AS "estadoEntrega", c.cotizacion_id AS "cotizacionId",
     c.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     co.numero AS cotizacion`,
   desde: `
@@ -138,6 +138,11 @@ export async function crearLinea(db, compraId, l) {
 export async function proveedorActivo(db, proveedorId) {
   const { rows } = await db.query('SELECT activo FROM proveedor WHERE id = $1', [proveedorId]);
   return Boolean(rows[0]?.activo);
+}
+
+/** Borra todas las líneas de la compra (para guardar el detalle editado). */
+export async function borrarLineas(db, compraId) {
+  await db.query('DELETE FROM compra_detalle WHERE compra_id = $1', [compraId]);
 }
 
 /** Actualiza las columnas indicadas: pares [['columna', valor], …]. */

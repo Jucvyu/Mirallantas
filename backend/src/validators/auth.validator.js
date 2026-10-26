@@ -24,7 +24,7 @@ export const esquemaGoogle = z.object({
 });
 
 export const esquemaLogin = z.object({
-  correo: z.string().trim().toLowerCase().min(1, 'Escribe tu correo.').max(150),
+  correo: z.string().trim().toLowerCase().min(1, 'Escribe tu correo.').max(80),
   password: z.string().min(1, 'Escribe tu contraseña.').max(72),
   captcha,
 });
@@ -46,11 +46,11 @@ export const esquemaDesactivar2fa = z.object({ passwordActual, codigo: codigo2fa
 
 /** POST /auth/registro — cuenta nueva de cliente desde el login. */
 export const esquemaRegistro = z.object({
-  nombre: nombrePersona(150),
+  nombre: nombrePersona(80),
   tipoDocumento,
   numeroDocumento,
   telefono,
-  direccion: textoOpcional(200),
+  direccion: textoOpcional(80),
   correo,
   password,
 }).superRefine(documentoSegunTipo);
@@ -62,12 +62,12 @@ export const esquemaRegistro = z.object({
  */
 export const esquemaPerfil = z
   .object({
-    nombre: nombrePersona(150),
+    nombre: nombrePersona(80),
     tipoDocumento,
     numeroDocumento,
     correo,
     telefono: telefono.nullable(),
-    direccion: textoOpcional(200),
+    direccion: textoOpcional(80),
     foto: imagen.nullable(),
     password,
     // Obligatoria para cambiar la contraseña o el correo

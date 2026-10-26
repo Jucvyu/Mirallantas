@@ -3,6 +3,7 @@ import { HttpError } from '../errores.js';
 import { exigirMedioDelCliente } from '../reglas.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import * as notificaciones from '../models/notificaciones.model.js';
+import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as pagosModel from '../models/pagosCotizacion.model.js';
 import * as portalModel from '../models/portal.model.js';
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
@@ -68,6 +69,15 @@ export async function pagarServicio(req, res) {
       throw new HttpError(422, motivos[solicitud.pago_estado]);
     }
     await solicitudesModel.registrarPago(db, solicitud.id, { medio: medioPago, comprobante: comprobante ?? null });
+    await avisosPersonal.crear(
+      {
+        modulo: 'Solicitudes de servicio',
+        titulo: 'Pago de reencauche por revisar',
+        mensaje: `${await avisosPersonal.nombreCliente(db, clienteId)} pagó el reencauche ${solicitud.numero} (${medioPago}).`,
+        enlace: '/admin/solicitudes-servicio',
+      },
+      db,
+    );
   });
 
   enviarSinContenido(res);

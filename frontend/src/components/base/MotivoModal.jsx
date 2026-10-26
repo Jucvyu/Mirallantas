@@ -3,6 +3,7 @@ import { Ban } from 'lucide-react';
 import AvisoError from './AvisoError';
 import Modal from './Modal';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from './formStyles';
+import { MAX_TEXTO } from '../../utils/validaciones';
 
 /** Mínimo de caracteres del motivo: que explique algo, no solo "no". */
 const MINIMO = 10;
@@ -77,7 +78,7 @@ export default function MotivoModal({ title, message, record, label = 'Motivo', 
       <textarea
         id="motivo-modal"
         rows={3}
-        maxLength={300}
+        maxLength={MAX_TEXTO}
         autoFocus
         value={motivo}
         onChange={(e) => setMotivo(e.target.value)}
