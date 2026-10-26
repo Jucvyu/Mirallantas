@@ -95,3 +95,16 @@ export async function marcarLeidas(req, res) {
   await notificaciones.marcarLeidas(exigirCliente(req));
   enviarSinContenido(res);
 }
+
+/** GET /portal/notificaciones/por-modulo — avisos sin leer por sección (burbujas del menú). */
+export async function notificacionesPorModulo(req, res) {
+  const clienteId = clienteDeSesion(req);
+  if (!clienteId) return enviarDato(res, {});
+  enviarDato(res, await notificaciones.porRuta(clienteId));
+}
+
+/** POST /portal/notificaciones/vista — el cliente entró a una sección. */
+export async function marcarSeccionVista(req, res) {
+  await notificaciones.marcarRutaLeida(exigirCliente(req), req.validado.body.ruta);
+  enviarSinContenido(res);
+}

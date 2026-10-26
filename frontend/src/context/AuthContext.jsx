@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { permite } from '../permisos';
 import { authService, EVENTO_CUENTA_INACTIVA, EVENTO_SESION_EXPIRADA } from '../services';
+import { conectarTiempoReal, desconectarTiempoReal } from '../services/tiempoReal';
 
 const AuthContext = createContext(null);
 
@@ -98,6 +99,13 @@ export function AuthProvider({ children }) {
       window.removeEventListener(EVENTO_CUENTA_INACTIVA, alDesactivar);
     };
   }, []);
+
+  // ---- Tiempo real: conectado mientras haya sesión ------------------------
+  useEffect(() => {
+    if (!usuario) return undefined;
+    conectarTiempoReal();
+    return desconectarTiempoReal;
+  }, [usuario]);
 
   // ---- Cierre por inactividad ---------------------------------------------
   useEffect(() => {

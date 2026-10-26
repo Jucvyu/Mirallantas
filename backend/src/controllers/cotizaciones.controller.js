@@ -451,7 +451,8 @@ export async function actualizar(req, res) {
     const cambiaPedido = cambiaEstado || (cambios.estadoEntrega && cambios.estadoEntrega !== actual.estadoEntrega);
 
     // ---- Una solicitud o una cotización sin aceptar no es todavía un
-    // pedido: no avanza ni se despacha (solo se puede rechazar)
+    // pedido: su estado no avanza (ni se despacha) hasta que el cliente la
+    // acepte. Lo único permitido antes es cancelarla, con su motivo.
     if (actual.etapa !== 'Aceptada' && cambiaPedido && !soloRechaza) {
       throw new HttpError(
         422,

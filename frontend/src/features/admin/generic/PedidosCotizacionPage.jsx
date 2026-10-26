@@ -100,7 +100,9 @@ const columns = [
     key: 'estadoEntrega',
     label: 'Entrega',
     // Con el pago sin aprobar, la entrega tampoco se mueve
-    render: (row, { update }) => <EstadoEntrega row={row} update={bloqueada(row) ? undefined : update} />,
+    render: (row, { update }) => (
+      <EstadoEntrega row={row} update={bloqueada(row) || row.etapa !== 'Aceptada' ? undefined : update} />
+    ),
   },
 ];
 
@@ -184,7 +186,8 @@ export default function PedidosCotizacionPage() {
         titleKey="cliente"
         canView={false}
         statusOptions={estadosCotizacion}
-        statusFlow={FLUJO_ESTADOS_COTIZACION}
+        // Sin aceptar por el cliente, lo único permitido es cancelarla (con motivo)
+        statusFlow={(row) => (row.etapa === 'Aceptada' ? FLUJO_ESTADOS_COTIZACION : { [row.estado]: ['Rechazada'] })}
         filters={[
           { key: 'etapa', label: 'Etapa', options: ETAPAS_COTIZACION },
           { key: 'estado', label: 'Estado', options: estadosCotizacion },
@@ -204,8 +207,9 @@ export default function PedidosCotizacionPage() {
                 ? 'bg-amber-400/5'
                 : ''
         }
-        // Con pagos pendientes solo se puede rechazar (la API lo valida);
-        // con una consignación por revisar, primero se revisa
+        // El estado no avanza hasta que el cliente acepte la cotización (antes
+        // solo se cancela). Con pagos pendientes solo se puede rechazar (la API
+        // lo valida); con una consignación por revisar, primero se revisa
         canChangeStatus={(row) => row.pagoEstado !== 'En revisión'}
         canEdit={(row) => !bloqueada(row)}
         // Solo se borra una pendiente; las demás se cancelan (quedan Rechazadas)

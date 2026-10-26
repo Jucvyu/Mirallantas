@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAlCambiar } from './useAlCambiar';
 
 /**
  * Conecta una pantalla con un servicio: carga su listado y ofrece las
@@ -15,7 +16,9 @@ import { useCallback, useEffect, useState } from 'react';
  *   clientes.recargar()                      → vuelve a pedir el listado
  *
  * Después de cada cambio se vuelve a pedir el listado, así la tabla
- * siempre muestra lo que de verdad quedó guardado en el servidor.
+ * siempre muestra lo que de verdad quedó guardado en el servidor. También
+ * se vuelve a pedir solo cuando la API avisa que algo cambió (tiempo real),
+ * sin mostrar de nuevo la carga.
  *
  * ⚠️ El servicio debe ser uno de los objetos de src/services (son fijos):
  * si se creara uno nuevo en cada render, el listado se pediría sin parar.
@@ -52,6 +55,9 @@ export function useRecurso(servicio) {
       setError(e.message);
     }
   }, [servicio]);
+
+  // Tiempo real: otro usuario (u otra pantalla) cambió datos
+  useAlCambiar(recargar);
 
   /** Ejecuta una operación del servicio y luego recarga el listado. */
   const ejecutar = async (operacion) => {

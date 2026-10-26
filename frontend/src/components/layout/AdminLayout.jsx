@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import FormModal from '../base/FormModal';
 import { tiposDocumento } from '../../constantes';
@@ -84,7 +84,10 @@ export default function AdminLayout() {
         />
         {/* `key` fuerza la animación en cada cambio de módulo */}
         <main key={pathname} className="ml-vista flex-1 p-4 sm:p-6">
-          <Outlet />
+          {/* La pantalla se descarga al abrirla: mientras tanto el menú sigue en su sitio */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useAlCambiar } from '../hooks/useAlCambiar';
 import { portalService } from '../services';
 
 const PortalContext = createContext(null);
@@ -50,6 +51,9 @@ export function PortalProvider({ children }) {
       setError(e.message);
     }
   }, []);
+
+  // Tiempo real: el asesor cambió algo (precio, pago, crédito…)
+  useAlCambiar(recargar);
 
   const valor = useMemo(() => ({ ...datos, cargando, error, recargar }), [datos, cargando, error, recargar]);
 

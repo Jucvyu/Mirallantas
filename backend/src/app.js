@@ -1,3 +1,4 @@
+import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
@@ -6,6 +7,8 @@ import { config } from './config.js';
 import { query } from './db.js';
 import { HttpError, manejadorErrores } from './errores.js';
 import { limpiarImagenes } from './utils/limpiezaImagenes.js';
+import { avisarCambio, debeAvisar, recursoDe, suscribir } from './utils/tiempoReal.js';
+import { autenticar } from './middleware/auth.js';
 // Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
 // llaman a los controladores (src/controllers), que usan los modelos
 // (src/models) para hablar con la base y las vistas (src/views) para
@@ -67,7 +70,8 @@ export function crearApp() {
       '/api',
       rateLimit({
         windowMs: 60 * 1000,
-        limit: 300,
+        // Con la actualización en tiempo real cada cambio dispara unas pocas recargas
+        limit: 600,
         standardHeaders: 'draft-8',
         legacyHeaders: false,
         message: { error: 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.' },
@@ -78,6 +82,14 @@ export function crearApp() {
   // Las fotos y los comprobantes viajan dentro del JSON como imágenes en
   // texto (data URL), por eso el límite es mayor que el de 100 KB por defecto
   // (un reencauche lleva hasta 3 fotos de 3 MB, ~4 MB cada una en base64)
+  // Respuestas comprimidas (gzip): los listados viajan mucho más livianos.
+  // El canal de tiempo real no se comprime: así cada aviso llega al instante.
+  app.use(
+    compression({
+      filter: (req, res) => req.path !== '/api/eventos' && compression.filter(req, res),
+    }),
+  );
+
   app.use(express.json({ limit: '20mb' }));
 
   // Las respuestas tienen datos privados: el navegador no debe guardarlas
@@ -88,14 +100,19 @@ export function crearApp() {
 
   // Después de un cambio que salió bien, borra de Cloudinary las imágenes
   // que quedaron sin usar (en segundo plano, no demora la respuesta)
+  // y avisa a las pantallas abiertas para que se actualicen solas
   app.use((req, res, next) => {
     if (req.method !== 'GET') {
       res.on('finish', () => {
         if (res.statusCode < 400) limpiarImagenes();
+        if (debeAvisar(req, res)) avisarCambio(recursoDe(req.originalUrl));
       });
     }
     next();
   });
+
+  // Tiempo real: cada pantalla abierta escucha aquí los avisos de cambios
+  app.get('/api/eventos', autenticar, suscribir);
 
   // Salud: la usa el proveedor de hosting para saber si la API responde
   app.get('/api/salud', async (req, res) => {

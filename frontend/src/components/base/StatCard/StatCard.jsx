@@ -1,4 +1,4 @@
-import * as Icons from 'lucide-react';
+import { ICONOS } from '../iconosPorNombre';
 import LiquidGlass from '../LiquidGlass';
 
 const ACCENTS = {
@@ -10,8 +10,8 @@ const ACCENTS = {
 };
 
 export default function StatCard({ label, value, sub, trend, trendUp, icon, accent = 'amber', indice }) {
-  const Icon = Icons[icon] ?? Icons.Circle;
-  const TrendIcon = trendUp ? Icons.TrendingUp : Icons.TrendingDown;
+  const Icon = ICONOS[icon] ?? ICONOS.Circle;
+  const TrendIcon = trendUp ? ICONOS.TrendingUp : ICONOS.TrendingDown;
 
   return (
     <LiquidGlass variante="industrial" inclinacion={3} indice={indice} className="h-full p-5">

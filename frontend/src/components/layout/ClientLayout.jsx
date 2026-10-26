@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import AvisoError from '../base/AvisoError';
 import FormModal from '../base/FormModal';
@@ -102,7 +102,10 @@ function ContenidoPortal() {
       />
       <main className="ml-vista mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <AvisoError mensaje={error} className="mb-5" />
-        <Outlet />
+        {/* La pantalla se descarga al abrirla: mientras tanto el menú sigue en su sitio */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
       </main>
       <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-400 dark:border-white/10 dark:text-slate-500">
         © {new Date().getFullYear()} MiraLlantas ERP · Portal de cliente

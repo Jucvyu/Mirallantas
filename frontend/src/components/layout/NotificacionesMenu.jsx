@@ -3,6 +3,7 @@ import { Bell, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { notificacionesService } from '../../services';
 import { fechaISO } from '../../utils/formato';
+import { useAlCambiar } from '../../hooks/useAlCambiar';
 
 /** Cada cuánto se revisa si llegaron avisos nuevos. */
 const CADA_MS = 60_000;
@@ -37,6 +38,9 @@ function cuandoFue(fecha) {
 export default function NotificacionesMenu({ servicio = notificacionesService, onNuevas }) {
   const [abierto, setAbierto] = useState(false);
   const [datos, setDatos] = useState({ notificaciones: [], sinLeer: 0 });
+  // Sube cuando la API avisa un cambio (tiempo real): se revisa enseguida
+  const [aviso, setAviso] = useState(0);
+  useAlCambiar(() => setAviso((n) => n + 1));
   const contenedor = useRef(null);
   // Avisos sin leer en la revisión anterior (null = todavía no se ha revisado)
   const sinLeerAntes = useRef(null);
@@ -68,7 +72,7 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
       vigente = false;
       clearInterval(id);
     };
-  }, [servicio]);
+  }, [servicio, aviso]);
 
   // Se cierra al hacer click fuera o con Escape
   useEffect(() => {

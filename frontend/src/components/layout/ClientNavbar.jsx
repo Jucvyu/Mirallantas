@@ -8,6 +8,8 @@ import { permisoDeRuta, primerModuloAdmin } from '../../permisos';
 import ThemeToggle from '../base/ThemeToggle';
 import PerfilMenu from './PerfilMenu';
 import NotificacionesMenu from './NotificacionesMenu';
+import { useAvisosPorModulo } from '../../hooks/useAvisosPorModulo';
+import { notificacionesService } from '../../services';
 
 const LINKS = [
   { to: '/portal', label: 'Inicio', end: true },
@@ -23,7 +25,22 @@ const linkClass = ({ isActive }) =>
       : 'border border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
   }`;
 
+/** Burbuja de avisos sin leer de una sección (como en WhatsApp); sin avisos no aparece. */
+function Burbuja({ n }) {
+  if (!n) return null;
+  return (
+    <span
+      className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 align-middle text-[10px] font-bold leading-none text-white"
+      aria-label={`${n} avisos nuevos`}
+    >
+      {n > 9 ? '9+' : n}
+    </span>
+  );
+}
+
 export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
+  // Avisos sin leer de cada sección del portal
+  const avisosPorRuta = useAvisosPorModulo(notificacionesService);
   const [open, setOpen] = useState(false);
   // cerrarSesion invalida el token en la API y lleva a la página de inicio
   const { usuario, cerrarSesion, tienePermiso } = useAuth();
@@ -52,6 +69,7 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
           {links.map(({ to, label, end }) => (
             <NavLink key={to} to={to} end={end} className={linkClass}>
               {label}
+              <Burbuja n={avisosPorRuta[to]} />
             </NavLink>
           ))}
         </nav>
@@ -106,6 +124,7 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
                   className={(state) => `${linkClass(state)} block`}
                 >
                   {label}
+                  <Burbuja n={avisosPorRuta[to]} />
                 </NavLink>
               </li>
             ))}

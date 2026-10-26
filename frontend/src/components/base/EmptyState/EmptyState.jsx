@@ -1,7 +1,7 @@
-import * as Icons from 'lucide-react';
+import { ICONOS } from '../iconosPorNombre';
 
 export default function EmptyState({ icon = 'Inbox', title, description }) {
-  const Icon = Icons[icon] ?? Icons.Inbox;
+  const Icon = ICONOS[icon] ?? ICONOS.Inbox;
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
       <Icon size={30} strokeWidth={1.5} className="text-slate-300 dark:text-slate-600" />

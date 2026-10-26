@@ -30,6 +30,22 @@ export async function listar(clienteId) {
   return { notificaciones: rows, sinLeer: sinLeer[0].n };
 }
 
+/** Avisos sin leer de cada sección del portal, por la ruta a la que llevan: { '/portal/pedidos': 2, … }. */
+export async function porRuta(clienteId) {
+  const { rows } = await query(
+    `SELECT enlace AS ruta, COUNT(*)::int AS n FROM notificacion
+      WHERE cliente_id = $1 AND NOT leida AND enlace IS NOT NULL
+      GROUP BY enlace`,
+    [clienteId],
+  );
+  return Object.fromEntries(rows.map((r) => [r.ruta, r.n]));
+}
+
+/** El cliente entró a una sección: sus avisos quedan leídos. */
+export async function marcarRutaLeida(clienteId, ruta) {
+  await query('UPDATE notificacion SET leida = TRUE WHERE cliente_id = $1 AND enlace = $2 AND NOT leida', [clienteId, ruta]);
+}
+
 /** Marca como leídas todas las del cliente. */
 export async function marcarLeidas(clienteId) {
   await query('UPDATE notificacion SET leida = TRUE WHERE cliente_id = $1 AND NOT leida', [clienteId]);

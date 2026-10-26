@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import * as cotizaciones from '../controllers/cotizaciones.controller.js';
 import * as controlador from '../controllers/portal.controller.js';
 import { autenticar } from '../middleware/auth.js';
@@ -19,6 +20,8 @@ import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator
  *   GET  /ventas/:numero/pdf       comprobante de una venta propia en PDF
  *   GET  /notificaciones           avisos del asesor y cuántos faltan por leer
  *   POST /notificaciones/leidas    marcarlos como leídos
+ *   GET  /notificaciones/por-modulo  avisos sin leer por sección (burbujas del menú)
+ *   POST /notificaciones/vista     el cliente entró a una sección ({ ruta })
  */
 export const rutasPortal = Router();
 rutasPortal.use(autenticar);
@@ -32,3 +35,9 @@ rutasPortal.post('/cotizaciones/:numero/pago', validar(esquemaPagoCliente), coti
 rutasPortal.post('/cotizaciones/:numero/cuota', validar(esquemaPagoCliente), cotizaciones.pagarCuota);
 rutasPortal.get('/notificaciones', controlador.listarNotificaciones);
 rutasPortal.post('/notificaciones/leidas', controlador.marcarLeidas);
+rutasPortal.get('/notificaciones/por-modulo', controlador.notificacionesPorModulo);
+rutasPortal.post(
+  '/notificaciones/vista',
+  validar(z.object({ ruta: z.string().trim().regex(/^\/portal\/[a-z-]{1,40}$/, 'Ruta no válida.') })),
+  controlador.marcarSeccionVista,
+);

@@ -57,6 +57,17 @@ export const notificacionesService = {
     return datos;
   },
 
+  /** Avisos sin leer por sección del portal (burbujas del menú): { '/portal/pedidos': 2, … }. */
+  async porModulo() {
+    const { datos } = await api('/portal/notificaciones/por-modulo');
+    return datos;
+  },
+
+  /** El cliente entró a una sección: sus avisos quedan leídos. */
+  marcarVista(ruta) {
+    return api('/portal/notificaciones/vista', { metodo: 'POST', cuerpo: { ruta } });
+  },
+
   /** Marca todas como leídas (al abrir la campana). */
   marcarLeidas() {
     return api('/portal/notificaciones/leidas', { metodo: 'POST' });

@@ -79,6 +79,7 @@ function fallbackSections(columns) {
  *   formSections: esquema del formulario de crear/editar/ver (ver FormModal)
  *   entityName: nombre en singular, para los títulos ("usuario")
  *   statusKey / statusOptions / statusVariant ('select' | 'switch') / statusFlow
+ *   (statusFlow también acepta (row) => flujo, si cada fila permite otros cambios)
  *   filters: [{ key, label, options? }] filtros de la barra superior
  *   createModal: ({ onSubmit, onClose }) => nodo, formulario de "Nuevo" a medida
  *   editModal:   ({ row, onSubmit, onClose }) => nodo, formulario de "Editar" a medida
@@ -230,7 +231,7 @@ export default function DataTable({
       return <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />;
     }
     if (col.key === statusKey) {
-      return <StatusSelect value={row[col.key]} options={statusOptions} flow={statusFlow} onChange={alCambiarEstado} />;
+      return <StatusSelect value={row[col.key]} options={statusOptions} flow={typeof statusFlow === 'function' ? statusFlow(row) : statusFlow} onChange={alCambiarEstado} />;
     }
     if (col.render) return col.render(row, { update: updateDe(row) });
     return row[col.key];

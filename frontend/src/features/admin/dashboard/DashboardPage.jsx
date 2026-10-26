@@ -10,6 +10,7 @@ import Skeleton, { SkeletonLineas } from '../../../components/base/Skeleton';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { dashboardService } from '../../../services';
+import { useAlCambiar } from '../../../hooks/useAlCambiar';
 import { formatCOP } from '../../../utils/formato';
 
 /** Colores de las marcas en la dona, en orden de participación. */
@@ -55,6 +56,14 @@ export default function DashboardPage() {
       vigente = false;
     };
   }, []);
+
+  // Tiempo real: los indicadores se actualizan solos, sin mostrar la carga
+  useAlCambiar(() =>
+    dashboardService
+      .obtener()
+      .then(setDatos)
+      .catch(() => {}),
+  );
 
   /** Botón "Actualizar": vuelve a pedir los indicadores. */
   const cargar = useCallback(async () => {

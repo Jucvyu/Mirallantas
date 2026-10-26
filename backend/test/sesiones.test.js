@@ -32,7 +32,7 @@ describe('Una cuenta, un dispositivo', () => {
 });
 
 describe('Cancelar una cotización', () => {
-  test('exige el motivo y queda Rechazada sin borrarse', async () => {
+  test('sin aceptar por el cliente: solo se cancela, con motivo, y no se borra', async () => {
     const admin = await e.iniciarSesion('admin@mirallantas.com');
     const luis = await e.iniciarSesion('lfmora@yahoo.com');
     const creada = await e.api('/cotizaciones', {
@@ -42,15 +42,13 @@ describe('Cancelar una cotización', () => {
     });
     assert.equal(creada.estado, 201, JSON.stringify(creada.cuerpo));
     const numero = creada.cuerpo.datos.numero;
+    const cambiar = (cuerpo) => e.api(`/cotizaciones/${numero}`, { metodo: 'PATCH', token: admin, cuerpo });
 
-    const sinMotivo = await e.api(`/cotizaciones/${numero}`, { metodo: 'PATCH', token: admin, cuerpo: { estado: 'Rechazada' } });
-    assert.equal(sinMotivo.estado, 422);
-
-    const cancelada = await e.api(`/cotizaciones/${numero}`, {
-      metodo: 'PATCH',
-      token: admin,
-      cuerpo: { estado: 'Rechazada', motivoCancelacion: 'El cliente ya no la necesita' },
-    });
+    // No avanza antes de que el cliente la acepte
+    assert.equal((await cambiar({ estado: 'Aprobada' })).estado, 422);
+    // Cancelarla sí, pero con su motivo
+    assert.equal((await cambiar({ estado: 'Rechazada' })).estado, 422);
+    const cancelada = await cambiar({ estado: 'Rechazada', motivoCancelacion: 'El cliente ya no la necesita' });
     assert.equal(cancelada.estado, 200, JSON.stringify(cancelada.cuerpo));
 
     const despues = await e.api(`/cotizaciones/${numero}`, { token: admin });

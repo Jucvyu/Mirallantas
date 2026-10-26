@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import RutaProtegida, { ConPermiso } from './components/base/RutaProtegida';
 import { AuthProvider } from './context/AuthContext';
@@ -8,30 +9,31 @@ import LoginPage from './features/auth/LoginPage';
 import CuentaInactivaPage from './features/auth/CuentaInactivaPage';
 import AccesoDenegadoPage from './features/auth/AccesoDenegadoPage';
 
-import AdminLayout from './components/layout/AdminLayout';
-import DashboardPage from './features/admin/dashboard/DashboardPage';
-import RolesPage from './features/admin/roles/RolesPage';
-import UsuariosPage from './features/admin/usuarios/UsuariosPage';
-import ClientesPage from './features/admin/clientes/ClientesPage';
-import ProveedoresPage from './features/admin/proveedores/ProveedoresPage';
-import TercerosPage from './features/admin/terceros/TercerosPage';
-import ProductosPage from './features/admin/generic/ProductosPage';
-import CategoriasPage from './features/admin/generic/CategoriasPage';
-import MarcasPage from './features/admin/generic/MarcasPage';
-import PedidosCotizacionPage from './features/admin/generic/PedidosCotizacionPage';
-import VentasPage from './features/admin/generic/VentasPage';
-import ComprasPage from './features/admin/generic/ComprasPage';
-import SolicitudesServicioPage from './features/admin/generic/SolicitudesServicioPage';
-import CreditosPage from './features/admin/generic/CreditosPage';
-import SolicitudesCreditoPage from './features/admin/generic/SolicitudesCreditoPage';
-import AbonosPage from './features/admin/generic/AbonosPage';
-
-import ClientLayout from './components/layout/ClientLayout';
-import ClientHomePage from './features/portal/ClientHomePage';
-import CatalogoPage from './features/portal/CatalogoPage';
-import CatalogoPublicoPage from './features/landing/CatalogoPublicoPage';
-import ClientPedidosPage from './features/portal/ClientPedidosPage';
-import CarteraPage from './features/portal/CarteraPage';
+// Cada pantalla del panel y del portal se descarga al abrirla por primera
+// vez (así la página de inicio y el login cargan mucho más rápido).
+const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
+const DashboardPage = lazy(() => import('./features/admin/dashboard/DashboardPage'));
+const RolesPage = lazy(() => import('./features/admin/roles/RolesPage'));
+const UsuariosPage = lazy(() => import('./features/admin/usuarios/UsuariosPage'));
+const ClientesPage = lazy(() => import('./features/admin/clientes/ClientesPage'));
+const ProveedoresPage = lazy(() => import('./features/admin/proveedores/ProveedoresPage'));
+const TercerosPage = lazy(() => import('./features/admin/terceros/TercerosPage'));
+const ProductosPage = lazy(() => import('./features/admin/generic/ProductosPage'));
+const CategoriasPage = lazy(() => import('./features/admin/generic/CategoriasPage'));
+const MarcasPage = lazy(() => import('./features/admin/generic/MarcasPage'));
+const PedidosCotizacionPage = lazy(() => import('./features/admin/generic/PedidosCotizacionPage'));
+const VentasPage = lazy(() => import('./features/admin/generic/VentasPage'));
+const ComprasPage = lazy(() => import('./features/admin/generic/ComprasPage'));
+const SolicitudesServicioPage = lazy(() => import('./features/admin/generic/SolicitudesServicioPage'));
+const CreditosPage = lazy(() => import('./features/admin/generic/CreditosPage'));
+const SolicitudesCreditoPage = lazy(() => import('./features/admin/generic/SolicitudesCreditoPage'));
+const AbonosPage = lazy(() => import('./features/admin/generic/AbonosPage'));
+const ClientLayout = lazy(() => import('./components/layout/ClientLayout'));
+const ClientHomePage = lazy(() => import('./features/portal/ClientHomePage'));
+const CatalogoPage = lazy(() => import('./features/portal/CatalogoPage'));
+const CatalogoPublicoPage = lazy(() => import('./features/landing/CatalogoPublicoPage'));
+const ClientPedidosPage = lazy(() => import('./features/portal/ClientPedidosPage'));
+const CarteraPage = lazy(() => import('./features/portal/CarteraPage'));
 
 /**
  * Páginas del panel con el permiso que exige cada una. El nombre del
@@ -60,6 +62,7 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -104,6 +107,7 @@ export default function App() {
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
             </Route>
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
