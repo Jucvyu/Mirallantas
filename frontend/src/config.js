@@ -38,6 +38,13 @@ export const CORREO_EMPRESA = 'contabilidadmirallantas@gmail.com';
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 /**
+ * Captcha del inicio de sesión (Cloudflare Turnstile): la clave de sitio es
+ * pública; la secreta va en TURNSTILE_SECRET_KEY de la API. Sin ella el
+ * captcha no aparece.
+ */
+export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY ?? '';
+
+/**
  * Cuenta de la empresa para pagos por transferencia (datos públicos: se
  * muestran al cliente al elegir "Transferencia"). Si falta el número, el
  * recuadro no aparece.

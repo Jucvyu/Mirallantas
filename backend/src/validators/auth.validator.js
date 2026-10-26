@@ -15,13 +15,18 @@ import {
 
 /** POST /auth/login */
 /** POST /auth/google — el token que Google le entregó al navegador. */
+/** Token del captcha (Cloudflare Turnstile) que resolvió el navegador. */
+const captcha = z.string().max(2048).optional();
+
 export const esquemaGoogle = z.object({
   credencial: z.string({ error: 'Falta la respuesta de Google.' }).min(20).max(4096),
+  captcha,
 });
 
 export const esquemaLogin = z.object({
   correo: z.string().trim().toLowerCase().min(1, 'Escribe tu correo.').max(150),
   password: z.string().min(1, 'Escribe tu contraseña.').max(72),
+  captcha,
 });
 
 /** Contraseña actual, para confirmar acciones sensibles. */

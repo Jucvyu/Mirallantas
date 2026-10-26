@@ -14,6 +14,7 @@ import * as eventos from '../models/eventos.model.js';
 import * as rolesModel from '../models/roles.model.js';
 import * as usuariosModel from '../models/usuarios.model.js';
 import { aPares } from '../models/listado.model.js';
+import { exigirCaptcha } from '../utils/captcha.js';
 import { cifrar, descifrar } from '../utils/cifrado.js';
 import { cifrarPassword, compararPassword, HASH_RELLENO } from '../utils/contrasenas.js';
 import { correoDeGoogle, googleDisponible } from '../utils/google.js';
@@ -83,7 +84,9 @@ async function completarInicio(req, res, usuario) {
 
 /** POST /auth/login */
 export async function iniciarSesion(req, res) {
-  const { correo, password } = req.validado.body;
+  const { correo, password, captcha } = req.validado.body;
+  // Primero el captcha: sin superarlo ni siquiera se revisa la contraseña
+  await exigirCaptcha(captcha, req.ip);
   const usuario = await usuariosModel.buscarCuenta({ correo });
   exigirNoBloqueado(usuario);
 
@@ -113,6 +116,7 @@ export async function iniciarSesion(req, res) {
  */
 export async function iniciarConGoogle(req, res) {
   if (!googleDisponible()) throw new HttpError(503, 'El inicio de sesión con Google no está disponible.');
+  await exigirCaptcha(req.validado.body.captcha, req.ip);
   const correo = await correoDeGoogle(req.validado.body.credencial);
   const usuario = await usuariosModel.buscarCuenta({ correo });
   if (!usuario) {

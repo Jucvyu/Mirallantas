@@ -27,7 +27,7 @@ const puertoLibre = () =>
     });
   });
 
-export async function levantarEntorno() {
+export async function levantarEntorno({ variables = {} } = {}) {
   const carpeta = await mkdtemp(path.join(os.tmpdir(), 'mirallantas-test-'));
   const puertoDb = await puertoLibre();
   const clave = randomBytes(12).toString('hex');
@@ -59,6 +59,8 @@ export async function levantarEntorno() {
   process.env.JWT_SECRET = randomBytes(48).toString('base64url');
   process.env.CLAVE_CIFRADO = randomBytes(48).toString('base64url');
   delete process.env.CLOUDINARY_URL;
+  delete process.env.TURNSTILE_SECRET_KEY;
+  Object.assign(process.env, variables);
   const { crearApp } = await import('../src/app.js');
   const { pool } = await import('../src/db.js');
 

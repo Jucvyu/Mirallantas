@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Clock, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AvisoError from '../../components/base/AvisoError';
@@ -7,12 +7,14 @@ import Logo from '../../components/base/Logo';
 import FormModal from '../../components/base/FormModal';
 import { BORDER_ERR, BORDER_OK, INPUT } from '../../components/base/formStyles';
 import TruckTire from '../../components/base/TruckTire';
+import { TURNSTILE_SITE_KEY } from '../../config';
 import { tiposDocumento } from '../../constantes';
 import { useAuth } from '../../context/AuthContext';
 import { pantallaInicial, puedeAbrir } from '../../permisos';
 import { CODIGO_CUENTA_INACTIVA } from '../../services';
 import { useValidacion } from '../../hooks/useValidacion';
 import BotonGoogle from './BotonGoogle';
+import Captcha from './Captcha';
 import { CampoCodigo } from './DosFactores';
 import { AYUDA_PASSWORD, errorPassword } from './reglasClave';
 import RecuperarPasswordModal from './RecuperarPasswordModal';
@@ -79,6 +81,10 @@ export default function LoginPage() {
   // Error que devuelve la API (credenciales incorrectas, sin conexión…)
   const [errorApi, setErrorApi] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Token del captcha: sin él no se puede iniciar sesión (ni con Google)
+  const [captcha, setCaptcha] = useState('');
+  const captchaRef = useRef(null);
+  const faltaCaptcha = Boolean(TURNSTILE_SITE_KEY) && !captcha;
   // Segundo paso: la cuenta tiene verificación en dos pasos
   const [desafio, setDesafio] = useState(null);
   const [codigo, setCodigo] = useState('');
@@ -112,6 +118,10 @@ export default function LoginPage() {
    * pide el código del doble factor o muestra el error.
    */
   const iniciar = async (pedirInicio) => {
+    if (faltaCaptcha) {
+      setErrorApi('Completa la verificación de seguridad (captcha) para continuar.');
+      return;
+    }
     setEnviando(true);
     setErrorApi('');
     try {
@@ -132,19 +142,21 @@ export default function LoginPage() {
       setErrorApi(error.message);
     } finally {
       setEnviando(false);
+      // El token del captcha sirve una sola vez: se pide otro para el siguiente intento
+      captchaRef.current?.reiniciar();
     }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validar() || enviando) return;
-    iniciar(() => iniciarSesion(correo.trim().toLowerCase(), password));
+    iniciar(() => iniciarSesion(correo.trim().toLowerCase(), password, captcha));
   };
 
   /** Google devolvió la cuenta elegida: la API la verifica. */
   const entrarConGoogle = (credencial) => {
     if (enviando) return;
-    iniciar(() => iniciarConGoogle(credencial));
+    iniciar(() => iniciarConGoogle(credencial, captcha));
   };
 
   /** Segundo paso: envía el código de 6 dígitos de la app autenticadora. */
@@ -309,6 +321,9 @@ export default function LoginPage() {
                   )}
                 </div>
 
+                {/* Verificación de seguridad: obligatoria para entrar */}
+                <Captcha ref={captchaRef} onToken={setCaptcha} />
+
                 <button
                   type="submit"
                   disabled={enviando}
@@ -319,7 +334,10 @@ export default function LoginPage() {
               </form>
 
               {/* Solo entra quien ya tiene cuenta con ese correo de Google */}
-              <BotonGoogle onCredencial={entrarConGoogle} deshabilitado={enviando} />
+              <BotonGoogle onCredencial={entrarConGoogle} deshabilitado={enviando || faltaCaptcha} />
+              {faltaCaptcha && (
+                <p className="mt-1.5 text-center text-[11px] text-slate-400">Completa la verificación de seguridad para continuar con Google.</p>
+              )}
 
               {/* ---- Acciones secundarias ---- */}
               <div className="mt-2 flex items-center justify-between gap-3 text-xs">

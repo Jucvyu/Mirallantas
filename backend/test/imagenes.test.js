@@ -64,4 +64,22 @@ describe('Imágenes que quedan sin usar', () => {
     await e.db.query('ROLLBACK');
     assert.ok(!(await porBorrar()).includes(URL('revertida')));
   });
+
+  test('la foto de perfil anterior se anota al cambiarla o quitarla desde "Mi perfil"', async () => {
+    const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const token = await e.iniciarSesion('maria@gmail.com');
+    const { id } = (await e.db.query("SELECT id FROM usuario WHERE correo = 'maria@gmail.com'")).rows[0];
+
+    // Cambia la foto por una nueva
+    await e.db.query('UPDATE usuario SET foto_url = $1 WHERE id = $2', [URL('perfil-vieja'), id]);
+    const cambio = await e.api('/auth/yo', { metodo: 'PUT', token, cuerpo: { foto: PNG } });
+    assert.equal(cambio.estado, 200, JSON.stringify(cambio.cuerpo));
+    assert.ok((await porBorrar()).includes(URL('perfil-vieja')));
+
+    // La quita
+    await e.db.query('UPDATE usuario SET foto_url = $1 WHERE id = $2', [URL('perfil-quitada'), id]);
+    const quitar = await e.api('/auth/yo', { metodo: 'PUT', token, cuerpo: { foto: null } });
+    assert.equal(quitar.estado, 200, JSON.stringify(quitar.cuerpo));
+    assert.ok((await porBorrar()).includes(URL('perfil-quitada')));
+  });
 });

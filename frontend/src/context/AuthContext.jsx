@@ -42,8 +42,8 @@ const anotarActividad = () => {
  * Expone:
  *   usuario            datos del usuario en sesión, o null
  *   cargando           true mientras se valida la sesión guardada
- *   iniciarSesion      (correo, password) → { usuario } | { requiere2fa, desafio }
- *   iniciarConGoogle   (credencial de Google) → igual que iniciarSesion
+ *   iniciarSesion      (correo, password, captcha) → { usuario } | { requiere2fa, desafio }
+ *   iniciarConGoogle   (credencial de Google, captcha) → igual que iniciarSesion
  *   verificarCodigo    (desafio, codigo) → usuario
  *   registrarse        (valores del formulario) → usuario (cuenta de cliente)
  *   cerrarSesion       (motivo?)
@@ -121,14 +121,14 @@ export function AuthProvider({ children }) {
     };
   }, [usuario, cerrarSesion]);
 
-  const iniciarSesion = useCallback(async (correo, password) => {
-    const resultado = await authService.iniciarSesion(correo, password);
+  const iniciarSesion = useCallback(async (correo, password, captcha) => {
+    const resultado = await authService.iniciarSesion(correo, password, captcha);
     if (resultado.usuario) setUsuario(resultado.usuario);
     return resultado;
   }, []);
 
-  const iniciarConGoogle = useCallback(async (credencial) => {
-    const resultado = await authService.iniciarConGoogle(credencial);
+  const iniciarConGoogle = useCallback(async (credencial, captcha) => {
+    const resultado = await authService.iniciarConGoogle(credencial, captcha);
     if (resultado.usuario) setUsuario(resultado.usuario);
     return resultado;
   }, []);

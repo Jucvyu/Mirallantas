@@ -25,16 +25,16 @@ export const authService = {
    *   { usuario }                    si ya quedó la sesión iniciada, o
    *   { requiere2fa: true, desafio } si la cuenta pide el código de 6 dígitos.
    */
-  async iniciarSesion(correo, password) {
-    const respuesta = await api('/auth/login', { metodo: 'POST', cuerpo: { correo, password } });
+  async iniciarSesion(correo, password, captcha) {
+    const respuesta = await api('/auth/login', { metodo: 'POST', cuerpo: { correo, password, captcha } });
     if (respuesta.requiere2fa) return { requiere2fa: true, desafio: respuesta.desafio };
     guardarToken(respuesta.token);
     return { usuario: respuesta.usuario };
   },
 
   /** Igual que iniciarSesion, con el token que entregó Google. */
-  async iniciarConGoogle(credencial) {
-    const respuesta = await api('/auth/google', { metodo: 'POST', cuerpo: { credencial } });
+  async iniciarConGoogle(credencial, captcha) {
+    const respuesta = await api('/auth/google', { metodo: 'POST', cuerpo: { credencial, captcha } });
     if (respuesta.requiere2fa) return { requiere2fa: true, desafio: respuesta.desafio };
     guardarToken(respuesta.token);
     return { usuario: respuesta.usuario };

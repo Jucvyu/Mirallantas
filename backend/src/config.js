@@ -34,6 +34,13 @@ if (esProduccion && !cloudinaryUrl) {
   throw new Error('Falta CLOUDINARY_URL: en producción las imágenes se guardan en Cloudinary.');
 }
 
+// Captcha del inicio de sesión (Cloudflare Turnstile). En producción es
+// obligatorio: sin él cualquiera podría probar contraseñas con un programa.
+const turnstileSecret = process.env.TURNSTILE_SECRET_KEY ?? '';
+if (esProduccion && !turnstileSecret) {
+  throw new Error('Falta TURNSTILE_SECRET_KEY: en producción el inicio de sesión exige el captcha.');
+}
+
 // Correo saliente con Brevo (https://brevo.com): por ahora solo envía el
 // código para recuperar la contraseña. En producción es obligatorio; en
 // desarrollo, sin clave, el código se muestra en la consola de la API.
@@ -74,6 +81,7 @@ export const config = Object.freeze({
   // Por ahora es opcional (false): cada quien lo activa desde su perfil.
   exigir2faAdmin: process.env.EXIGIR_2FA_ADMIN === 'true',
   cloudinaryUrl,
+  turnstileSecret,
   correo,
   // "Iniciar sesión con Google": ID de cliente OAuth (opcional; sin él el botón no aparece)
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
