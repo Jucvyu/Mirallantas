@@ -12,6 +12,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { dashboardService } from '../../../services';
 import { useAlCambiar } from '../../../hooks/useAlCambiar';
 import { formatCOP } from '../../../utils/formato';
+import ExportarModal from '../../../components/base/ExportarModal';
 
 /** Colores de las marcas en la dona, en orden de participación. */
 const COLORES_MARCA = ['#FBBF24', '#3B82F6', '#22C55E', '#A78BFA', '#EF4444', '#06B6D4'];
@@ -77,6 +78,36 @@ export default function DashboardPage() {
       setCargando(false);
     }
   }, []);
+
+  // Modal de "Reporte" (PDF, Excel o CSV con los datos del dashboard)
+  const [exportando, setExportando] = useState(false);
+
+  /** Lo que muestra el dashboard, en tablas para el reporte. */
+  const datosReporte = () => ({
+    nombre: `Reporte-dashboard-${mesActual}`,
+    secciones: [
+      {
+        titulo: 'Indicadores del mes',
+        columnas: ['Indicador', 'Valor', 'Detalle', 'Variación'],
+        filas: indicadores.map((k) => [k.label, k.value, k.sub, k.trend ?? '']),
+      },
+      {
+        titulo: 'Reencauches por mes',
+        columnas: ['Mes', 'Reencauches'],
+        filas: (datos?.reencauchesPorMes ?? []).map((m) => [nombreMes(m.mes), m.reencauches]),
+      },
+      {
+        titulo: 'Ventas por marca',
+        columnas: ['Marca', 'Participación (%)'],
+        filas: (datos?.ventasPorMarca ?? []).map((m) => [m.marca, m.porcentaje]),
+      },
+      {
+        titulo: 'Últimos pedidos',
+        columnas: ['Pedido', 'Cliente', 'Total', 'Estado'],
+        filas: (datos?.ultimosPedidos ?? []).map((p) => [p.numero, p.cliente, formatCOP(p.total), p.estado]),
+      },
+    ],
+  });
 
   const hoy = new Date();
   const mesActual = `${MESES[hoy.getMonth()]} ${hoy.getFullYear()}`;
@@ -266,7 +297,12 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="ml-pulsable inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
+          <button
+            type="button"
+            onClick={() => setExportando(true)}
+            disabled={!datos}
+            className="ml-pulsable inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
+          >
             <Download size={15} aria-hidden="true" /> Reporte
           </button>
           <button
@@ -289,6 +325,15 @@ export default function DashboardPage() {
           bloques={bloques}
         />
       </div>
+
+      {exportando && (
+        <ExportarModal
+          titulo="Reporte del dashboard"
+          resumen={`Indicadores, reencauches, ventas por marca y últimos pedidos · ${mesActual}`}
+          datos={datosReporte}
+          onClose={() => setExportando(false)}
+        />
+      )}
     </div>
   );
 }

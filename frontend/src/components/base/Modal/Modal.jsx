@@ -35,7 +35,8 @@ const TONES = {
  *
  * props:
  *   title, subtitle, icon (nodo lucide), tone ('default'|'danger'|'info'),
- *   size ('sm'|'md'|'lg'|'xl'), footer (nodo), onClose, children
+ *   size ('sm'|'md'|'lg'|'xl'), footer (nodo), onClose, children (nodo o
+ *   función que recibe el cierre animado, igual que footer)
  */
 export default function Modal({
   title,
@@ -160,7 +161,9 @@ export default function Modal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {typeof children === 'function' ? children(requestClose) : children}
+        </div>
 
         {footerNode && (
           <div className="flex items-center justify-end gap-2.5 border-t border-slate-200/80 bg-slate-50/70 px-6 py-4 dark:border-white/10 dark:bg-white/[0.03]">

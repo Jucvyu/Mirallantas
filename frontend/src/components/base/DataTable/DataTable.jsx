@@ -20,6 +20,8 @@ import ConfirmDialog from '../ConfirmDialog';
 import Skeleton, { SkeletonFilas } from '../Skeleton';
 import StatusSelect from '../StatusSelect';
 import StatusSwitch from '../StatusSwitch';
+import ExportarModal from '../ExportarModal';
+import { textoDeNodo } from '../../../utils/exportar';
 
 const PAGE_SIZE = 8;
 
@@ -48,6 +50,21 @@ function fallbackSections(columns) {
         .map((c) => ({ key: c.key, label: c.label, placeholder: c.label })),
     },
   ];
+}
+
+/**
+ * Texto de una celda para exportarla: el que muestra la columna (sin
+ * insignias ni botones) o, si pinta algo sin texto, el valor del registro.
+ * Una columna puede definir su propio `exportar: (row) => texto`.
+ */
+function textoParaExportar(row, col) {
+  if (col.exportar) return col.exportar(row);
+  if (col.render) {
+    const textoVisible = textoDeNodo(col.render(row, { update: () => {} }));
+    if (textoVisible) return textoVisible;
+  }
+  const valor = row[col.key];
+  return valor === null || valor === undefined ? '' : String(valor);
 }
 
 /**
@@ -288,7 +305,10 @@ export default function DataTable({
         {toolbar && (
           <div className="flex items-center gap-2">
             {exportable && (
-              <button className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
+              <button
+                type="button"
+                onClick={() => setDialog({ mode: 'exportar' })}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700">
                 <Download size={15} /> Exportar
               </button>
             )}
@@ -478,6 +498,25 @@ export default function DataTable({
           </div>
         </div>
       </div>
+
+      {dialog?.mode === 'exportar' && (
+        <ExportarModal
+          titulo={title ?? entityName}
+          resumen={`${filtered.length} ${filtered.length === 1 ? 'registro' : 'registros'}${
+            filtered.length !== rows.length ? ' (con la búsqueda y los filtros aplicados)' : ''
+          }`}
+          datos={() => ({
+            secciones: [
+              {
+                titulo: title ?? entityName,
+                columnas: columns.map((col) => col.label),
+                filas: filtered.map((row) => columns.map((col) => textoParaExportar(row, col))),
+              },
+            ],
+          })}
+          onClose={() => setDialog(null)}
+        />
+      )}
 
       {dialog?.mode === 'create' && createModal
         ? createModal({ onSubmit: onCreate, onClose: () => setDialog(null) })

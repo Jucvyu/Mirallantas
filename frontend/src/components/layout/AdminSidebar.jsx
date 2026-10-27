@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Banknote,
@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   LogOut,
   Package,
+  PanelLeft,
   Receipt,
   Shield,
   ShoppingBag,
@@ -84,8 +85,49 @@ const SECTIONS = [
  * - Solo muestra los módulos que el rol del usuario tiene permitidos; una
  *   sección sin ningún módulo permitido no aparece.
  */
+/** Preferencia del menú automático, guardada en este navegador. */
+const CLAVE_AUTOMATICO = 'mirallantas-menu-automatico';
+const leerAutomatico = () => {
+  try {
+    return localStorage.getItem(CLAVE_AUTOMATICO) === 'si';
+  } catch {
+    return false;
+  }
+};
+
+/** Al quitar el mouse, espera un instante antes de plegarse (evita parpadeos). */
+const ESPERA_PLEGAR_MS = 250;
+
 export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobile }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Plegado a mano (botón de la flecha), cuando el modo automático está apagado
+  const [plegadoManual, setPlegadoManual] = useState(false);
+  // Modo automático: se pliega al quitar el mouse y se despliega al pasarlo
+  const [automatico, setAutomatico] = useState(leerAutomatico);
+  const [encima, setEncima] = useState(false);
+  const temporizador = useRef(null);
+  // En el celular (cajón abierto) siempre se ve completo
+  const collapsed = automatico ? !encima && !mobileOpen : plegadoManual;
+
+  useEffect(() => () => clearTimeout(temporizador.current), []);
+
+  const alEntrar = () => {
+    clearTimeout(temporizador.current);
+    setEncima(true);
+  };
+  const alSalir = () => {
+    clearTimeout(temporizador.current);
+    temporizador.current = setTimeout(() => setEncima(false), ESPERA_PLEGAR_MS);
+  };
+
+  const alternarAutomatico = () => {
+    const nuevo = !automatico;
+    setAutomatico(nuevo);
+    try {
+      localStorage.setItem(CLAVE_AUTOMATICO, nuevo ? 'si' : 'no');
+    } catch {
+      // Sin almacenamiento: dura lo que dure la pestaña
+    }
+  };
   // Acordeón: por defecto todo desplegado; aquí solo se anotan las
   // secciones que el usuario decidió ocultar.
   const [cerradas, setCerradas] = useState({});
@@ -120,8 +162,15 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
         />
       )}
 
+      {/* En automático el menú flota: este espacio fijo evita que la página se mueva */}
+      {automatico && <div aria-hidden="true" className="hidden w-[76px] shrink-0 lg:block" />}
+
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+        onMouseEnter={automatico ? alEntrar : undefined}
+        onMouseLeave={automatico ? alSalir : undefined}
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:top-0 lg:translate-x-0 ${
+          automatico ? 'lg:fixed' : 'lg:sticky'
+        } ${automatico && !collapsed ? 'lg:shadow-2xl lg:shadow-black/40' : ''} ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-[76px]' : 'w-[220px]'}`}
       >
@@ -139,13 +188,15 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           )}
           {!collapsed && (
             <>
-              <button
-                onClick={() => setCollapsed(true)}
-                className="hidden text-slate-500 hover:text-slate-300 lg:block"
-                aria-label="Colapsar menú"
-              >
-                <ChevronLeft size={16} />
-              </button>
+              {!automatico && (
+                <button
+                  onClick={() => setPlegadoManual(true)}
+                  className="hidden text-slate-500 hover:text-slate-300 lg:block"
+                  aria-label="Colapsar menú"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              )}
               <button
                 onClick={onCloseMobile}
                 className="text-slate-500 hover:text-slate-300 lg:hidden"
@@ -157,9 +208,9 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           )}
         </div>
 
-        {collapsed && (
+        {collapsed && !automatico && (
           <button
-            onClick={() => setCollapsed(false)}
+            onClick={() => setPlegadoManual(false)}
             className="mx-auto mb-2 text-slate-500 hover:text-slate-300"
             aria-label="Expandir menú"
           >
@@ -267,6 +318,34 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
             );
           })}
         </nav>
+
+        <div className="hidden px-3 pb-2 lg:block">
+          <button
+            type="button"
+            onClick={alternarAutomatico}
+            aria-pressed={automatico}
+            title={collapsed ? `Menú automático: ${automatico ? 'activado' : 'desactivado'}` : undefined}
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors ${
+              automatico ? 'text-amber-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            } ${collapsed ? 'justify-center' : ''}`}
+          >
+            <PanelLeft size={16} className="shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 truncate text-left">Automático</span>
+                {/* Interruptor */}
+                <span
+                  aria-hidden="true"
+                  className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${automatico ? 'bg-amber-400' : 'bg-white/15'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-[left] ${automatico ? 'left-[14px]' : 'left-0.5'}`}
+                  />
+                </span>
+              </>
+            )}
+          </button>
+        </div>
 
         <div className="border-t border-white/5 p-3">
           <div className="flex items-center gap-2.5 rounded-lg px-1 py-1.5">
