@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import Logo from '../base/Logo';
+import Tooltip from '../base/Tooltip';
 import logoOficial from '../../assets/logo-mirallantas.png';
 import { useAuth } from '../../context/AuthContext';
 import { useAvisosPorModulo } from '../../hooks/useAvisosPorModulo';
@@ -162,15 +163,10 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
         />
       )}
 
-      {/* En automático el menú flota: este espacio fijo evita que la página se mueva */}
-      {automatico && <div aria-hidden="true" className="hidden w-[76px] shrink-0 lg:block" />}
-
       <aside
         onMouseEnter={automatico ? alEntrar : undefined}
         onMouseLeave={automatico ? alSalir : undefined}
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:top-0 lg:translate-x-0 ${
-          automatico ? 'lg:fixed' : 'lg:sticky'
-        } ${automatico && !collapsed ? 'lg:shadow-2xl lg:shadow-black/40' : ''} ${
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-[76px]' : 'w-[220px]'}`}
       >
@@ -188,6 +184,21 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           )}
           {!collapsed && (
             <>
+              <span className="ml-auto mr-1.5 hidden lg:inline-flex">
+                <Tooltip texto={automatico ? 'Menú automático: activado' : 'Menú automático: se oculta al quitar el mouse'}>
+                  <button
+                    type="button"
+                    onClick={alternarAutomatico}
+                    aria-pressed={automatico}
+                    aria-label="Menú automático"
+                    className={`rounded-md p-1 transition-colors ${
+                      automatico ? 'bg-amber-400/15 text-amber-400' : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <PanelLeft size={15} />
+                  </button>
+                </Tooltip>
+              </span>
               {!automatico && (
                 <button
                   onClick={() => setPlegadoManual(true)}
@@ -318,34 +329,6 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
             );
           })}
         </nav>
-
-        <div className="hidden px-3 pb-2 lg:block">
-          <button
-            type="button"
-            onClick={alternarAutomatico}
-            aria-pressed={automatico}
-            title={collapsed ? `Menú automático: ${automatico ? 'activado' : 'desactivado'}` : undefined}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors ${
-              automatico ? 'text-amber-400' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            } ${collapsed ? 'justify-center' : ''}`}
-          >
-            <PanelLeft size={16} className="shrink-0" />
-            {!collapsed && (
-              <>
-                <span className="flex-1 truncate text-left">Automático</span>
-                {/* Interruptor */}
-                <span
-                  aria-hidden="true"
-                  className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${automatico ? 'bg-amber-400' : 'bg-white/15'}`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-[left] ${automatico ? 'left-[14px]' : 'left-0.5'}`}
-                  />
-                </span>
-              </>
-            )}
-          </button>
-        </div>
 
         <div className="border-t border-white/5 p-3">
           <div className="flex items-center gap-2.5 rounded-lg px-1 py-1.5">

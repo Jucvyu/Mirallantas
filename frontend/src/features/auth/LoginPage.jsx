@@ -179,7 +179,12 @@ export default function LoginPage() {
 
   /** El registro crea la cuenta (servicio de sesión) y entra directamente al portal. */
   const crearCuenta = async (values) => {
-    entrar(await registrarse(values));
+    try {
+      entrar(await registrarse(values, captcha));
+    } finally {
+      // El token del captcha ya se usó: se pide otro
+      captchaRef.current?.reiniciar();
+    }
   };
 
   if (entrando) {
@@ -338,7 +343,9 @@ export default function LoginPage() {
               {/* Solo entra quien ya tiene cuenta con ese correo de Google */}
               <BotonGoogle onCredencial={entrarConGoogle} deshabilitado={enviando || faltaCaptcha} />
               {faltaCaptcha && (
-                <p className="mt-1.5 text-center text-[11px] text-slate-400">Completa la verificación de seguridad para continuar con Google.</p>
+                <p className="mt-1.5 text-center text-[11px] text-slate-400">
+                  Completa la verificación de seguridad para continuar con Google, recuperar tu contraseña o crear una cuenta.
+                </p>
               )}
 
               {/* ---- Acciones secundarias ---- */}
@@ -346,14 +353,16 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setDialogo('recuperar')}
-                  className="py-2 font-semibold text-slate-600 underline-offset-2 hover:text-amber-700 hover:underline dark:text-slate-400 dark:hover:text-amber-400"
+                  disabled={faltaCaptcha}
+                  className="py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline text-slate-600 underline-offset-2 hover:text-amber-700 hover:underline dark:text-slate-400 dark:hover:text-amber-400"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
                 <button
                   type="button"
                   onClick={() => setDialogo('registro')}
-                  className="py-2 font-semibold text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
+                  disabled={faltaCaptcha}
+                  className="py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
                 >
                   Crear una cuenta
                 </button>

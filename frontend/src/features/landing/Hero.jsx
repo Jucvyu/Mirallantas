@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { CircleDot, Headset, RefreshCw, Truck } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
-import { enlaceWhatsapp } from './contenido';
 import IlustracionCamion from './IlustracionCamion';
+import BotonSolicitarCotizacion from './BotonSolicitarCotizacion';
 
 /**
  * Fotografía del hero. Si existe /public/landing/hero-camion.jpg se usa esa
@@ -80,14 +80,9 @@ export default function Hero() {
             >
               Ver catálogo
             </a>
-            <a
-              href={enlaceWhatsapp()}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-pulsable inline-flex items-center rounded-full border border-brand-blue/30 bg-white/60 px-7 py-3 text-sm font-bold text-brand-blue backdrop-blur hover:border-brand-blue/60 hover:bg-white/80 dark:border-white/40 dark:bg-white/5 dark:text-white dark:hover:border-white/70 dark:hover:bg-white/10"
-            >
+            <BotonSolicitarCotizacion className="ml-pulsable inline-flex items-center rounded-full border border-brand-blue/30 bg-white/60 px-7 py-3 text-sm font-bold text-brand-blue backdrop-blur hover:border-brand-blue/60 hover:bg-white/80 dark:border-white/40 dark:bg-white/5 dark:text-white dark:hover:border-white/70 dark:hover:bg-white/10">
               Solicitar cotización
-            </a>
+            </BotonSolicitarCotizacion>
           </div>
         </div>
 

@@ -60,4 +60,32 @@ describe('Captcha del inicio de sesión', () => {
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.ok(r.cuerpo.token, 'entrega la sesión');
   });
+
+  test('crear una cuenta, pedir el código de recuperación y "Solicitar cotización" también lo exigen', async () => {
+    const cuenta = (captcha) =>
+      e.api('/auth/registro', {
+        metodo: 'POST',
+        cuerpo: {
+          nombre: 'Camila Rojas',
+          tipoDocumento: 'CC',
+          numeroDocumento: '1012345678',
+          telefono: '3115557788',
+          correo: 'camila.captcha@ejemplo.com',
+          password: 'ClaveSegura2026',
+          ...(captcha ? { captcha } : {}),
+        },
+      });
+    assert.equal((await cuenta()).estado, 400, 'sin captcha no se crea');
+    assert.equal((await cuenta('token-falso')).estado, 400);
+    assert.equal((await cuenta('token-bueno')).estado, 201);
+
+    const recuperar = (captcha) =>
+      e.api('/auth/recuperar/solicitar', { metodo: 'POST', cuerpo: { correo: 'admin@mirallantas.com', ...(captcha ? { captcha } : {}) } });
+    assert.equal((await recuperar()).estado, 400, 'sin captcha no se envía el código');
+
+    const verificar = (captcha) => e.api('/auth/captcha', { metodo: 'POST', cuerpo: captcha ? { captcha } : {} });
+    assert.equal((await verificar()).estado, 400);
+    assert.equal((await verificar('token-falso')).estado, 400);
+    assert.equal((await verificar('token-bueno')).estado, 204);
+  });
 });

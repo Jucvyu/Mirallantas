@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, KeyRound, Lock, TriangleAlert } from 'lucide-react';
 import Modal from '../../components/base/Modal';
 import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from '../../components/base/formStyles';
 import { useEnvio } from '../../hooks/useEnvio';
 import { authService } from '../../services';
+import Captcha from './Captcha';
 import { CampoCodigo } from './DosFactores';
+import { TURNSTILE_SITE_KEY } from '../../config';
 import { AYUDA_PASSWORD, errorPassword } from './reglasClave';
 
 // =========================================================================
 // "¿Olvidaste tu contraseña?" en tres pasos:
 //   1. correo   → la API busca la cuenta y envía un código de 6 dígitos.
-//                 Si el correo no existe se pierde un intento (5 en total);
-//                 al agotarlos el modal se bloquea 2 minutos con un contador.
+//                 Cada solicitud gasta un intento, exista o no el correo
+//                 (5 en total); al agotarlos el modal se bloquea 1 minuto
+//                 con un contador y luego se recuperan los 5.
 //   2. código   → 3 intentos; si se agotan, también se bloquea.
 //   3. contraseña nueva.
 // Los intentos los cuenta la API: cerrar el modal o recargar no los reinicia.
@@ -40,6 +43,10 @@ const BOTON =
 
 export default function RecuperarPasswordModal({ onClose }) {
   const [paso, setPaso] = useState('correo');
+  // Captcha: sin aprobarlo no se envía el código (cada envío usa un token nuevo)
+  const [captcha, setCaptcha] = useState('');
+  const captchaRef = useRef(null);
+  const faltaCaptcha = Boolean(TURNSTILE_SITE_KEY) && !captcha;
   const [correo, setCorreo] = useState('');
   const [solicitud, setSolicitud] = useState(null);
   const [codigo, setCodigo] = useState('');
@@ -94,11 +101,12 @@ export default function RecuperarPasswordModal({ onClose }) {
       setErrorCampo('Escribe un correo válido, por ejemplo nombre@correo.com');
       return;
     }
+    if (faltaCaptcha) return;
     setErrorCampo('');
     setAviso('');
     enviar(async () => {
       try {
-        const r = await authService.solicitarRecuperacion(correo);
+        const r = await authService.solicitarRecuperacion(correo, captcha);
         setSolicitud(r);
         setCodigo('');
         setPaso('codigo');
@@ -110,6 +118,8 @@ export default function RecuperarPasswordModal({ onClose }) {
           return;
         }
         throw error;
+      } finally {
+        captchaRef.current?.reiniciar();
       }
     });
   };
@@ -162,7 +172,7 @@ export default function RecuperarPasswordModal({ onClose }) {
       );
     }
     const acciones = {
-      correo: ['Enviar código', enviarCorreo, !correo.trim()],
+      correo: ['Enviar código', enviarCorreo, !correo.trim() || faltaCaptcha],
       codigo: ['Verificar código', enviarCodigo, codigo.length !== 6],
       password: ['Guardar contraseña', guardarPassword, !password || !password2],
     };
@@ -234,6 +244,8 @@ export default function RecuperarPasswordModal({ onClose }) {
               />
               {errorCampo && <p className="mt-1.5 text-xs font-medium text-red-500">{errorCampo}</p>}
             </div>
+            {/* Verificación de seguridad: obligatoria para enviar el código */}
+            <Captcha ref={captchaRef} onToken={setCaptcha} />
             {aviso && <Aviso>{aviso}</Aviso>}
           </>
         ) : paso === 'codigo' ? (

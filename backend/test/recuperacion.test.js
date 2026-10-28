@@ -35,7 +35,7 @@ const cambiar = (solicitud, password) =>
 const ultimoCodigo = () => bandeja.at(-1).texto.match(/\b(\d{6})\b/)[1];
 
 describe('Paso 1: buscar el correo', () => {
-  test('un correo que no existe descuenta intentos y al quinto bloquea 2 minutos', async () => {
+  test('un correo que no existe descuenta intentos y al quinto bloquea 1 minuto', async () => {
     for (const quedan of [4, 3, 2, 1]) {
       const r = await solicitar('nadie@ejemplo.com');
       assert.equal(r.estado, 404);
@@ -61,6 +61,21 @@ describe('Paso 1: buscar el correo', () => {
     const estado = await e.api('/auth/recuperar/estado');
     assert.equal(estado.cuerpo.intentosRestantes, 5);
     assert.equal(estado.cuerpo.bloqueadoHasta, null);
+  });
+
+  test('máximo 5 códigos por IP (aunque el correo exista); luego espera 1 minuto', async () => {
+    await e.db.query('DELETE FROM bloqueo_recuperacion');
+    for (const quedan of [4, 3, 2, 1, 0]) {
+      const r = await solicitar('maria@gmail.com');
+      assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+      assert.equal(r.cuerpo.intentosRestantes, quedan);
+    }
+    const sexto = await solicitar('maria@gmail.com');
+    assert.equal(sexto.estado, 429);
+    assert.match(sexto.cuerpo.error, /1 minuto/);
+    const segundos = (new Date(sexto.cuerpo.bloqueadoHasta) - Date.now()) / 1000;
+    assert.ok(segundos > 0 && segundos <= 61, `el bloqueo dura 1 minuto (${segundos} s)`);
+    await e.db.query('DELETE FROM bloqueo_recuperacion');
   });
 
   test('con un correo registrado envía el código y no lo guarda en claro', async () => {

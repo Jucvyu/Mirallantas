@@ -16,7 +16,7 @@ import {
 /** POST /auth/login */
 /** POST /auth/google — el token que Google le entregó al navegador. */
 /** Token del captcha (Cloudflare Turnstile) que resolvió el navegador. */
-const captcha = z.string().max(2048).optional();
+export const captcha = z.string().max(2048).optional();
 
 export const esquemaGoogle = z.object({
   credencial: z.string({ error: 'Falta la respuesta de Google.' }).min(20).max(4096),
@@ -53,6 +53,7 @@ export const esquemaRegistro = z.object({
   direccion: textoOpcional(80),
   correo,
   password,
+  captcha,
 }).superRefine(documentoSegunTipo);
 
 /**
@@ -82,7 +83,10 @@ export const esquemaPerfil = z
 const solicitud = z.uuid({ error: 'La solicitud no es válida. Vuelve a empezar.' });
 
 /** POST /auth/recuperar/solicitar */
-export const esquemaSolicitarRecuperacion = z.object({ correo });
+export const esquemaSolicitarRecuperacion = z.object({ correo, captcha });
+
+/** POST /captcha/verificar — solo el captcha (p. ej. antes de abrir WhatsApp). */
+export const esquemaCaptcha = z.object({ captcha });
 
 /** POST /auth/recuperar/verificar */
 export const esquemaVerificarRecuperacion = z.object({ solicitud, codigo: codigo2fa });

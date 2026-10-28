@@ -46,7 +46,7 @@ const anotarActividad = () => {
  *   iniciarSesion      (correo, password, captcha) → { usuario } | { requiere2fa, desafio }
  *   iniciarConGoogle   (credencial de Google, captcha) → igual que iniciarSesion
  *   verificarCodigo    (desafio, codigo) → usuario
- *   registrarse        (valores del formulario) → usuario (cuenta de cliente)
+ *   registrarse        (valores del formulario, captcha) → usuario (cuenta de cliente)
  *   cerrarSesion       (motivo?)
  *   actualizarPerfil   (valores del formulario) → usuario
  *   activarDobleFactor / desactivarDobleFactor
@@ -147,8 +147,8 @@ export function AuthProvider({ children }) {
     return nuevo;
   }, []);
 
-  const registrarse = useCallback(async (valores) => {
-    const nuevo = await authService.registrarse(valores);
+  const registrarse = useCallback(async (valores, captcha) => {
+    const nuevo = await authService.registrarse(valores, captcha);
     setUsuario(nuevo);
     return nuevo;
   }, []);

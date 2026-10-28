@@ -66,7 +66,7 @@ export const authService = {
   },
 
   /** Crea una cuenta de cliente (queda con la sesión iniciada). */
-  async registrarse(valores) {
+  async registrarse(valores, captcha) {
     const { token, usuario } = await api('/auth/registro', {
       metodo: 'POST',
       cuerpo: {
@@ -77,6 +77,7 @@ export const authService = {
         direccion: valores.direccion || null,
         correo: valores.correo.trim().toLowerCase(),
         password: valores.password,
+        captcha,
       },
     });
     guardarToken(token);
@@ -124,7 +125,7 @@ export const authService = {
   },
 
   // ---- ¿Olvidaste tu contraseña? ---------------------------------------------
-  // Los intentos y el bloqueo de 2 minutos los lleva la API (por IP). Si la
+  // Los intentos (5 solicitudes de código) y el bloqueo de 1 minuto los lleva la API (por IP). Si la
   // API rechaza, el error trae `error.datos` con { intentosRestantes,
   // bloqueadoHasta, intentosCodigo } para mostrarlos en el modal.
 
@@ -134,8 +135,13 @@ export const authService = {
   },
 
   /** Paso 1: busca el correo y envía el código. Devuelve { solicitud, correo, intentosCodigo }. */
-  solicitarRecuperacion(correo) {
-    return api('/auth/recuperar/solicitar', { metodo: 'POST', cuerpo: { correo: correo.trim().toLowerCase() } });
+  solicitarRecuperacion(correo, captcha) {
+    return api('/auth/recuperar/solicitar', { metodo: 'POST', cuerpo: { correo: correo.trim().toLowerCase(), captcha } });
+  },
+
+  /** Comprueba solo el captcha (p. ej. "Solicitar cotización" de la página de inicio). */
+  verificarCaptcha(captcha) {
+    return api('/auth/captcha', { metodo: 'POST', cuerpo: { captcha } });
   },
 
   /** Paso 2: revisa el código de 6 dígitos. */

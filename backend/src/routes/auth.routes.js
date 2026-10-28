@@ -8,6 +8,7 @@ import { validar } from '../middleware/validar.js';
 import {
   esquemaActivar2fa,
   esquemaCambiarRecuperacion,
+  esquemaCaptcha,
   esquemaDesactivar2fa,
   esquemaGoogle,
   esquemaLogin,
@@ -25,6 +26,7 @@ import {
  *   POST /google            token de Google → igual que /login (solo cuentas existentes)
  *   POST /2fa/verificar     desafío + código de 6 dígitos → token
  *   POST /registro          crea una cuenta de cliente desde el login (pública)
+ *   POST /captcha           solo comprueba el captcha (página de inicio → WhatsApp)
  *   POST /salir             cierra la sesión (invalida el token)
  *   GET  /yo                datos del usuario en sesión
  *   PUT  /yo                el usuario actualiza su propio perfil
@@ -91,6 +93,9 @@ const limiteRecuperacion = rateLimit({
 });
 
 rutasAuth.get('/recuperar/estado', recuperacion.estado);
+// Solo el captcha: lo usa "Solicitar cotización" de la página de inicio
+rutasAuth.post('/captcha', limiteIntentos, validar(esquemaCaptcha), controlador.verificarCaptcha);
+
 rutasAuth.post('/recuperar/solicitar', limiteRecuperacion, validar(esquemaSolicitarRecuperacion), recuperacion.solicitar);
 rutasAuth.post('/recuperar/verificar', limiteRecuperacion, validar(esquemaVerificarRecuperacion), recuperacion.verificar);
 rutasAuth.post('/recuperar/cambiar', limiteRecuperacion, validar(esquemaCambiarRecuperacion), recuperacion.cambiar);

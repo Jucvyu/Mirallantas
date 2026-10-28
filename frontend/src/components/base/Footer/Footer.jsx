@@ -1,7 +1,6 @@
 import { Mail, MapPin, Phone } from 'lucide-react';
-import { FaFacebookF, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import Logo from '../Logo';
-import { CORREO_EMPRESA, DIRECCION_EMPRESA, TELEFONO_EMPRESA, WHATSAPP_EMPRESA } from '../../../config';
+import { CORREO_EMPRESA, DIRECCION_EMPRESA, TELEFONO_EMPRESA } from '../../../config';
 
 // Secciones del landing (empiezan por "/" para funcionar también desde el
 // catálogo público) y el acceso al portal
@@ -18,12 +17,6 @@ const CONTACT_ITEMS = [
   { icon: Mail, text: CORREO_EMPRESA },
 ];
 
-const SOCIAL_LINKS = [
-  { icon: FaWhatsapp, label: 'WhatsApp', href: `https://wa.me/${WHATSAPP_EMPRESA}`, className: 'bg-brand-whatsapp' },
-  { icon: FaFacebookF, label: 'Facebook', href: '#', className: 'bg-brand-facebook' },
-  { icon: FaInstagram, label: 'Instagram', href: '#', className: 'bg-brand-instagram' },
-];
-
 function SectionHeading({ children }) {
   return (
     <h3 className="text-[13px] font-bold tracking-wide text-slate-900 dark:text-white">
@@ -38,7 +31,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-brand-navy-900">
       <div className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-14">
-        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1.2fr_1fr]">
+        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1.2fr]">
           {/* Marca */}
           <div>
             {/* Logo estandarizado con la insignia "ML" del resto de la app */}
@@ -87,27 +80,6 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
-          </div>
-
-          {/* Síguenos */}
-          <div>
-            <SectionHeading>SÍGUENOS</SectionHeading>
-            <div className="mt-3 h-px w-full bg-slate-200 dark:bg-white/10" />
-            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-              Escríbenos por redes o WhatsApp.
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              {SOCIAL_LINKS.map(({ icon: Icon, label, href, className }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-white transition-transform hover:scale-105 ${className}`}
-                >
-                  <Icon size={14} />
-                </a>
-              ))}
-            </div>
           </div>
         </div>
 

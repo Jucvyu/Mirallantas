@@ -5,6 +5,7 @@ import { errorCuentaInactiva, origen } from '../middleware/auth.js';
 import * as eventos from '../models/eventos.model.js';
 import * as recuperacion from '../models/recuperacion.model.js';
 import * as usuariosModel from '../models/usuarios.model.js';
+import { exigirCaptcha } from '../utils/captcha.js';
 import { coincideHuella, huella } from '../utils/cifrado.js';
 import { enviarCorreo, ErrorCorreo } from '../utils/correo.js';
 import { cifrarPassword } from '../utils/contrasenas.js';
@@ -13,16 +14,20 @@ import { plantillaRecuperacion } from '../utils/plantillaRecuperacion.js';
 /**
  * "¿Olvidaste tu contraseña?" en tres pasos:
  *
- *   1. solicitar  el usuario escribe su correo. Si no existe, se le avisa y
- *                 pierde un intento (5 por IP; al agotarlos espera 2 min).
- *                 Si existe, se le envía un código de 6 dígitos.
+ *   1. solicitar  el usuario escribe su correo y, si existe, se le envía un
+ *                 código de 6 dígitos. Cada solicitud gasta un intento,
+ *                 exista o no el correo: 5 por IP; al agotarlos la IP
+ *                 espera 1 minuto y después recupera los 5.
  *   2. verificar  escribe el código. Tiene 3 intentos; si los pierde, el
- *                 código se anula y la IP espera 2 minutos.
+ *                 código se anula y la IP espera 1 minuto.
  *   3. cambiar    con el código ya verificado, escribe la contraseña nueva.
  *
  * Los intentos se cuentan en el servidor (por IP), no en el navegador:
  * recargar la página no los reinicia.
  */
+
+/** "1 minuto" / "2 minutos" */
+const textoMinutos = () => `${recuperacion.MINUTOS_BLOQUEO} ${recuperacion.MINUTOS_BLOQUEO === 1 ? 'minuto' : 'minutos'}`;
 
 /** "juan.perez@gmail.com" → "ju*******@gmail.com" */
 function enmascarar(correo) {
@@ -33,13 +38,13 @@ function enmascarar(correo) {
 /** Error que además informa los intentos y el bloqueo de la IP. */
 const errorConEstado = (estado, mensaje, estadoIp) => new HttpError(estado, mensaje).con(estadoIp);
 
-/** Rechaza la petición si la IP está esperando sus 2 minutos. */
+/** Rechaza la petición si la IP está esperando a que pase su bloqueo. */
 async function exigirIpLibre(ip) {
   const estado = await recuperacion.estadoIp(ip);
   if (estado.bloqueadoHasta) {
     throw errorConEstado(
       429,
-      `Demasiados intentos. Espera ${recuperacion.MINUTOS_BLOQUEO} minutos para volver a intentarlo.`,
+      `Demasiados intentos. Espera ${textoMinutos()} para volver a intentarlo.`,
       estado,
     );
   }
@@ -53,24 +58,26 @@ export async function estado(req, res) {
 
 /** POST /auth/recuperar/solicitar — paso 1: buscar el correo y enviar el código. */
 export async function solicitar(req, res) {
-  const { correo } = req.validado.body;
+  const { correo, captcha } = req.validado.body;
   const { ip, agente } = origen(req);
+  // Sin superar el captcha no se envía el código
+  await exigirCaptcha(captcha, ip);
   await exigirIpLibre(ip);
 
   const usuario = await usuariosModel.buscarCuenta({ correo });
   // Una cuenta inactiva no recupera la contraseña: primero hay que reactivarla
   if (usuario && !usuariosModel.cuentaHabilitada(usuario)) throw errorCuentaInactiva();
+  // Cada solicitud gasta un intento de la IP, exista o no el correo (5; al
+  // agotarlos espera 1 minuto). El quinto código sí se envía.
+  const estadoIp = await recuperacion.descontarIntentoIp(ip);
   if (!usuario) {
-    const estadoIp = await recuperacion.descontarIntentoIp(ip);
     await eventos.registrar({ tipo: 'recuperacion_correo_inexistente', gravedad: 'Alerta', correo, ip, agente });
     const mensaje = estadoIp.bloqueadoHasta
-      ? `No hay ninguna cuenta con ese correo. Agotaste los intentos: espera ${recuperacion.MINUTOS_BLOQUEO} minutos.`
+      ? `No hay ninguna cuenta con ese correo. Agotaste los intentos: espera ${textoMinutos()}.`
       : `No hay ninguna cuenta con ese correo. Te quedan ${estadoIp.intentosRestantes} intento(s).`;
     throw errorConEstado(estadoIp.bloqueadoHasta ? 429 : 404, mensaje, estadoIp);
   }
 
-  // Encontró su cuenta: la IP recupera sus intentos
-  await recuperacion.reiniciarIp(ip);
   const codigo = String(randomInt(0, 1_000_000)).padStart(6, '0');
   const solicitud = await recuperacion.crear(usuario.id, huella(codigo));
 
@@ -92,6 +99,8 @@ export async function solicitar(req, res) {
     correo: enmascarar(usuario.correo),
     intentosCodigo: recuperacion.INTENTOS_CODIGO,
     venceEn: solicitud.expira_en,
+    // Solicitudes de código que le quedan a esta IP antes de esperar 1 minuto
+    intentosRestantes: estadoIp.intentosRestantes,
   });
 }
 
@@ -117,7 +126,7 @@ export async function verificar(req, res) {
       const estadoIp = await recuperacion.bloquearIp(ip);
       throw errorConEstado(
         429,
-        `Código incorrecto. Agotaste los intentos: espera ${recuperacion.MINUTOS_BLOQUEO} minutos y solicita un código nuevo.`,
+        `Código incorrecto. Agotaste los intentos: espera ${textoMinutos()} y solicita un código nuevo.`,
         { ...estadoIp, intentosCodigo: 0 },
       );
     }
@@ -148,6 +157,8 @@ export async function cambiar(req, res) {
     await recuperacion.marcarUsada(db, id);
   });
 
+  // Ya recuperó su contraseña: la IP vuelve a tener todos sus intentos
+  await recuperacion.reiniciarIp(origen(req).ip);
   await eventos.registrar({
     tipo: 'password_recuperada',
     gravedad: 'Alerta',

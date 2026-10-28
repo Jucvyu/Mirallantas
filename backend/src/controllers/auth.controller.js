@@ -82,6 +82,12 @@ async function completarInicio(req, res, usuario) {
   vista.enviarSesion(res, firmarToken(usuario), usuario, { debeActivar2fa: debeActivar2fa(usuario) });
 }
 
+/** POST /auth/captcha — comprueba el captcha y nada más. */
+export async function verificarCaptcha(req, res) {
+  await exigirCaptcha(req.validado.body.captcha, req.ip);
+  res.status(204).end();
+}
+
 /** POST /auth/login */
 export async function iniciarSesion(req, res) {
   const { correo, password, captcha } = req.validado.body;
@@ -160,6 +166,8 @@ export async function cerrarSesion(req, res) {
 /** POST /auth/registro — crea la ficha de cliente y su cuenta. */
 export async function registrarse(req, res) {
   const d = req.validado.body;
+  // Sin superar el captcha no se crea la cuenta
+  await exigirCaptcha(d.captcha, req.ip);
 
   const id = await enTransaccion(async (db) => {
     // Un correo, documento o teléfono no se repite entre cuentas, y el

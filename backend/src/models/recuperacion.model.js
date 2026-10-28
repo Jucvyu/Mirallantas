@@ -5,12 +5,12 @@ import { query } from '../db.js';
  * `bloqueo_recuperacion`). Solo SQL: las reglas están en el controlador.
  */
 
-/** Intentos para escribir un correo que exista antes del bloqueo. */
+/** Solicitudes de código por IP (exista o no el correo) antes del bloqueo. */
 export const INTENTOS_CORREO = 5;
 /** Intentos para escribir bien el código recibido. */
 export const INTENTOS_CODIGO = 3;
-/** Minutos que dura el bloqueo. */
-export const MINUTOS_BLOQUEO = 2;
+/** Minutos que dura el bloqueo: después la IP recupera todos sus intentos. */
+export const MINUTOS_BLOQUEO = 1;
 /** Minutos que vale el código (y, ya verificado, el cambio de contraseña). */
 export const MINUTOS_VIGENCIA = 10;
 
@@ -50,7 +50,7 @@ export async function estadoIp(ip) {
 }
 
 /**
- * Descuenta un intento a la IP. Al llegar a cero la bloquea 2 minutos.
+ * Descuenta un intento a la IP. Al llegar a cero la bloquea MINUTOS_BLOQUEO.
  * Devuelve el estado nuevo.
  */
 export async function descontarIntentoIp(ip) {
@@ -64,7 +64,7 @@ export async function descontarIntentoIp(ip) {
   return bloquearIp(ip);
 }
 
-/** Bloquea la IP 2 minutos (intentos agotados o código errado 3 veces). */
+/** Bloquea la IP MINUTOS_BLOQUEO (intentos agotados o código errado 3 veces). */
 export async function bloquearIp(ip) {
   const { rows } = await query(
     `INSERT INTO bloqueo_recuperacion (ip, intentos_restantes, bloqueado_hasta)
@@ -76,7 +76,7 @@ export async function bloquearIp(ip) {
   return estadoBloqueado(rows[0].bloqueado_hasta);
 }
 
-/** Devuelve a la IP todos sus intentos (encontró su correo). */
+/** Devuelve a la IP todos sus intentos (ya cambió su contraseña). */
 export async function reiniciarIp(ip) {
   await query('DELETE FROM bloqueo_recuperacion WHERE ip = $1', [ip]);
 }

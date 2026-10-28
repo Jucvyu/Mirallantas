@@ -2,8 +2,8 @@ import { Mail, MapPin, Phone } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import LiquidGlass from '../../components/base/LiquidGlass';
 import { CORREO_EMPRESA, DIRECCION_EMPRESA, TELEFONO_EMPRESA } from '../../config';
-import { enlaceWhatsapp } from './contenido';
 import Revelar from './Revelar';
+import BotonSolicitarCotizacion from './BotonSolicitarCotizacion';
 
 const MEDIOS = [
   { icon: Phone, titulo: 'Teléfono', valor: TELEFONO_EMPRESA, href: `tel:${TELEFONO_EMPRESA.replace(/\s/g, '')}` },
@@ -31,14 +31,9 @@ export default function Contacto() {
           <p className="mt-3 max-w-md text-base text-slate-600 dark:text-slate-300">
             Escríbenos por WhatsApp con la medida o el servicio que necesitas y te respondemos con tu cotización.
           </p>
-          <a
-            href={enlaceWhatsapp()}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-pulsable mt-7 inline-flex items-center gap-2 rounded-full bg-amber-400 px-7 py-3 text-sm font-bold text-slate-900 hover:bg-amber-300"
-          >
+          <BotonSolicitarCotizacion className="ml-pulsable mt-7 inline-flex items-center gap-2 rounded-full bg-amber-400 px-7 py-3 text-sm font-bold text-slate-900 hover:bg-amber-300">
             <FaWhatsapp size={18} aria-hidden="true" /> Solicitar cotización
-          </a>
+          </BotonSolicitarCotizacion>
         </Revelar>
 
         <Revelar retraso={80}>
