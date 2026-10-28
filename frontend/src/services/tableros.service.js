@@ -72,6 +72,16 @@ export const notificacionesService = {
   marcarLeidas() {
     return api('/portal/notificaciones/leidas', { metodo: 'POST' });
   },
+
+  /** Borra una notificación (en el panel, solo para este usuario). */
+  borrar(id) {
+    return api(`/portal/notificaciones/${id}`, { metodo: 'DELETE' });
+  },
+
+  /** Borra todas las notificaciones (en el panel, solo para este usuario). */
+  borrarTodas() {
+    return api('/portal/notificaciones', { metodo: 'DELETE' });
+  },
 };
 
 // ---- Avisos del personal (por ahora, solo de Pedidos-Cotización) --------------------
@@ -97,5 +107,15 @@ export const avisosPersonalService = {
   /** El usuario entró a un módulo: su burbuja vuelve a cero. */
   marcarVista(ruta) {
     return api('/notificaciones/vista', { metodo: 'POST', cuerpo: { ruta } });
+  },
+
+  /** Borra una notificación (en el panel, solo para este usuario). */
+  borrar(id) {
+    return api(`/notificaciones/${id}`, { metodo: 'DELETE' });
+  },
+
+  /** Borra todas las notificaciones (en el panel, solo para este usuario). */
+  borrarTodas() {
+    return api('/notificaciones', { metodo: 'DELETE' });
   },
 };

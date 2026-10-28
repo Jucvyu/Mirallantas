@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { permite } from '../permisos';
+import { permite, puede } from '../permisos';
 import { authService, EVENTO_CUENTA_INACTIVA, EVENTO_SESION_EXPIRADA } from '../services';
 import { conectarTiempoReal, desconectarTiempoReal } from '../services/tiempoReal';
 
@@ -48,6 +48,7 @@ const anotarActividad = () => {
  *   verificarCodigo    (desafio, codigo) → usuario
  *   registrarse        (valores del formulario, captcha) → usuario (cuenta de cliente)
  *   cerrarSesion       (motivo?)
+ *   puede              (módulo, 'crear' | 'editar' | 'eliminar') → boolean (nivel 3)
  *   actualizarPerfil   (valores del formulario) → usuario
  *   activarDobleFactor / desactivarDobleFactor
  *   tienePermiso       (modulo) → boolean
@@ -187,6 +188,8 @@ export function AuthProvider({ children }) {
       activarDobleFactor,
       desactivarDobleFactor,
       tienePermiso: (modulo) => permite(usuario, modulo),
+      // Nivel 3: ¿puede crear, editar o eliminar en ese módulo?
+      puede: (modulo, accion) => puede(usuario, modulo, accion),
     }),
     [
       usuario,

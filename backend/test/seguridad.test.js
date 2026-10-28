@@ -183,6 +183,59 @@ describe('Rol Administrador y panel de seguridad', () => {
     assert.equal((await e.api('/clientes', { token: sara })).estado, 200);
   });
 
+  test('nivel 3: un rol que solo puede ver clientes no los crea ni los elimina', async () => {
+    const rol = await e.api('/roles', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: {
+        nombre: 'Consulta de clientes',
+        permisos: ['Clientes'],
+        privilegios: { Clientes: { crear: false, editar: true, eliminar: false } },
+      },
+    });
+    assert.equal(rol.estado, 201, JSON.stringify(rol.cuerpo));
+    assert.deepEqual(rol.cuerpo.datos.privilegios.Clientes, { crear: false, editar: true, eliminar: false });
+    const usuario = await e.api('/usuarios', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: {
+        nombre: 'Pablo Consulta',
+        tipoDocumento: 'CC',
+        numeroDocumento: '55667788',
+        correo: 'pablo.consulta@mirallantas.com',
+        rolId: rol.cuerpo.datos.id,
+        password: 'ClaveSegura2026',
+      },
+    });
+    assert.equal(usuario.estado, 201, JSON.stringify(usuario.cuerpo));
+    const pablo = await e.iniciarSesion('pablo.consulta@mirallantas.com', 'ClaveSegura2026');
+
+    const lista = await e.api('/clientes', { token: pablo });
+    assert.equal(lista.estado, 200, 'ver sí');
+    const crear = await e.api('/clientes', {
+      metodo: 'POST',
+      token: pablo,
+      cuerpo: { nombreCompleto: 'Cliente Nuevo', tipoDocumento: 'CC', numeroDocumento: '99887766', telefono: '3001234567' },
+    });
+    assert.equal(crear.estado, 403, 'crear no');
+    assert.match(crear.cuerpo.error, /crear/);
+    const eliminar = await e.api(`/clientes/${lista.cuerpo.datos[0].id}`, { metodo: 'DELETE', token: pablo });
+    assert.equal(eliminar.estado, 403, 'eliminar no');
+
+    // La sesión trae los privilegios para que el panel oculte los botones
+    const yo = await e.api('/auth/yo', { token: pablo });
+    assert.equal(yo.cuerpo.usuario.privilegios.Clientes.crear, false);
+  });
+
+  test('el administrador principal no se edita desde Usuarios', async () => {
+    const usuarios = await e.api('/usuarios?porPagina=100', { token: t.admin });
+    const principal = usuarios.cuerpo.datos.find((u) => u.principal);
+    assert.ok(principal, 'el listado marca al principal');
+    const r = await e.api(`/usuarios/${principal.id}`, { metodo: 'PUT', token: t.admin, cuerpo: { nombre: 'Otro Nombre' } });
+    assert.equal(r.estado, 422);
+    assert.match(r.cuerpo.error, /principal/);
+  });
+
   test('el último Administrador no puede quitarse el rol', async () => {
     const yo = await e.api('/auth/yo', { token: t.admin });
     const roles = await e.api('/roles', { token: t.admin });

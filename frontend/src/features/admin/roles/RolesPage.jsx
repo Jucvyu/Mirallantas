@@ -6,7 +6,8 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { permisosService, rolesService } from '../../../services';
 
 // Roles y permisos. Al crear un rol se marcan los módulos a los que
-// tendrá acceso; la lista de módulos sale de la tabla `permiso`.
+// tendrá acceso y, en cada uno, qué puede hacer (nivel 3 de seguridad:
+// ver, crear, editar y eliminar). La lista de módulos sale de la tabla `permiso`.
 const columns = [
   { key: 'nombre', label: 'Rol' },
   { key: 'descripcion', label: 'Descripción' },
@@ -14,6 +15,7 @@ const columns = [
     key: 'permisos',
     label: 'Permisos',
     render: (row) => `${String(row.permisos ?? '').split(',').filter(Boolean).length} módulos`,
+    exportar: (row) => row.permisos,
   },
 ];
 
@@ -31,15 +33,17 @@ function seccionesFormulario(modulos) {
       title: 'Permisos',
       fields: [
         {
-          key: 'permisos',
-          label: 'Módulos a los que accede',
-          type: 'checkboxes',
+          key: 'accesos',
+          label: 'Módulos y privilegios',
+          type: 'privilegios',
           span: 2,
           required: true,
           options: modulos,
           // Los módulos se muestran por categoría (Configuración, Catálogo…)
           grupos: GRUPOS_MODULOS,
-          hint: 'El rol solo verá en el menú los módulos marcados.',
+          hint: 'Ver: el módulo aparece en el menú. Crear, editar y eliminar: qué puede hacer dentro de él.',
+          validar: (valor) =>
+            Object.values(valor ?? {}).some((a) => a.ver) ? '' : 'Marca al menos un módulo que el rol pueda ver.',
         },
       ],
     },

@@ -20,6 +20,8 @@ export function usuarioPublico(u) {
     direccion: u.direccion ?? null,
     rol: u.rol,
     permisos: u.permisos,
+    // Nivel 3: qué puede hacer en cada módulo { Clientes: { crear, editar, eliminar } }
+    privilegios: u.privilegios ?? {},
     // Solo el rol Cliente usa el portal; los demás roles no quedan atados a una ficha
     clienteId: u.rol === 'Cliente' ? u.cliente_id : null,
     dosFactores: Boolean(u.totp_activo),

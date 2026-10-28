@@ -22,6 +22,9 @@ import StatusSelect from '../StatusSelect';
 import StatusSwitch from '../StatusSwitch';
 import ExportarModal from '../ExportarModal';
 import { textoDeNodo } from '../../../utils/exportar';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
+import { permisoDeRuta } from '../../../permisos';
 
 const PAGE_SIZE = 8;
 
@@ -224,16 +227,23 @@ export default function DataTable({
 
   /** Función `update(patch)` que reciben las celdas y acciones a medida. */
   const updateDe = (row) => (patch) => ejecutar(() => onRowUpdate?.(row, patch));
+  // (sin privilegio de editar, la API rechaza el cambio y se muestra su mensaje)
 
-  const puedeCrear = toolbar && Boolean(onCreate);
+  // Nivel 3: el módulo de esta pantalla dice si se puede crear, editar o eliminar
+  const { pathname } = useLocation();
+  const { puede } = useAuth();
+  const moduloActual = permisoDeRuta(pathname);
+  const privilegio = (accion) => !moduloActual || puede(moduloActual, accion);
+
+  const puedeCrear = toolbar && Boolean(onCreate) && privilegio('crear');
   /** ¿Se puede editar / eliminar esta fila? */
   const permite = (regla, row) => (typeof regla === 'function' ? regla(row) : Boolean(regla));
-  const puedeEditar = (row) => !readOnly && Boolean(onEdit) && permite(canEdit, row);
-  const puedeEliminar = (row) => !readOnly && Boolean(onDelete) && permite(canDelete, row);
+  const puedeEditar = (row) => !readOnly && Boolean(onEdit) && privilegio('editar') && permite(canEdit, row);
+  const puedeEliminar = (row) => !readOnly && Boolean(onDelete) && privilegio('eliminar') && permite(canDelete, row);
   // El botón aparece si el módulo tiene la acción; si la fila no la permite
   // (regla por fila), se muestra deshabilitado en vez de desaparecer
-  const muestraEditar = !readOnly && Boolean(onEdit) && canEdit !== false;
-  const muestraEliminar = !readOnly && Boolean(onDelete) && canDelete !== false;
+  const muestraEditar = !readOnly && Boolean(onEdit) && canEdit !== false && privilegio('editar');
+  const muestraEliminar = !readOnly && Boolean(onDelete) && canDelete !== false && privilegio('eliminar');
 
   // ---- Piezas de cada fila (las usan la tabla y las tarjetas) ----------
 
@@ -242,7 +252,7 @@ export default function DataTable({
 
   /** Contenido de una celda: estado editable, render a medida o el valor. */
   const contenidoCelda = (row, col) => {
-    const cambiaEstado = onStatusChange && (!canChangeStatus || canChangeStatus(row));
+    const cambiaEstado = onStatusChange && privilegio('editar') && (!canChangeStatus || canChangeStatus(row));
     const alCambiarEstado = cambiaEstado ? (v) => ejecutar(() => onStatusChange(row, v)) : undefined;
     if (col.key === statusKey && statusVariant === 'switch') {
       return <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />;

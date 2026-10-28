@@ -96,6 +96,20 @@ export async function marcarLeidas(req, res) {
   enviarSinContenido(res);
 }
 
+/** DELETE /portal/notificaciones/:id — el cliente borra una notificación. */
+export async function borrarNotificacion(req, res) {
+  if (!(await notificaciones.borrar(exigirCliente(req), req.validado.params.id))) {
+    throw new HttpError(404, 'La notificación no existe o ya la borraste.');
+  }
+  enviarSinContenido(res);
+}
+
+/** DELETE /portal/notificaciones — el cliente borra todas sus notificaciones. */
+export async function borrarNotificaciones(req, res) {
+  await notificaciones.borrar(exigirCliente(req));
+  enviarSinContenido(res);
+}
+
 /** GET /portal/notificaciones/por-modulo — avisos sin leer por sección (burbujas del menú). */
 export async function notificacionesPorModulo(req, res) {
   const clienteId = clienteDeSesion(req);

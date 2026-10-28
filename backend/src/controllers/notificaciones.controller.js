@@ -1,3 +1,4 @@
+import { HttpError } from '../errores.js';
 import * as avisos from '../models/notificacionesPersonal.model.js';
 import { enviarDato, enviarSinContenido } from '../views/respuesta.view.js';
 
@@ -29,6 +30,19 @@ export async function porModulo(req, res) {
 /** POST /notificaciones/vista — el usuario entró a un módulo. */
 export async function marcarVista(req, res) {
   await avisos.marcarRutaVista(req.usuario.id, req.validado.body.ruta);
+  enviarSinContenido(res);
+}
+
+/** DELETE /notificaciones/:id — borra un aviso (solo para este usuario). */
+export async function borrarUna(req, res) {
+  const borradas = await avisos.borrar(req.usuario.id, modulosDe(req), req.validado.params.id);
+  if (!borradas) throw new HttpError(404, 'El aviso no existe o ya lo borraste.');
+  enviarSinContenido(res);
+}
+
+/** DELETE /notificaciones — borra todos los avisos que ve este usuario. */
+export async function borrarTodas(req, res) {
+  await avisos.borrar(req.usuario.id, modulosDe(req));
   enviarSinContenido(res);
 }
 

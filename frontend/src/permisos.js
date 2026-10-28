@@ -70,6 +70,20 @@ export function permite(usuario, permiso) {
   );
 }
 
+/** Acciones del nivel 3 de seguridad (ver es tener el módulo). */
+export const ACCIONES = ['crear', 'editar', 'eliminar'];
+
+/**
+ * ¿El usuario puede hacer esa acción en el módulo? (nivel 3). Ver = tener
+ * el módulo; crear, editar y eliminar dependen de los privilegios del rol.
+ * El Administrador puede todo.
+ */
+export function puede(usuario, permiso, accion = 'ver') {
+  if (!permite(usuario, permiso)) return false;
+  if (accion === 'ver' || usuario.rol === 'Administrador') return true;
+  return usuario.privilegios?.[permiso]?.[accion] !== false;
+}
+
 /** ¿El usuario tiene alguna pantalla de la vista de cliente? */
 export function veElPortal(usuario) {
   return MODULOS_PORTAL.some((m) => permite(usuario, m.permiso));

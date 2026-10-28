@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { cargarReferencias } from './services'
+import { activarImagenRespaldo } from './utils/imagenRespaldo'
+
+// Imagen por defecto para cualquier foto que no cargue (p. ej. borrada de Cloudinary)
+activarImagenRespaldo()
 
 /** Dibuja la aplicación. */
 function iniciar() {

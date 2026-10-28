@@ -15,8 +15,12 @@ export async function crear({ clienteId, titulo, mensaje, enlace = null, tipo = 
   );
 }
 
-/** Las 30 más recientes del cliente y cuántas no ha leído. */
+/** Días que dura una notificación: después se borra sola. */
+export const DIAS_VIGENCIA = 7;
+
+/** Las 30 más recientes del cliente y cuántas no ha leído (antes borra las de más de 7 días). */
 export async function listar(clienteId) {
+  await query(`DELETE FROM notificacion WHERE creado_en < now() - make_interval(days => $1)`, [DIAS_VIGENCIA]);
   const { rows } = await query(
     `SELECT id, titulo, mensaje, enlace, tipo, leida, creado_en AS fecha
        FROM notificacion WHERE cliente_id = $1
@@ -44,6 +48,15 @@ export async function porRuta(clienteId) {
 /** El cliente entró a una sección: sus avisos quedan leídos. */
 export async function marcarRutaLeida(clienteId, ruta) {
   await query('UPDATE notificacion SET leida = TRUE WHERE cliente_id = $1 AND enlace = $2 AND NOT leida', [clienteId, ruta]);
+}
+
+/** Borra una notificación del cliente (o todas, si `id` es null). Devuelve cuántas borró. */
+export async function borrar(clienteId, id = null) {
+  const { rowCount } = await query('DELETE FROM notificacion WHERE cliente_id = $1 AND ($2::int IS NULL OR id = $2)', [
+    clienteId,
+    id,
+  ]);
+  return rowCount;
 }
 
 /** Marca como leídas todas las del cliente. */

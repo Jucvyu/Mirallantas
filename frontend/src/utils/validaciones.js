@@ -72,7 +72,12 @@ export function errorPassword(password) {
 }
 
 /** ¿El valor está vacío? (texto en blanco, lista vacía, nulo) */
-export const estaVacio = (valor) => (Array.isArray(valor) ? valor.length === 0 : !String(valor ?? '').trim());
+export const estaVacio = (valor) => {
+  if (Array.isArray(valor)) return valor.length === 0;
+  // Objetos (p. ej. los privilegios de un rol): vacío si no tiene nada
+  if (valor && typeof valor === 'object') return Object.keys(valor).length === 0;
+  return !String(valor ?? '').trim();
+};
 
 /**
  * Error de un campo del formulario según su tipo, o '' si está bien.

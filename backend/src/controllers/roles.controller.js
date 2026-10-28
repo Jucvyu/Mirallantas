@@ -6,19 +6,26 @@ import { enviarDato, enviarSinContenido, enviarTodo } from '../views/respuesta.v
 /**
  * Controlador de roles y permisos.
  *
+ * Cada rol tiene módulos (nivel 2) y, en cada módulo, privilegios para
+ * crear, editar y eliminar (nivel 3; ver es tener el módulo).
+ *
  * Protege dos roles del sistema: el Administrador no se edita ni se
- * elimina (siempre tiene todos los permisos; la base de datos también lo
- * impide con un trigger) y el Cliente no se elimina.
+ * elimina (siempre tiene todos los permisos y privilegios; la base de datos
+ * también lo garantiza con triggers) y el Cliente no se elimina.
  */
 
-/** Valida que existan los módulos marcados y los asigna al rol. */
-async function asignarPermisos(db, rolId, modulos) {
+/**
+ * Valida que existan los módulos marcados y los asigna al rol con sus
+ * privilegios (nivel 3). `privilegios` = { Clientes: { crear, editar, eliminar } };
+ * un módulo sin privilegios indicados queda con todos.
+ */
+async function asignarPermisos(db, rolId, modulos, privilegios = {}) {
   const permisos = await rolesModel.permisosPorModulo(db, modulos);
   if (permisos.length !== new Set(modulos).size) throw new HttpError(422, 'Alguno de los módulos marcados no existe.');
   await rolesModel.reemplazarPermisos(
     db,
     rolId,
-    permisos.map((p) => p.id),
+    permisos.map((p) => ({ id: p.id, ...privilegios[p.modulo] })),
   );
 }
 
@@ -37,7 +44,7 @@ export async function crear(req, res) {
   const rol = req.validado.body;
   const id = await enTransaccion(async (db) => {
     const nuevoId = await rolesModel.crear(db, rol);
-    await asignarPermisos(db, nuevoId, rol.permisos);
+    await asignarPermisos(db, nuevoId, rol.permisos, rol.privilegios);
     return nuevoId;
   });
   enviarDato(res, await rolesModel.buscarPorId(id), 201);
@@ -60,7 +67,7 @@ export async function actualizar(req, res) {
 
   await enTransaccion(async (db) => {
     await rolesModel.actualizar(db, id, cambios);
-    if (cambios.permisos) await asignarPermisos(db, id, cambios.permisos);
+    if (cambios.permisos) await asignarPermisos(db, id, cambios.permisos, cambios.privilegios);
   });
   enviarDato(res, await rolesModel.buscarPorId(id));
 }

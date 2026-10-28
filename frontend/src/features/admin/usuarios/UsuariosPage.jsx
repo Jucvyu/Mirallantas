@@ -10,7 +10,7 @@ import { rolesService, usuariosService } from '../../../services';
 //
 // El estado se cambia desde la tabla: una cuenta inactiva no puede iniciar
 // sesión (ve el aviso de hablar con el administrador). El administrador
-// principal (el primero que se creó) no se desactiva ni se elimina.
+// principal (el primero que se creó) no se edita, no se desactiva ni se elimina.
 const columns = [
   {
     key: 'nombre',
@@ -103,6 +103,9 @@ export default function UsuariosPage() {
         onEdit={(fila, valores) => usuarios.editar(fila, valores, contexto)}
         onDelete={usuarios.eliminar}
         canDelete={(fila) => !protegido(fila)}
+        // El administrador principal no se edita aquí: sus datos los cambia él en "Mi perfil"
+        canEdit={(fila) => !fila.principal}
+        motivoNoEditable="El administrador principal no se edita: sus datos se cambian en «Mi perfil»"
         statusKey="estado"
         statusVariant="switch"
         statusOptions={estadosActivo}

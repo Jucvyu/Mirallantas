@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CheckCircle2, Info, TriangleAlert } from 'lucide-react';
+import { Bell, CheckCircle2, Info, Trash2, TriangleAlert, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from '../base/ConfirmDialog';
 import { notificacionesService } from '../../services';
 import { fechaISO } from '../../utils/formato';
 import { useAlCambiar } from '../../hooks/useAlCambiar';
@@ -34,9 +35,15 @@ function cuandoFue(fecha) {
  * Pedidos-Cotización (cotizaciones nuevas, pagos por revisar). Revisa cada
  * minuto; si llega algo nuevo llama a `onNuevas` (p. ej. para recargar los
  * datos de la pantalla). Al abrirla, los avisos quedan como leídos.
+ *
+ * Se puede borrar un aviso o todos (con confirmación). En el panel, como los
+ * avisos son compartidos, solo dejan de verse para quien los borra. Los de
+ * más de 7 días se borran solos.
  */
 export default function NotificacionesMenu({ servicio = notificacionesService, onNuevas }) {
   const [abierto, setAbierto] = useState(false);
+  // Borrado pendiente de confirmar: { notificacion } (una) o { todas: true }
+  const [porBorrar, setPorBorrar] = useState(null);
   const [datos, setDatos] = useState({ notificaciones: [], sinLeer: 0 });
   // Sube cuando la API avisa un cambio (tiempo real): se revisa enseguida
   const [aviso, setAviso] = useState(0);
@@ -98,6 +105,21 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
     }
   };
 
+  /** Borra lo confirmado y lo quita de la lista sin esperar a la próxima revisión. */
+  const borrar = async () => {
+    if (porBorrar.todas) {
+      await servicio.borrarTodas();
+      setDatos({ notificaciones: [], sinLeer: 0 });
+    } else {
+      const { id, leida } = porBorrar.notificacion;
+      await servicio.borrar(id);
+      setDatos((d) => ({
+        notificaciones: d.notificaciones.filter((n) => n.id !== id),
+        sinLeer: leida ? d.sinLeer : Math.max(0, d.sinLeer - 1),
+      }));
+    }
+  };
+
   return (
     <div ref={contenedor} className="relative">
       <button
@@ -117,22 +139,40 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
 
       {abierto && (
         <div className="ml-aparece absolute right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl ml-glass-panel border">
-          <p className="border-b border-slate-100 px-4 py-3 text-xs font-bold text-slate-800 dark:border-white/10 dark:text-slate-100">
-            Notificaciones
-          </p>
+          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-white/10">
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Notificaciones</p>
+            {datos.notificaciones.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPorBorrar({ todas: true })}
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 hover:bg-red-500/10 hover:text-red-500 dark:text-slate-400"
+              >
+                <Trash2 size={12} /> Borrar todas
+              </button>
+            )}
+          </div>
           {datos.notificaciones.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-slate-400">No tienes notificaciones.</p>
           ) : (
             <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto dark:divide-white/5">
               {datos.notificaciones.map((n) => (
-                <li key={n.id}>
+                <li key={n.id} className="group relative">
+                  {/* Borrar este aviso (aparece al pasar el mouse o con el teclado) */}
+                  <button
+                    type="button"
+                    onClick={() => setPorBorrar({ notificacion: n })}
+                    aria-label={`Borrar la notificación ${n.titulo}`}
+                    className="absolute right-2 top-2 z-10 rounded-md p-1 text-slate-400 opacity-0 transition-opacity hover:bg-red-500/10 hover:text-red-500 focus:opacity-100 group-hover:opacity-100"
+                  >
+                    <X size={13} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       setAbierto(false);
                       if (n.enlace) navigate(n.enlace);
                     }}
-                    className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-white/5 ${
+                    className={`flex w-full gap-3 px-4 py-3 pr-9 text-left hover:bg-slate-50 dark:hover:bg-white/5 ${
                       n.leida ? '' : 'bg-amber-400/5'
                     }`}
                   >
@@ -149,7 +189,25 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
               ))}
             </ul>
           )}
+          <p className="border-t border-slate-100 px-4 py-2 text-center text-[10px] text-slate-400 dark:border-white/10">
+            Las notificaciones se borran solas después de 7 días.
+          </p>
         </div>
+      )}
+
+      {porBorrar && (
+        <ConfirmDialog
+          title={porBorrar.todas ? '¿Borrar todas las notificaciones?' : '¿Borrar esta notificación?'}
+          message={
+            porBorrar.todas
+              ? `Se borrarán ${datos.notificaciones.length} notificaciones. No se puede deshacer.`
+              : 'La notificación se borrará. No se puede deshacer.'
+          }
+          confirmLabel={porBorrar.todas ? 'Borrar todas' : 'Borrar'}
+          record={porBorrar.notificacion ? { title: porBorrar.notificacion.titulo, subtitle: porBorrar.notificacion.mensaje } : undefined}
+          onConfirm={borrar}
+          onClose={() => setPorBorrar(null)}
+        />
       )}
     </div>
   );

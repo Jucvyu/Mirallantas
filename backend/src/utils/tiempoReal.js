@@ -58,7 +58,7 @@ export function recursoDe(ruta) {
 }
 
 /** Rutas que no cambian datos que se vean en pantalla (sesión, avisos leídos). */
-const SIN_AVISO = [/^\/api\/auth\/(login|google|2fa|salir|recuperar|captcha)/, /^\/api\/notificaciones\/(vista|leidas)/, /^\/api\/portal\/notificaciones\/(vista|leidas)/];
+const SIN_AVISO = [/^\/api\/auth\/(login|google|2fa|salir|recuperar|captcha)/, /^\/api\/(portal\/)?notificaciones/];
 
 /** ¿Esta petición debe avisar un cambio? */
 export function debeAvisar(req, res) {

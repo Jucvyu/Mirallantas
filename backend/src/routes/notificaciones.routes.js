@@ -3,6 +3,7 @@ import { z } from 'zod';
 import * as controlador from '../controllers/notificaciones.controller.js';
 import { autenticar, soloPersonal } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
+import { esquemaId } from '../validators/comunes.validator.js';
 
 /**
  * Avisos del personal (/api/notificaciones). Los del cliente están en
@@ -12,6 +13,8 @@ import { validar } from '../middleware/validar.js';
  *   GET  /por-modulo  avisos nuevos de cada módulo (burbujas del menú)
  *   POST /vista       el usuario entró a un módulo ({ ruta })
  *   POST /leidas      marcarlos como vistos
+ *   DELETE /:id       borrar un aviso (solo para este usuario)
+ *   DELETE /          borrar todos los avisos (solo para este usuario)
  */
 
 const esquemaVista = z.object({
@@ -25,3 +28,5 @@ rutasNotificaciones.get('/', controlador.listar);
 rutasNotificaciones.get('/por-modulo', controlador.porModulo);
 rutasNotificaciones.post('/vista', validar(esquemaVista), controlador.marcarVista);
 rutasNotificaciones.post('/leidas', controlador.marcarLeidas);
+rutasNotificaciones.delete('/', controlador.borrarTodas);
+rutasNotificaciones.delete('/:id', validar(esquemaId, 'params'), controlador.borrarUna);

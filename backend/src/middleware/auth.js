@@ -106,9 +106,31 @@ function negar(req, mensaje) {
   return new HttpError(403, mensaje);
 }
 
-/** Exige que el rol del usuario incluya el módulo indicado. */
+/**
+ * Acción que pide la petición, para el nivel 3 de seguridad: consultar
+ * (GET) es "ver"; borrar (DELETE), "eliminar"; registrar algo nuevo (POST a
+ * la raíz del módulo), "crear"; y todo lo demás (cambiar, aprobar,
+ * registrar un pago…), "editar".
+ */
+export function accionDe(req) {
+  if (req.method === 'GET' || req.method === 'HEAD') return 'ver';
+  if (req.method === 'DELETE') return 'eliminar';
+  if (req.method === 'POST' && (req.path === '/' || req.path === '')) return 'crear';
+  return 'editar';
+}
+
+const NOMBRE_ACCION = { crear: 'crear', editar: 'editar', eliminar: 'eliminar' };
+
+/**
+ * Exige el módulo (nivel 2) y, dentro de él, el privilegio de la acción
+ * (nivel 3): crear, editar o eliminar. Ver basta con tener el módulo.
+ */
 export const requierePermiso = (modulo) => (req, res, next) => {
   if (!req.usuario?.permisos.has(modulo)) throw negar(req, 'No tienes permiso para esta acción.');
+  const accion = accionDe(req);
+  if (accion !== 'ver' && req.usuario.privilegios?.[modulo]?.[accion] === false) {
+    throw negar(req, `Tu rol no tiene permiso para ${NOMBRE_ACCION[accion]} en ${modulo}.`);
+  }
   next();
 };
 

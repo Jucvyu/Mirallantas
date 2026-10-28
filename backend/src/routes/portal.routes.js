@@ -4,6 +4,7 @@ import * as cotizaciones from '../controllers/cotizaciones.controller.js';
 import * as controlador from '../controllers/portal.controller.js';
 import { autenticar } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
+import { esquemaId } from '../validators/comunes.validator.js';
 import * as ventas from '../controllers/ventas.controller.js';
 import { esquemaAceptacion, esquemaCancelacionCliente, esquemaPagoCliente } from '../validators/cotizaciones.validator.js';
 import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator.js';
@@ -22,6 +23,8 @@ import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator
  *   POST /notificaciones/leidas    marcarlos como leídos
  *   GET  /notificaciones/por-modulo  avisos sin leer por sección (burbujas del menú)
  *   POST /notificaciones/vista     el cliente entró a una sección ({ ruta })
+ *   DELETE /notificaciones/:id     borrar una notificación
+ *   DELETE /notificaciones         borrar todas
  */
 export const rutasPortal = Router();
 rutasPortal.use(autenticar);
@@ -36,6 +39,8 @@ rutasPortal.post('/cotizaciones/:numero/cuota', validar(esquemaPagoCliente), cot
 rutasPortal.get('/notificaciones', controlador.listarNotificaciones);
 rutasPortal.post('/notificaciones/leidas', controlador.marcarLeidas);
 rutasPortal.get('/notificaciones/por-modulo', controlador.notificacionesPorModulo);
+rutasPortal.delete('/notificaciones', controlador.borrarNotificaciones);
+rutasPortal.delete('/notificaciones/:id', validar(esquemaId, 'params'), controlador.borrarNotificacion);
 rutasPortal.post(
   '/notificaciones/vista',
   validar(z.object({ ruta: z.string().trim().regex(/^\/portal\/[a-z-]{1,40}$/, 'Ruta no válida.') })),

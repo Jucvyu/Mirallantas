@@ -49,7 +49,7 @@ async function exigirDatosNuevos(db, datos, mensaje, excluirId = null) {
   if (await usuariosModel.datoRepetido(db, datos, excluirId)) throw new HttpError(409, mensaje);
 }
 
-/** El primer Administrador creado no se desactiva, no cambia de rol ni se elimina. */
+/** El primer Administrador creado no se edita, no se desactiva, no cambia de rol ni se elimina. */
 async function protegerPrincipal(db, id, accion) {
   if (id === (await usuariosModel.idPrimerAdministrador(db))) {
     throw new HttpError(422, `El administrador principal del aplicativo no se puede ${accion}.`);
@@ -103,8 +103,8 @@ export async function actualizar(req, res) {
   const desactiva = cambios.activo === false && actual.activo;
 
   await enTransaccion(async (db) => {
-    if (desactiva) await protegerPrincipal(db, id, 'desactivar');
-    if (cambiaRol) await protegerPrincipal(db, id, 'cambiar de rol');
+    // El administrador principal no se edita desde aquí (sus datos los cambia él en "Mi perfil")
+    await protegerPrincipal(db, id, 'editar desde Usuarios: sus datos se cambian en "Mi perfil"');
     if (cambiaRol || desactiva) await exigirOtroAdministrador(db, actual);
     // Correo, documento o teléfono nuevos: no pueden ser los de otra cuenta
     const datosUnicos = { ...actual, ...cambios };

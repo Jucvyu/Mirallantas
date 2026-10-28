@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Check, ChevronDown, ImagePlus, Pipette, TriangleAlert, X } from 'lucide-react';
 import RecorteCircular from '../RecorteCircular';
+import MatrizPrivilegios from './MatrizPrivilegios';
 import SearchSelect from '../SearchSelect';
 import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
@@ -136,7 +137,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
   // que el listado y el detalle lo muestren sin conversiones.
   const encendido = value === ENCENDIDO || value === true;
 
-  const esCatalogo = type === 'select' || type === 'checkboxes' || (type === 'buscador' && !field.permitirNuevo);
+  const esCatalogo = type === 'select' || type === 'checkboxes' || type === 'privilegios' || (type === 'buscador' && !field.permitirNuevo);
   const catalogoVacio = esCatalogo && !readOnly && options.length === 0;
 
   return (
@@ -324,6 +325,16 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
           )}
           <input ref={fileInput} type="file" accept={TIPOS_IMAGEN} className="hidden" onChange={handleFile} />
         </div>
+      ) : type === 'privilegios' ? (
+        // Roles: módulos × privilegios (ver, crear, editar, eliminar)
+        <MatrizPrivilegios
+          id={id}
+          grupos={agruparOpciones(options, field.grupos)}
+          valor={value && typeof value === 'object' ? value : {}}
+          soloLectura={readOnly}
+          error={Boolean(error)}
+          onChange={(nuevo) => onChange(key, nuevo)}
+        />
       ) : type === 'checkboxes' ? (
         // Con `grupos` las opciones se muestran por categoría (p. ej. los
         // módulos de un rol); si no, en una sola fila

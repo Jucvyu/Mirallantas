@@ -96,17 +96,34 @@ export const productoDesdeApi = (f) => ({
 // ---- Seguridad --------------------------------------------------------------
 
 /** Los permisos viajan como lista; el formulario los maneja como "A, B, C". */
-export const rolDesdeApi = (f) => ({ ...f, estado: estadoActivo(f.activo), permisos: f.permisos.join(', ') });
-
-export const rolHaciaApi = (v) => ({
-  nombre: v.nombre,
-  descripcion: vacioANull(v.descripcion),
-  permisos: String(v.permisos ?? '')
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean),
-  activo: activoDesdeEstado(v.estado),
+/**
+ * Rol: los módulos (`permisos`) y, en cada uno, sus privilegios (nivel 3).
+ * En el formulario van juntos en `accesos`: { Clientes: { ver, crear, editar, eliminar } }.
+ */
+export const rolDesdeApi = (f) => ({
+  ...f,
+  estado: estadoActivo(f.activo),
+  permisos: f.permisos.join(', '),
+  accesos: Object.fromEntries(
+    f.permisos.map((modulo) => {
+      const p = f.privilegios?.[modulo] ?? {};
+      return [modulo, { ver: true, crear: p.crear !== false, editar: p.editar !== false, eliminar: p.eliminar !== false }];
+    }),
+  ),
 });
+
+export const rolHaciaApi = (v) => {
+  const marcados = Object.entries(v.accesos ?? {}).filter(([, a]) => a.ver);
+  return {
+    nombre: v.nombre,
+    descripcion: vacioANull(v.descripcion),
+    permisos: marcados.map(([modulo]) => modulo),
+    privilegios: Object.fromEntries(
+      marcados.map(([modulo, a]) => [modulo, { crear: Boolean(a.crear), editar: Boolean(a.editar), eliminar: Boolean(a.eliminar) }]),
+    ),
+    activo: activoDesdeEstado(v.estado),
+  };
+};
 
 export const usuarioDesdeApi = conEstado;
 
