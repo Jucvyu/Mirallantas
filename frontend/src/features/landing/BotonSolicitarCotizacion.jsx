@@ -17,13 +17,16 @@ import Captcha from '../auth/Captcha';
  * (VITE_TURNSTILE_SITE_KEY), el botón abre WhatsApp directamente.
  *
  *   <BotonSolicitarCotizacion className="…">Solicitar cotización</BotonSolicitarCotizacion>
+ *   <BotonSolicitarCotizacion mensaje="Hola, quiero cotizar un reencauche." …>Cotizar reencauche</BotonSolicitarCotizacion>
+ *
+ * `mensaje`: texto con el que se abre el chat de WhatsApp (opcional).
  */
-export default function BotonSolicitarCotizacion({ className, children }) {
+export default function BotonSolicitarCotizacion({ className, children, mensaje }) {
   const [abierto, setAbierto] = useState(false);
 
   if (!TURNSTILE_SITE_KEY) {
     return (
-      <a href={enlaceWhatsapp()} target="_blank" rel="noreferrer" className={className}>
+      <a href={enlaceWhatsapp(mensaje)} target="_blank" rel="noreferrer" className={className}>
         {children}
       </a>
     );
@@ -34,12 +37,12 @@ export default function BotonSolicitarCotizacion({ className, children }) {
       <button type="button" onClick={() => setAbierto(true)} className={className}>
         {children}
       </button>
-      {abierto && <VerificarYContinuar onClose={() => setAbierto(false)} />}
+      {abierto && <VerificarYContinuar mensaje={mensaje} onClose={() => setAbierto(false)} />}
     </>
   );
 }
 
-function VerificarYContinuar({ onClose }) {
+function VerificarYContinuar({ mensaje, onClose }) {
   const [captcha, setCaptcha] = useState('');
   const [estado, setEstado] = useState('verificando'); // 'verificando' | 'aprobado'
   const [error, setError] = useState('');
@@ -80,7 +83,7 @@ function VerificarYContinuar({ onClose }) {
           </button>
           {estado === 'aprobado' ? (
             <a
-              href={enlaceWhatsapp()}
+              href={enlaceWhatsapp(mensaje)}
               target="_blank"
               rel="noreferrer"
               onClick={cerrar}

@@ -2,6 +2,7 @@ import { CircleDot, Headset, RefreshCw } from 'lucide-react';
 import LiquidGlass from '../../components/base/LiquidGlass';
 import { enlaceWhatsapp } from './contenido';
 import Revelar from './Revelar';
+import BotonSolicitarCotizacion from './BotonSolicitarCotizacion';
 
 /** Las dos formas del reencauche, con el lenguaje que usa la app (carcasa, reencauchadora). */
 const OPCIONES_REENCAUCHE = [
@@ -63,14 +64,13 @@ export default function Servicios() {
                   </li>
                 ))}
               </ul>
-              <a
-                href={enlaceWhatsapp('Hola, quiero información sobre el servicio de reencauche.')}
-                target="_blank"
-                rel="noreferrer"
+              {/* Con la verificación de seguridad (Cloudflare) antes de abrir WhatsApp */}
+              <BotonSolicitarCotizacion
+                mensaje="Hola, quiero información sobre el servicio de reencauche."
                 className="ml-pulsable mt-6 inline-flex rounded-full bg-amber-400 px-6 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-300"
               >
                 Cotizar reencauche
-              </a>
+              </BotonSolicitarCotizacion>
             </LiquidGlass>
           </Revelar>
 
