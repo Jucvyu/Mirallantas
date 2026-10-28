@@ -5,6 +5,7 @@ import * as eventos from '../models/eventos.model.js';
 import { ROL_ADMIN, ROL_CLIENTE } from '../models/roles.model.js';
 import { buscarCuenta, cuentaHabilitada } from '../models/usuarios.model.js';
 import { usuarioPublico } from '../views/usuarios.view.js';
+import { accionDe, NOMBRE_ACCION } from '../privilegios.js';
 
 /**
  * Middlewares de sesión y permisos.
@@ -107,29 +108,15 @@ function negar(req, mensaje) {
 }
 
 /**
- * Acción que pide la petición, para el nivel 3 de seguridad: consultar
- * (GET) es "ver"; borrar (DELETE), "eliminar"; registrar algo nuevo (POST a
- * la raíz del módulo), "crear"; y todo lo demás (cambiar, aprobar,
- * registrar un pago…), "editar".
- */
-export function accionDe(req) {
-  if (req.method === 'GET' || req.method === 'HEAD') return 'ver';
-  if (req.method === 'DELETE') return 'eliminar';
-  if (req.method === 'POST' && (req.path === '/' || req.path === '')) return 'crear';
-  return 'editar';
-}
-
-const NOMBRE_ACCION = { crear: 'crear', editar: 'editar', eliminar: 'eliminar' };
-
-/**
- * Exige el módulo (nivel 2) y, dentro de él, el privilegio de la acción
- * (nivel 3): crear, editar o eliminar. Ver basta con tener el módulo.
+ * Exige el módulo (nivel 2) y, dentro de él, que la acción no esté negada
+ * para el rol (nivel 3: ver detalle, crear, editar, cambiar estado, anular,
+ * emitir… ver src/privilegios.js). Ver el listado basta con tener el módulo.
  */
 export const requierePermiso = (modulo) => (req, res, next) => {
   if (!req.usuario?.permisos.has(modulo)) throw negar(req, 'No tienes permiso para esta acción.');
   const accion = accionDe(req);
-  if (accion !== 'ver' && req.usuario.privilegios?.[modulo]?.[accion] === false) {
-    throw negar(req, `Tu rol no tiene permiso para ${NOMBRE_ACCION[accion]} en ${modulo}.`);
+  if (accion !== 'ver' && req.usuario.denegadas?.[modulo]?.includes(accion)) {
+    throw negar(req, `Tu rol no tiene permiso para ${NOMBRE_ACCION[accion] ?? accion} en ${modulo}.`);
   }
   next();
 };

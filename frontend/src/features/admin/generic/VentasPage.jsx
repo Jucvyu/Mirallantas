@@ -181,8 +181,8 @@ export default function VentasPage() {
         ]}
         rowActions={(row, { update }) => (
           <>
-            <BotonAccion icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
-            <BotonAccion
+            <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion accion="descargarPdf"
               icono={Receipt}
               etiqueta="Generar comprobante de venta"
               tono="exito"
@@ -190,7 +190,7 @@ export default function VentasPage() {
               motivo="La venta todavía no está completada"
               onClick={() => setComprobanteDe(row)}
             />
-            <BotonAccion
+            <BotonAccion accion="anular"
               icono={Ban}
               etiqueta="Anular la venta"
               tono="peligro"

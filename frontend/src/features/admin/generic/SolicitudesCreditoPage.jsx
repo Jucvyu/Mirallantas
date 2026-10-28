@@ -78,7 +78,7 @@ export default function SolicitudesCreditoPage() {
           { key: 'cliente', label: 'Cliente' },
         ]}
         rowActions={(row) => (
-          <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
+          <BotonAccion accion="verDetalle" icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
         )}
       />
 

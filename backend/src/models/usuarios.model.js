@@ -44,8 +44,7 @@ export async function buscarCuenta({ id, correo }) {
             cl.direccion, r.nombre AS rol,
             u.activo, r.activo AS rol_activo, cl.activo AS cliente_activo,
             COALESCE(array_agg(p.modulo ORDER BY p.modulo) FILTER (WHERE p.modulo IS NOT NULL), '{}') AS permisos,
-            COALESCE(json_object_agg(p.modulo, json_build_object('crear', rp.puede_crear, 'editar', rp.puede_editar, 'eliminar', rp.puede_eliminar))
-              FILTER (WHERE p.modulo IS NOT NULL), '{}') AS privilegios
+            COALESCE(json_object_agg(p.modulo, rp.acciones_denegadas) FILTER (WHERE p.modulo IS NOT NULL), '{}') AS denegadas
        FROM usuario u
        JOIN rol r ON r.id = u.rol_id
        LEFT JOIN cliente cl ON cl.id = u.cliente_id

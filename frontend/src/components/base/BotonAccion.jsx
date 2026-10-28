@@ -1,4 +1,6 @@
 import Tooltip from './Tooltip';
+import { usePrivilegio } from '../../hooks/usePrivilegio';
+import { NOMBRE_ACCION } from '../../privilegios';
 
 /** Color del icono según la acción (el gris es el de siempre). */
 const TONOS = {
@@ -16,11 +18,19 @@ const TONOS = {
  * el mismo lugar. Si la acción no aplica a esa fila, queda deshabilitado
  * (atenuado y sin clic) y al pasar el mouse dice por qué.
  *
- *   <BotonAccion icono={Ban} etiqueta="Anular la venta" tono="peligro"
+ *   <BotonAccion icono={Ban} etiqueta="Anular la venta" tono="peligro" accion="anular"
  *     deshabilitado={row.estado === 'Anulada'} motivo="La venta ya está anulada"
  *     onClick={…} />
+ *
+ * `accion` (nivel 3 de seguridad): si el rol la tiene negada en el módulo de
+ * la pantalla, el botón queda deshabilitado y lo explica.
  */
-export default function BotonAccion({ icono: Icono, etiqueta, onClick, tono = 'neutro', deshabilitado = false, motivo }) {
+export default function BotonAccion({ icono: Icono, etiqueta, onClick, tono = 'neutro', deshabilitado = false, motivo, accion }) {
+  const puede = usePrivilegio();
+  if (accion && !puede(accion)) {
+    deshabilitado = true;
+    motivo = `Tu rol no tiene permiso para: ${NOMBRE_ACCION[accion] ?? accion}`;
+  }
   const titulo = deshabilitado ? `${etiqueta} · ${motivo ?? 'No disponible'}` : etiqueta;
   return (
     <Tooltip texto={titulo} className={deshabilitado ? 'cursor-not-allowed' : ''}>

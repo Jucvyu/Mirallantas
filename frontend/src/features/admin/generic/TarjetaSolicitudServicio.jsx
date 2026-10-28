@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Ban, ClipboardCheck, Eye, HandCoins, Pencil, Save, Trash2, Wrench } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
+import { usePrivilegio } from '../../../hooks/usePrivilegio';
 import MotivoModal from '../../../components/base/MotivoModal';
 import RevisionCarcasaModal from './RevisionCarcasaModal';
 import DetalleSolicitudServicioModal from './DetalleSolicitudServicioModal';
@@ -28,6 +29,8 @@ import { TONO_PAGO } from './tonosPago';
  *        onEditar(), onEliminar() — las acciones devuelven promesas.
  */
 export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisar, onEstado, onVerPago, onEditar, onEliminar }) {
+  // Nivel 3: asignar precio y cambiar estado dependen del rol
+  const puede = usePrivilegio();
   // false | true | 'avance' | 'precio' (se intentó avanzar o poner precio sin revisar: la revisión es obligatoria)
   const [revisando, setRevisando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
@@ -213,7 +216,7 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
                     }),
                   )
                 }
-                disabled={!aprobada || guardando || ventaBaja || (!cambioPrecio && !cambioCompra)}
+                disabled={!puede('asignarPrecio') || !aprobada || guardando || ventaBaja || (!cambioPrecio && !cambioCompra)}
                 className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-3 text-xs font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-40"
                 title={cambioPrecio ? 'Guardar y avisar al cliente el valor' : 'Guardar el precio de compra'}
               >
@@ -228,7 +231,12 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
             <div>
               <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Estado</span>
               <div className="mt-1">
-                <StatusSelect value={solicitud.estado} options={estadosServicio} flow={FLUJO_ESTADOS_SERVICIO} onChange={cambiarEstado} />
+                <StatusSelect
+                  value={solicitud.estado}
+                  options={estadosServicio}
+                  flow={FLUJO_ESTADOS_SERVICIO}
+                  onChange={puede('cambiarEstado') ? cambiarEstado : undefined}
+                />
               </div>
             </div>
           </>
@@ -236,8 +244,9 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
 
         {/* ---- Acciones ---- */}
         <div className="flex items-center gap-1">
-          <BotonAccion icono={Eye} etiqueta="Ver el detalle y las fotos de la llanta" tono="acento" onClick={() => setViendoDetalle(true)} />
+          <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver el detalle y las fotos de la llanta" tono="acento" onClick={() => setViendoDetalle(true)} />
           <BotonAccion
+            accion={revisada ? 'verDetalle' : 'revisarCarcasa'}
             icono={ClipboardCheck}
             etiqueta={
               revisada ? `Ver la revisión de la carcasa (${solicitud.estadoEvidencia})` : 'Revisar la carcasa (aprobar o marcar no apta)'
@@ -246,21 +255,21 @@ export default function TarjetaSolicitudServicio({ solicitud, onPrecio, onRevisa
             onClick={() => setRevisando(true)}
           />
           {!cancelada && (
-            <BotonAccion
+            <BotonAccion accion="revisarPago"
               icono={HandCoins}
               etiqueta="Ver pago y comprobante"
               tono={solicitud.pagoEstado === 'En revisión' ? 'destacado' : 'acento'}
               onClick={onVerPago}
             />
           )}
-          <BotonAccion
+          <BotonAccion accion="editar"
             icono={Pencil}
             etiqueta="Editar la solicitud"
             deshabilitado={aprobada || cerrada}
             motivo={cerrada ? `El reencauche está "${solicitud.estado}"` : 'Ya fue aprobada: sus datos no se editan'}
             onClick={onEditar}
           />
-          <BotonAccion
+          <BotonAccion accion="eliminar"
             icono={Trash2}
             etiqueta="Eliminar la solicitud"
             tono="peligro"

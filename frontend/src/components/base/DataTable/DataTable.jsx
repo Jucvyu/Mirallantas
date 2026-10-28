@@ -252,7 +252,7 @@ export default function DataTable({
 
   /** Contenido de una celda: estado editable, render a medida o el valor. */
   const contenidoCelda = (row, col) => {
-    const cambiaEstado = onStatusChange && privilegio('editar') && (!canChangeStatus || canChangeStatus(row));
+    const cambiaEstado = onStatusChange && privilegio('cambiarEstado') && (!canChangeStatus || canChangeStatus(row));
     const alCambiarEstado = cambiaEstado ? (v) => ejecutar(() => onStatusChange(row, v)) : undefined;
     if (col.key === statusKey && statusVariant === 'switch') {
       return <StatusSwitch value={row[col.key]} options={statusOptions} onChange={alCambiarEstado} />;
@@ -282,7 +282,7 @@ export default function DataTable({
         />
       )}
       {rowActions?.(row, { update: updateDe(row) })}
-      {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" onClick={() => setDialog({ mode: 'view', row })} />}
+      {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => setDialog({ mode: 'view', row })} />}
       {muestraEditar && (
         <BotonAccion
           icono={Pencil}
@@ -314,7 +314,7 @@ export default function DataTable({
         {title && <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">{title}</h1>}
         {toolbar && (
           <div className="flex items-center gap-2">
-            {exportable && (
+            {exportable && privilegio('exportar') && (
               <button
                 type="button"
                 onClick={() => setDialog({ mode: 'exportar' })}

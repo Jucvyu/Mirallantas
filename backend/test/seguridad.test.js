@@ -190,11 +190,11 @@ describe('Rol Administrador y panel de seguridad', () => {
       cuerpo: {
         nombre: 'Consulta de clientes',
         permisos: ['Clientes'],
-        privilegios: { Clientes: { crear: false, editar: true, eliminar: false } },
+        denegadas: { Clientes: ['crear', 'eliminar'] },
       },
     });
     assert.equal(rol.estado, 201, JSON.stringify(rol.cuerpo));
-    assert.deepEqual(rol.cuerpo.datos.privilegios.Clientes, { crear: false, editar: true, eliminar: false });
+    assert.deepEqual(rol.cuerpo.datos.denegadas.Clientes, ['crear', 'eliminar']);
     const usuario = await e.api('/usuarios', {
       metodo: 'POST',
       token: t.admin,
@@ -224,7 +224,57 @@ describe('Rol Administrador y panel de seguridad', () => {
 
     // La sesión trae los privilegios para que el panel oculte los botones
     const yo = await e.api('/auth/yo', { token: pablo });
-    assert.equal(yo.cuerpo.usuario.privilegios.Clientes.crear, false);
+    assert.deepEqual(yo.cuerpo.usuario.denegadas.Clientes, ['crear', 'eliminar']);
+  });
+
+  test('nivel 3: cada acción del módulo se niega por separado (anular, ver detalle…)', async () => {
+    const rol = await e.api('/roles', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: { nombre: 'Vendedor sin anular', permisos: ['Ventas'], denegadas: { Ventas: ['anular', 'verDetalle'] } },
+    });
+    assert.equal(rol.estado, 201, JSON.stringify(rol.cuerpo));
+    // Una acción que no existe en el módulo se rechaza
+    const mala = await e.api('/roles', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: { nombre: 'Rol raro', permisos: ['Ventas'], denegadas: { Ventas: ['volar'] } },
+    });
+    assert.equal(mala.estado, 422);
+
+    await e.api('/usuarios', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: { nombre: 'Vera Vendedora', tipoDocumento: 'CC', numeroDocumento: '77889900', correo: 'vera@mirallantas.com', rolId: rol.cuerpo.datos.id, password: 'ClaveSegura2026' },
+    });
+    const vera = await e.iniciarSesion('vera@mirallantas.com', 'ClaveSegura2026');
+    const ventas = await e.api('/ventas', { token: vera });
+    assert.equal(ventas.estado, 200, 'el listado sí');
+    const una = ventas.cuerpo.datos[0].numero;
+    assert.equal((await e.api(`/ventas/${una}`, { token: vera })).estado, 403, 'ver detalle no');
+    const anular = await e.api(`/ventas/${una}`, { metodo: 'PATCH', token: vera, cuerpo: { estado: 'Anulada' } });
+    assert.equal(anular.estado, 403);
+    assert.match(anular.cuerpo.error, /anular/);
+  });
+
+  test('un rol desactivado no deja entrar a sus usuarios (y el Administrador no se desactiva)', async () => {
+    const rol = await e.api('/roles', { metodo: 'POST', token: t.admin, cuerpo: { nombre: 'Temporal', permisos: ['Clientes'] } });
+    await e.api('/usuarios', {
+      metodo: 'POST',
+      token: t.admin,
+      cuerpo: { nombre: 'Tomas Temporal', tipoDocumento: 'CC', numeroDocumento: '66778899', correo: 'tomas@mirallantas.com', rolId: rol.cuerpo.datos.id, password: 'ClaveSegura2026' },
+    });
+    const tomas = await e.iniciarSesion('tomas@mirallantas.com', 'ClaveSegura2026');
+    const off = await e.api(`/roles/${rol.cuerpo.datos.id}`, { metodo: 'PUT', token: t.admin, cuerpo: { activo: false } });
+    assert.equal(off.estado, 200, JSON.stringify(off.cuerpo));
+    // Su sesión abierta deja de servir y no puede volver a entrar
+    assert.notEqual((await e.api('/clientes', { token: tomas })).estado, 200);
+    const login = await e.api('/auth/login', { metodo: 'POST', cuerpo: { correo: 'tomas@mirallantas.com', password: 'ClaveSegura2026' } });
+    assert.notEqual(login.estado, 200);
+
+    const roles = await e.api('/roles', { token: t.admin });
+    const admin = roles.cuerpo.datos.find((r) => r.nombre === 'Administrador');
+    assert.equal((await e.api(`/roles/${admin.id}`, { metodo: 'PUT', token: t.admin, cuerpo: { activo: false } })).estado, 422);
   });
 
   test('el administrador principal no se edita desde Usuarios', async () => {

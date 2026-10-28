@@ -7,6 +7,7 @@ import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { abonosService } from '../../../services';
 import { MAX_TEXTO } from '../../../utils/validaciones';
+import { usePrivilegio } from '../../../hooks/usePrivilegio';
 
 /**
  * Detalle de un abono para el asesor (módulo Abonos).
@@ -23,7 +24,9 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
   const { enviando, errorEnvio, enviar } = useEnvio();
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
-  const pendiente = abono.estado === 'Pendiente';
+  // Confirmar o rechazar solo con el privilegio del rol (nivel 3)
+  const puede = usePrivilegio();
+  const pendiente = abono.estado === 'Pendiente' && puede('confirmarAbono');
 
   const resolver = (estado, cerrar) =>
     enviar(async () => {

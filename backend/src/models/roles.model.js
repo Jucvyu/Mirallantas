@@ -15,8 +15,7 @@ export async function listar(id) {
   const { rows } = await query(
     `SELECT r.id, r.nombre, r.descripcion, r.activo,
             COALESCE(array_agg(p.modulo ORDER BY p.id) FILTER (WHERE p.modulo IS NOT NULL), '{}') AS permisos,
-            COALESCE(json_object_agg(p.modulo, json_build_object('crear', rp.puede_crear, 'editar', rp.puede_editar, 'eliminar', rp.puede_eliminar))
-              FILTER (WHERE p.modulo IS NOT NULL), '{}') AS privilegios
+            COALESCE(json_object_agg(p.modulo, rp.acciones_denegadas) FILTER (WHERE p.modulo IS NOT NULL), '{}') AS denegadas
        FROM rol r
        LEFT JOIN rol_permiso rp ON rp.rol_id = r.id
        LEFT JOIN permiso p ON p.id = rp.permiso_id
@@ -65,19 +64,21 @@ export async function actualizar(db, id, { nombre, descripcion, activo }) {
   );
 }
 
-/**
- * Reemplaza los permisos del rol: [{ id, crear, editar, eliminar }] (id de
- * `permiso` y sus privilegios; los que falten quedan en true).
- */
+/** Reemplaza los permisos del rol: [{ id, denegadas }] (id de `permiso` y sus acciones negadas). */
 export async function reemplazarPermisos(db, rolId, permisos) {
   await db.query('DELETE FROM rol_permiso WHERE rol_id = $1', [rolId]);
-  for (const { id, crear = true, editar = true, eliminar = true } of permisos) {
-    await db.query(
-      `INSERT INTO rol_permiso (rol_id, permiso_id, puede_crear, puede_editar, puede_eliminar)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [rolId, id, crear, editar, eliminar],
-    );
+  for (const { id, denegadas = [] } of permisos) {
+    await db.query('INSERT INTO rol_permiso (rol_id, permiso_id, acciones_denegadas) VALUES ($1, $2, $3)', [
+      rolId,
+      id,
+      denegadas,
+    ]);
   }
+}
+
+/** Activa o desactiva un rol. */
+export async function cambiarActivo(db, id, activo) {
+  await db.query('UPDATE rol SET activo = $1 WHERE id = $2', [activo, id]);
 }
 
 /** Elimina un rol. Si hay usuarios con él, la base lo impide (409). */

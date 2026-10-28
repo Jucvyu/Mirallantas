@@ -7,7 +7,13 @@ import { traerTodo } from './http';
 import { crearServicio } from './recurso';
 import { vacioANull } from '../utils/formato';
 
-export const rolesService = crearServicio({ ruta: '/roles', desdeApi: rolDesdeApi, haciaApi: rolHaciaApi });
+const rolesBase = crearServicio({ ruta: '/roles', desdeApi: rolDesdeApi, haciaApi: rolHaciaApi });
+
+export const rolesService = {
+  ...rolesBase,
+  /** Activa o desactiva el rol: desactivado, sus usuarios no pueden entrar. */
+  cambiarEstado: (fila, estado) => rolesBase.enviar(fila, { activo: estado === 'Activo' }, { metodo: 'PUT' }),
+};
 
 /** Módulos que se pueden marcar en un rol ("Clientes", "Ventas", "Empresa"…). */
 export const permisosService = {

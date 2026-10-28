@@ -215,8 +215,8 @@ export default function PedidosCotizacionPage() {
         canDelete={(row) => row.estado === 'Pendiente'}
         rowActions={(row) => (
           <>
-            <BotonAccion icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
-            <BotonAccion
+            <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion accion="emitir"
               icono={BadgeCheck}
               etiqueta={row.etapa === 'Emitida' ? 'Volver a confirmar precios y emitir' : 'Confirmar precios con el proveedor y emitir'}
               tono={row.etapa === 'Emitida' ? 'acento' : 'destacado'}
@@ -224,7 +224,7 @@ export default function PedidosCotizacionPage() {
               motivo="Ya fue aceptada o cerrada"
               onClick={() => setEmitiendo(row)}
             />
-            <BotonAccion
+            <BotonAccion accion="aceptar"
               icono={Signature}
               etiqueta="Registrar la aceptación del cliente (en el local)"
               tono="acento"
@@ -232,7 +232,7 @@ export default function PedidosCotizacionPage() {
               motivo={row.etapa === 'Solicitud' ? 'Primero confirma los precios y emite la cotización' : 'No hay una cotización emitida por aceptar'}
               onClick={() => setAceptando(row)}
             />
-            <BotonAccion
+            <BotonAccion accion="descargarPdf"
               icono={FileDown}
               etiqueta="Descargar la cotización en PDF"
               tono="acento"
@@ -240,7 +240,7 @@ export default function PedidosCotizacionPage() {
               motivo="La cotización todavía no se ha emitido"
               onClick={() => descargarPdf(row)}
             />
-            <BotonAccion
+            <BotonAccion accion="revisarPago"
               icono={HandCoins}
               etiqueta="Ver pago y consignaciones"
               tono={row.pagoEstado === 'En revisión' ? 'destacado' : 'acento'}
@@ -250,7 +250,7 @@ export default function PedidosCotizacionPage() {
               onClick={() => setPagosDe(row)}
             />
             {/* Se cancela sin borrarla, solo mientras no esté aprobada (pagada) */}
-            <BotonAccion
+            <BotonAccion accion="cambiarEstado"
               icono={Ban}
               etiqueta="Cancelar la cotización"
               tono="peligro"
@@ -259,7 +259,7 @@ export default function PedidosCotizacionPage() {
               onClick={() => setCancelando(row)}
             />
             {/* El comprobante solo se emite con la cotización cerrada */}
-            <BotonAccion
+            <BotonAccion accion="verDetalle"
               icono={Receipt}
               etiqueta="Generar comprobante de venta"
               tono="exito"

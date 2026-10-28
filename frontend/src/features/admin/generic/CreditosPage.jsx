@@ -95,7 +95,7 @@ export default function CreditosPage() {
         ]}
         createModal={({ onSubmit, onClose }) => <NuevoCreditoModal onSubmit={onSubmit} onClose={onClose} />}
         rowActions={(row) => (
-          <BotonAccion
+          <BotonAccion accion="registrarAbono"
             icono={Wallet}
             etiqueta="Subir abonos y ver el historial"
             tono="destacado"

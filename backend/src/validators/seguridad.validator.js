@@ -18,10 +18,8 @@ export const esquemaRol = z.object({
   nombre: nombreEntidad(60),
   descripcion: textoExplicadoOpcional(80),
   permisos: z.array(z.string().trim().min(1)).min(1, 'Marca al menos un módulo.'),
-  // Nivel 3: privilegios de cada módulo marcado (los que falten quedan en true)
-  privilegios: z
-    .record(z.string(), z.object({ crear: z.boolean(), editar: z.boolean(), eliminar: z.boolean() }))
-    .optional(),
+  // Nivel 3: acciones negadas de cada módulo marcado ({ Clientes: ['crear'] })
+  denegadas: z.record(z.string(), z.array(z.string().trim().min(1).max(40))).optional(),
   activo: z.boolean().optional(),
 });
 

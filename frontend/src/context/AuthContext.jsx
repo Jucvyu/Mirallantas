@@ -48,7 +48,7 @@ const anotarActividad = () => {
  *   verificarCodigo    (desafio, codigo) → usuario
  *   registrarse        (valores del formulario, captcha) → usuario (cuenta de cliente)
  *   cerrarSesion       (motivo?)
- *   puede              (módulo, 'crear' | 'editar' | 'eliminar') → boolean (nivel 3)
+ *   puede              (módulo, acción) → boolean (nivel 3; acciones en src/privilegios.js)
  *   actualizarPerfil   (valores del formulario) → usuario
  *   activarDobleFactor / desactivarDobleFactor
  *   tienePermiso       (modulo) → boolean
@@ -188,7 +188,7 @@ export function AuthProvider({ children }) {
       activarDobleFactor,
       desactivarDobleFactor,
       tienePermiso: (modulo) => permite(usuario, modulo),
-      // Nivel 3: ¿puede crear, editar o eliminar en ese módulo?
+      // Nivel 3: ¿puede hacer esa acción (crear, anular, emitir…) en ese módulo?
       puede: (modulo, accion) => puede(usuario, modulo, accion),
     }),
     [

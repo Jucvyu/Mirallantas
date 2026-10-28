@@ -1,13 +1,15 @@
 import { enTransaccion } from '../db.js';
 import { HttpError, noEncontrado } from '../errores.js';
+import { accionesDe } from '../privilegios.js';
 import * as rolesModel from '../models/roles.model.js';
 import { enviarDato, enviarSinContenido, enviarTodo } from '../views/respuesta.view.js';
 
 /**
  * Controlador de roles y permisos.
  *
- * Cada rol tiene módulos (nivel 2) y, en cada módulo, privilegios para
- * crear, editar y eliminar (nivel 3; ver es tener el módulo).
+ * Cada rol tiene módulos (nivel 2) y, en cada módulo, acciones que puede
+ * tener negadas (nivel 3; ver src/privilegios.js). Desactivar un rol deja
+ * sin acceso a todas las cuentas que lo tienen (se revisa en cada petición).
  *
  * Protege dos roles del sistema: el Administrador no se edita ni se
  * elimina (siempre tiene todos los permisos y privilegios; la base de datos
@@ -16,16 +18,21 @@ import { enviarDato, enviarSinContenido, enviarTodo } from '../views/respuesta.v
 
 /**
  * Valida que existan los módulos marcados y los asigna al rol con sus
- * privilegios (nivel 3). `privilegios` = { Clientes: { crear, editar, eliminar } };
- * un módulo sin privilegios indicados queda con todos.
+ * acciones negadas (nivel 3). `denegadas` = { Clientes: ['crear', 'eliminar'] };
+ * un módulo sin acciones negadas puede hacer todo.
  */
-async function asignarPermisos(db, rolId, modulos, privilegios = {}) {
+async function asignarPermisos(db, rolId, modulos, denegadas = {}) {
   const permisos = await rolesModel.permisosPorModulo(db, modulos);
   if (permisos.length !== new Set(modulos).size) throw new HttpError(422, 'Alguno de los módulos marcados no existe.');
+  for (const [modulo, acciones] of Object.entries(denegadas)) {
+    const validas = accionesDe(modulo);
+    const desconocida = acciones.find((a) => !validas.includes(a));
+    if (desconocida) throw new HttpError(422, `La acción "${desconocida}" no existe en ${modulo}.`);
+  }
   await rolesModel.reemplazarPermisos(
     db,
     rolId,
-    permisos.map((p) => ({ id: p.id, ...privilegios[p.modulo] })),
+    permisos.map((p) => ({ id: p.id, denegadas: [...new Set(denegadas[p.modulo] ?? [])] })),
   );
 }
 
@@ -44,7 +51,7 @@ export async function crear(req, res) {
   const rol = req.validado.body;
   const id = await enTransaccion(async (db) => {
     const nuevoId = await rolesModel.crear(db, rol);
-    await asignarPermisos(db, nuevoId, rol.permisos, rol.privilegios);
+    await asignarPermisos(db, nuevoId, rol.permisos, rol.denegadas);
     return nuevoId;
   });
   enviarDato(res, await rolesModel.buscarPorId(id), 201);
@@ -67,7 +74,7 @@ export async function actualizar(req, res) {
 
   await enTransaccion(async (db) => {
     await rolesModel.actualizar(db, id, cambios);
-    if (cambios.permisos) await asignarPermisos(db, id, cambios.permisos, cambios.privilegios);
+    if (cambios.permisos) await asignarPermisos(db, id, cambios.permisos, cambios.denegadas);
   });
   enviarDato(res, await rolesModel.buscarPorId(id));
 }

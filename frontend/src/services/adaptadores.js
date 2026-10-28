@@ -97,19 +97,15 @@ export const productoDesdeApi = (f) => ({
 
 /** Los permisos viajan como lista; el formulario los maneja como "A, B, C". */
 /**
- * Rol: los módulos (`permisos`) y, en cada uno, sus privilegios (nivel 3).
- * En el formulario van juntos en `accesos`: { Clientes: { ver, crear, editar, eliminar } }.
+ * Rol: los módulos (`permisos`) y, en cada uno, las acciones negadas
+ * (nivel 3). En el formulario van juntos en `accesos`:
+ * { Clientes: { ver: true, denegadas: ['eliminar'] } }.
  */
 export const rolDesdeApi = (f) => ({
   ...f,
   estado: estadoActivo(f.activo),
   permisos: f.permisos.join(', '),
-  accesos: Object.fromEntries(
-    f.permisos.map((modulo) => {
-      const p = f.privilegios?.[modulo] ?? {};
-      return [modulo, { ver: true, crear: p.crear !== false, editar: p.editar !== false, eliminar: p.eliminar !== false }];
-    }),
-  ),
+  accesos: Object.fromEntries(f.permisos.map((modulo) => [modulo, { ver: true, denegadas: f.denegadas?.[modulo] ?? [] }])),
 });
 
 export const rolHaciaApi = (v) => {
@@ -118,9 +114,7 @@ export const rolHaciaApi = (v) => {
     nombre: v.nombre,
     descripcion: vacioANull(v.descripcion),
     permisos: marcados.map(([modulo]) => modulo),
-    privilegios: Object.fromEntries(
-      marcados.map(([modulo, a]) => [modulo, { crear: Boolean(a.crear), editar: Boolean(a.editar), eliminar: Boolean(a.eliminar) }]),
-    ),
+    denegadas: Object.fromEntries(marcados.map(([modulo, a]) => [modulo, a.denegadas ?? []])),
     activo: activoDesdeEstado(v.estado),
   };
 };

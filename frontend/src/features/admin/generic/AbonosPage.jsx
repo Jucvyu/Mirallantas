@@ -90,9 +90,9 @@ export default function AbonosPage() {
         canDelete={false}
         rowActions={(row) => (
           <>
-            <BotonAccion icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion accion="verDetalle" icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
             {/* El comprobante solo se emite con el abono ya validado */}
-            <BotonAccion
+            <BotonAccion accion="descargarPdf"
               icono={Receipt}
               etiqueta="Generar comprobante del abono"
               tono="exito"

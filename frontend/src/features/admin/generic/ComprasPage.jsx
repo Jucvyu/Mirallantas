@@ -84,7 +84,7 @@ export default function ComprasPage() {
         canDelete={false}
         rowActions={(row, { update }) => (
           // Una compra recibida no se toca; una pendiente se puede anular
-          <BotonAccion
+          <BotonAccion accion="anular"
             icono={Ban}
             etiqueta="Anular la orden de compra"
             tono="peligro"

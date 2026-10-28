@@ -10,6 +10,7 @@ import { cotizacionesService, solicitudesCreditoService } from '../../../service
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
 import { MAX_TEXTO } from '../../../utils/validaciones';
+import { usePrivilegio } from '../../../hooks/usePrivilegio';
 
 /**
  * Detalle de una solicitud de crédito.
@@ -31,7 +32,9 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
   const [viendoCotizacion, setViendoCotizacion] = useState(false);
   const { enviando, errorEnvio, enviar } = useEnvio();
   const lineas = solicitud.detalle ?? [];
-  const pendiente = solicitud.estado === 'Pendiente';
+  // Aprobar o rechazar solo con el privilegio del rol (nivel 3)
+  const puede = usePrivilegio();
+  const pendiente = solicitud.estado === 'Pendiente' && puede('aprobarCredito');
 
   const aprobar = (cerrar) =>
     enviar(async () => {

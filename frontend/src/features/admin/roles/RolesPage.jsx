@@ -17,6 +17,7 @@ const columns = [
     render: (row) => `${String(row.permisos ?? '').split(',').filter(Boolean).length} módulos`,
     exportar: (row) => row.permisos,
   },
+  { key: 'estado', label: 'Estado' },
 ];
 
 function seccionesFormulario(modulos) {
@@ -41,7 +42,7 @@ function seccionesFormulario(modulos) {
           options: modulos,
           // Los módulos se muestran por categoría (Configuración, Catálogo…)
           grupos: GRUPOS_MODULOS,
-          hint: 'Ver: el módulo aparece en el menú. Crear, editar y eliminar: qué puede hacer dentro de él.',
+          hint: 'Marca los módulos que el rol verá en el menú y, en cada uno, desactiva las acciones que no podrá hacer.',
           validar: (valor) =>
             Object.values(valor ?? {}).some((a) => a.ver) ? '' : 'Marca al menos un módulo que el rol pueda ver.',
         },
@@ -74,6 +75,12 @@ export default function RolesPage() {
         // Roles del sistema: el Administrador no se edita ni se elimina y el
         // Cliente no se elimina (la API también lo impide)
         canEdit={(rol) => rol.nombre !== ROL_ADMIN}
+        // Desactivar un rol deja sin acceso a sus usuarios; el Administrador no se desactiva
+        statusKey="estado"
+        statusVariant="switch"
+        statusOptions={estadosActivo}
+        onStatusChange={(fila, estado) => roles.ejecutar(() => rolesService.cambiarEstado(fila, estado))}
+        canChangeStatus={(rol) => rol.nombre !== ROL_ADMIN}
         canDelete={(rol) => ![ROL_ADMIN, 'Cliente'].includes(rol.nombre)}
         newLabel="Nuevo rol"
         formSections={seccionesFormulario(permisos.filas.map((p) => p.modulo))}
