@@ -7,9 +7,14 @@
  * a pedir sus datos. El aviso no lleva datos: solo el nombre del recurso,
  * así nadie recibe información que no le toca.
  */
+import { HttpError } from '../errores.js';
 
 /** Conexiones abiertas. */
 const conexiones = new Set();
+/** Cuántas conexiones tiene abiertas cada usuario. */
+const porUsuario = new Map();
+/** Pestañas abiertas a la vez por usuario (una conexión por pestaña). */
+export const MAXIMO_POR_USUARIO = 10;
 
 /** Cada cuánto se manda un latido para que los proxies no cierren la conexión. */
 const LATIDO_MS = 25_000;
@@ -21,6 +26,15 @@ let temporizador = null;
 
 /** GET /api/eventos — deja abierta la conexión y la registra. */
 export function suscribir(req, res) {
+  // Máximo MAXIMO_POR_USUARIO conexiones a la vez por usuario: así nadie
+  // agota el servidor abriendo miles. La pestaña rechazada lo reintenta
+  // sola más tarde (con espera creciente).
+  const usuario = req.usuario.id;
+  const abiertas = porUsuario.get(usuario) ?? 0;
+  if (abiertas >= MAXIMO_POR_USUARIO) {
+    throw new HttpError(429, 'Tienes demasiadas pestañas abiertas. Cierra alguna para recibir los cambios al instante.');
+  }
+
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-store',
@@ -34,9 +48,14 @@ export function suscribir(req, res) {
 
   const latido = setInterval(() => res.write(': latido\n\n'), LATIDO_MS);
   conexiones.add(res);
+  porUsuario.set(usuario, abiertas + 1);
+
   req.on('close', () => {
     clearInterval(latido);
     conexiones.delete(res);
+    const quedan = (porUsuario.get(usuario) ?? 1) - 1;
+    if (quedan > 0) porUsuario.set(usuario, quedan);
+    else porUsuario.delete(usuario);
   });
 }
 
@@ -70,4 +89,5 @@ export function debeAvisar(req, res) {
 export function cerrarConexiones() {
   for (const res of conexiones) res.end();
   conexiones.clear();
+  porUsuario.clear();
 }

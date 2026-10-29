@@ -110,11 +110,21 @@ export async function verificar(req, res) {
   const { ip, agente } = origen(req);
   await exigirIpLibre(ip);
 
-  const solicitud = await recuperacion.buscarVigente(id);
+  // Revisar y descontar en una sola transacción con la fila bloqueada: si
+  // llegan muchos códigos a la vez (para adivinarlo), se atienden de uno en
+  // uno y solo valen los 3 intentos. El descuento se guarda antes de responder.
+  const { solicitud, correcto, quedan } = await enTransaccion(async (db) => {
+    const vigente = await recuperacion.buscarVigente(id, { bloquear: true }, db);
+    if (!vigente) return {};
+    if (coincideHuella(codigo, vigente.codigo_hash)) {
+      await recuperacion.marcarVerificada(id, db);
+      return { solicitud: vigente, correcto: true };
+    }
+    return { solicitud: vigente, correcto: false, quedan: await recuperacion.descontarIntentoCodigo(id, db) };
+  });
   if (!solicitud) throw new HttpError(410, 'El código venció o ya no es válido. Solicita uno nuevo.');
 
-  if (!coincideHuella(codigo, solicitud.codigo_hash)) {
-    const quedan = await recuperacion.descontarIntentoCodigo(id);
+  if (!correcto) {
     await eventos.registrar({
       tipo: 'recuperacion_codigo_fallido',
       gravedad: quedan === 0 ? 'Alta' : 'Alerta',
@@ -133,7 +143,6 @@ export async function verificar(req, res) {
     throw new HttpError(422, `El código no es correcto. Te quedan ${quedan} intento(s).`).con({ intentosCodigo: quedan });
   }
 
-  await recuperacion.marcarVerificada(id);
   res.json({ verificado: true });
 }
 

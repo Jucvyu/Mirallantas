@@ -1,7 +1,8 @@
+import { ipKeyGenerator } from 'express-rate-limit';
 import { config } from '../config.js';
 import { HttpError } from '../errores.js';
 import * as cubos from '../models/cuboFichas.model.js';
-import { leerToken } from './auth.js';
+import { idDeSesion } from './auth.js';
 
 /**
  * Límite general de peticiones a la API: un cubo de fichas por usuario
@@ -19,17 +20,15 @@ import { leerToken } from './auth.js';
  * varias instancias.
  */
 
-/** Usuario de la sesión, o la IP si no hay token válido. No consulta la base. */
+/**
+ * Usuario de la sesión, o la IP si no hay token válido (vencido o falso
+ * cuenta como anónimo). Las IPv6 se agrupan por su red /56: una sola
+ * conexión tiene millones de direcciones y, si no, cada una tendría su
+ * propio cubo lleno.
+ */
 function claveDe(req) {
-  const [esquema, token] = (req.headers.authorization ?? '').split(' ');
-  if (esquema === 'Bearer' && token) {
-    try {
-      return `u:${leerToken(token, 'sesion').sub}`;
-    } catch {
-      // Token vencido o falso: cuenta como anónimo
-    }
-  }
-  return `ip:${req.ip}`;
+  const usuario = idDeSesion(req);
+  return usuario ? `u:${usuario}` : `ip:${ipKeyGenerator(req.ip)}`;
 }
 
 // Los cubos sin uso se borran cada 10 minutos (en segundo plano)

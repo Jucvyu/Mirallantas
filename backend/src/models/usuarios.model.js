@@ -153,7 +153,25 @@ export async function subirVersionSesion(id, db = POOL) {
 
 /** Guarda el secreto del doble factor (ya cifrado) y si está activo. */
 export async function guardarDobleFactor(id, { secretoCifrado, activo }) {
-  await query('UPDATE usuario SET totp_secreto = $2, totp_activo = $3 WHERE id = $1', [id, secretoCifrado, activo]);
+  await query('UPDATE usuario SET totp_secreto = $2, totp_activo = $3, totp_ultimo_paso = NULL WHERE id = $1', [
+    id,
+    secretoCifrado,
+    activo,
+  ]);
+}
+
+/**
+ * Marca como usado el intervalo `paso` del doble factor. Devuelve false si
+ * ya se había usado ese código (o uno posterior). Es una sola consulta: dos
+ * peticiones con el mismo código a la vez no pasan las dos.
+ */
+export async function usarPasoTotp(id, paso) {
+  const { rowCount } = await query(
+    `UPDATE usuario SET totp_ultimo_paso = $2
+      WHERE id = $1 AND (totp_ultimo_paso IS NULL OR totp_ultimo_paso < $2)`,
+    [id, paso],
+  );
+  return rowCount === 1;
 }
 
 /** Administradores activos, sin contar a `excluirId`. */

@@ -7,7 +7,7 @@ import { query } from './db.js';
 import { HttpError, manejadorErrores } from './errores.js';
 import { limpiarImagenes } from './utils/limpiezaImagenes.js';
 import { avisarCambio, debeAvisar, recursoDe, suscribir } from './utils/tiempoReal.js';
-import { autenticar } from './middleware/auth.js';
+import { autenticar, idDeSesion } from './middleware/auth.js';
 import { limitePeticiones } from './middleware/limitePeticiones.js';
 // Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
 // llaman a los controladores (src/controllers), que usan los modelos
@@ -81,7 +81,13 @@ export function crearApp() {
     }),
   );
 
-  app.use(express.json({ limit: '20mb' }));
+  // Solo quien trae un token de sesión válido puede enviar cuerpos grandes
+  // (las imágenes se suben con la sesión iniciada). Sin sesión, el login, el
+  // registro o la recuperación caben de sobra en 100 KB: así nadie anónimo
+  // puede ocupar la memoria del servidor con cuerpos de 20 MB.
+  const jsonConSesion = express.json({ limit: '20mb' });
+  const jsonAnonimo = express.json({ limit: '100kb' });
+  app.use((req, res, next) => (idDeSesion(req) ? jsonConSesion : jsonAnonimo)(req, res, next));
 
   // Las respuestas tienen datos privados: el navegador no debe guardarlas
   app.use((req, res, next) => {

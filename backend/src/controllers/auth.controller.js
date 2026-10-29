@@ -149,9 +149,15 @@ export async function verificarDobleFactor(req, res) {
   }
   exigirNoBloqueado(usuario);
 
-  if (!totp.verificarCodigo(descifrar(usuario.totp_secreto), codigo)) {
+  const paso = totp.pasoDelCodigo(descifrar(usuario.totp_secreto), codigo);
+  if (paso === null) {
     await registrarFallo(req, usuario, 'codigo_2fa_fallido');
     throw new HttpError(401, 'El código no es correcto. Revisa la hora de tu celular e inténtalo de nuevo.');
+  }
+  // Un código ya usado no vuelve a servir, aunque siga vigente
+  if (!(await usuariosModel.usarPasoTotp(usuario.id, paso))) {
+    await registrarFallo(req, usuario, 'codigo_2fa_repetido');
+    throw new HttpError(401, 'Ese código ya se usó. Espera a que tu app muestre el siguiente.');
   }
   await completarInicio(req, res, usuario);
 }

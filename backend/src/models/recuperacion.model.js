@@ -98,20 +98,25 @@ export async function crear(usuarioId, codigoHash) {
   return rows[0];
 }
 
-/** Solicitud vigente (sin usar y sin vencer), o null. */
-export async function buscarVigente(id) {
-  const { rows } = await query(
+/**
+ * Solicitud vigente (sin usar y sin vencer), o null. Con `bloquear`, dentro
+ * de la transacción `db`, bloquea la fila (FOR UPDATE): si llegan varios
+ * códigos a la vez se revisan de uno en uno y nadie gana intentos de más.
+ */
+export async function buscarVigente(id, { bloquear = false } = {}, db = { query }) {
+  const { rows } = await db.query(
     `SELECT id, usuario_id, codigo_hash, intentos_restantes, verificado
        FROM recuperacion_password
-      WHERE id = $1 AND NOT usado AND expira_en > now()`,
+      WHERE id = $1 AND NOT usado AND expira_en > now()
+      ${bloquear ? 'FOR UPDATE' : ''}`,
     [id],
   );
   return rows[0] ?? null;
 }
 
 /** Descuenta un intento al código. Devuelve los que quedan (0 = se anula). */
-export async function descontarIntentoCodigo(id) {
-  const { rows } = await query(
+export async function descontarIntentoCodigo(id, db = { query }) {
+  const { rows } = await db.query(
     `UPDATE recuperacion_password
         SET intentos_restantes = intentos_restantes - 1,
             usado = intentos_restantes - 1 <= 0
@@ -123,8 +128,8 @@ export async function descontarIntentoCodigo(id) {
 }
 
 /** Código correcto: queda verificada y con 10 minutos para cambiar la contraseña. */
-export async function marcarVerificada(id) {
-  await query(
+export async function marcarVerificada(id, db = { query }) {
+  await db.query(
     `UPDATE recuperacion_password SET verificado = TRUE, expira_en = now() + make_interval(mins => $2) WHERE id = $1`,
     [id, MINUTOS_VIGENCIA],
   );

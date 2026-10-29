@@ -66,9 +66,21 @@ export function codigoActual(secreto, ahora = Date.now()) {
  * si el reloj del celular está un poco desfasado.
  */
 export function verificarCodigo(secreto, codigo, ahora = Date.now()) {
-  if (!/^\d{6}$/.test(String(codigo))) return false;
+  return pasoDelCodigo(secreto, codigo, ahora) !== null;
+}
+
+/**
+ * Intervalo (número de paso) al que pertenece un código válido, o null.
+ * Sirve para no aceptar dos veces el mismo código: quien lo vea por encima
+ * del hombro no puede reutilizarlo mientras siga vigente.
+ */
+export function pasoDelCodigo(secreto, codigo, ahora = Date.now()) {
+  if (!/^\d{6}$/.test(String(codigo))) return null;
   const paso = Math.floor(ahora / 1000 / PERIODO);
-  return [-1, 0, 1].some((d) => timingSafeEqual(Buffer.from(codigoEn(secreto, paso + d)), Buffer.from(String(codigo))));
+  const desfase = [-1, 0, 1].find((d) =>
+    timingSafeEqual(Buffer.from(codigoEn(secreto, paso + d)), Buffer.from(String(codigo))),
+  );
+  return desfase === undefined ? null : paso + desfase;
 }
 
 /** Dirección otpauth:// que se convierte en el código QR. */

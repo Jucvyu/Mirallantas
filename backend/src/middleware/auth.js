@@ -51,6 +51,21 @@ export function leerToken(token, tipo) {
   }
 }
 
+/**
+ * Id del usuario si la petición trae un token de sesión con firma válida, o
+ * null. No consulta la base (no revisa si la sesión se cerró): sirve para
+ * decisiones previas a `autenticar`, como el límite de peticiones.
+ */
+export function idDeSesion(req) {
+  const [esquema, token] = (req.headers.authorization ?? '').split(' ');
+  if (esquema !== 'Bearer' || !token) return null;
+  try {
+    return leerToken(token, 'sesion').sub;
+  } catch {
+    return null;
+  }
+}
+
 /** Mensaje y código que ve quien tiene la cuenta inactiva. */
 export const errorCuentaInactiva = () =>
   new HttpError(
@@ -80,6 +95,12 @@ export async function autenticar(req, res, next) {
   if (!usuario) throw new HttpError(401, 'Tu sesión expiró o no es válida. Inicia sesión de nuevo.');
   // Si la desactivaron con la sesión abierta, se le avisa por qué sale
   if (!cuentaHabilitada(usuario)) throw errorCuentaInactiva();
+  // Un usuario del portal sin ficha de cliente no tendría a qué limitarse
+  // (clienteDeSesion devolvería null y lo trataría como personal, con
+  // acceso a los documentos de todos): se le niega el acceso.
+  if (usuario.rol === ROL_CLIENTE && !usuario.cliente_id) {
+    throw new HttpError(403, 'Tu cuenta no está ligada a un cliente. Comunícate con MiraLlantas.');
+  }
   // Se inició sesión en otro dispositivo, se cerró desde otro lugar o cambió la contraseña
   if (carga.ver !== usuario.version_sesion) {
     throw new HttpError(401, 'Tu sesión se cerró porque la cuenta se abrió en otro dispositivo. Inicia sesión de nuevo.');
