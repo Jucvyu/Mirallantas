@@ -265,12 +265,15 @@ export default function DataTable({
   };
 
   /**
-   * Botones de una fila, siempre en una sola línea: desplegar, acciones a
-   * medida, ver, editar y eliminar. Todas las filas muestran los mismos
-   * iconos; los que no aplican a la fila quedan deshabilitados.
+   * Botones de una fila, siempre en una sola línea y en este orden: ver
+   * detalle primero, luego desplegar y las acciones a medida, después
+   * editar, y por último eliminar (la acción destructiva va siempre al
+   * final). Todas las filas muestran los mismos iconos; los que no aplican
+   * a la fila quedan deshabilitados.
    */
   const botonesFila = (row, desplegable, abierta) => (
     <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5">
+      {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => setDialog({ mode: 'view', row })} />}
       {expandir && (
         <BotonAccion
           icono={abierta ? ChevronUp : ChevronDown}
@@ -282,7 +285,6 @@ export default function DataTable({
         />
       )}
       {rowActions?.(row, { update: updateDe(row) })}
-      {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => setDialog({ mode: 'view', row })} />}
       {muestraEditar && (
         <BotonAccion
           icono={Pencil}

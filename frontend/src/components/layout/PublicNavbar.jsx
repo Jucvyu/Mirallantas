@@ -22,7 +22,7 @@ export default function PublicNavbar() {
     <header className="sticky top-0 z-10 ml-glass border-b">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-10">
         <Link to="/">
-          <Logo size="sm" initials="ML" suffix="ERP" />
+          <Logo size="sm" initials="ML" />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

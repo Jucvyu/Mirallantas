@@ -249,15 +249,6 @@ export default function PedidosCotizacionPage() {
               motivo="Todavía no hay pagos registrados"
               onClick={() => setPagosDe(row)}
             />
-            {/* Se cancela sin borrarla, solo mientras no esté aprobada (pagada) */}
-            <BotonAccion accion="cambiarEstado"
-              icono={Ban}
-              etiqueta="Cancelar la cotización"
-              tono="peligro"
-              deshabilitado={row.estado !== 'Pendiente'}
-              motivo={row.estado === 'Rechazada' ? 'Ya está cancelada' : 'Ya fue aprobada: no se puede cancelar'}
-              onClick={() => setCancelando(row)}
-            />
             {/* El comprobante solo se emite con la cotización cerrada */}
             <BotonAccion accion="verDetalle"
               icono={Receipt}
@@ -266,6 +257,15 @@ export default function PedidosCotizacionPage() {
               deshabilitado={row.estado !== ESTADO_COTIZACION_COMPLETADA}
               motivo="La cotización todavía no está completada"
               onClick={() => setComprobanteDe(row)}
+            />
+            {/* Acción destructiva al final: se cancela sin borrarla, solo mientras no esté aprobada (pagada) */}
+            <BotonAccion accion="cambiarEstado"
+              icono={Ban}
+              etiqueta="Cancelar la cotización"
+              tono="peligro"
+              deshabilitado={row.estado !== 'Pendiente'}
+              motivo={row.estado === 'Rechazada' ? 'Ya está cancelada' : 'Ya fue aprobada: no se puede cancelar'}
+              onClick={() => setCancelando(row)}
             />
           </>
         )}

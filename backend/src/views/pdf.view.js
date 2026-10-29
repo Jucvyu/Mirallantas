@@ -254,7 +254,7 @@ export function enviarPdfCotizacion(res, { empresa, cotizacion, cliente, lineas 
   if (cotizacion.direccionEntrega) condiciones.push(`Despacho a: ${cotizacion.direccionEntrega}.`);
   nota(doc, 'Condiciones comerciales', condiciones);
 
-  pie(doc, 'Documento generado por MiraLlantas ERP. No es una factura electrónica');
+  pie(doc, 'Documento generado por MiraLlantas. No es una factura electrónica');
   doc.end();
 }
 
@@ -287,7 +287,7 @@ export function enviarPdfVenta(res, { empresa, venta, cliente, lineas }) {
   observaciones.push('Comprobante interno de la venta. No reemplaza la factura electrónica.');
   nota(doc, 'Observaciones', observaciones);
 
-  pie(doc, 'Documento generado por MiraLlantas ERP');
+  pie(doc, 'Documento generado por MiraLlantas');
   doc.end();
 }
 

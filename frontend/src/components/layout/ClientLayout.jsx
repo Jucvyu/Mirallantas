@@ -108,7 +108,7 @@ function ContenidoPortal() {
           </Suspense>
       </main>
       <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-400 dark:border-white/10 dark:text-slate-500">
-        © {new Date().getFullYear()} MiraLlantas ERP · Portal de cliente
+        © {new Date().getFullYear()} MiraLlantas · Portal de cliente
       </footer>
 
       {perfilOpen && (

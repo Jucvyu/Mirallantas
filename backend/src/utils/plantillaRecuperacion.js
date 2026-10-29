@@ -47,7 +47,7 @@ export function plantillaRecuperacion({ nombre, codigo, minutos }) {
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="width:38px;height:38px;background:#FBBF24;border-radius:10px;text-align:center;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#12161C;">ML</td>
-                <td style="padding-left:12px;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:bold;color:#FFFFFF;">MiraLlantas <span style="color:#FBBF24;">ERP</span></td>
+                <td style="padding-left:12px;font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:bold;color:#FFFFFF;">MiraLlantas</td>
               </tr>
             </table>
           </td>

@@ -7,7 +7,6 @@ import { CREDITO_SIN_INICIAR, estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { creditosService } from '../../../services';
 import HistorialAbonosModal from './HistorialAbonosModal';
-import NuevoCreditoModal from './NuevoCreditoModal';
 
 /** Un crédito está vencido si pasó su fecha límite y aún debe. */
 function vencido(row) {
@@ -78,9 +77,7 @@ export default function CreditosPage() {
         cargando={creditos.cargando}
         error={creditos.error}
         onRecargar={creditos.recargar}
-        onCreate={creditos.crear}
         onStatusChange={(fila, estado) => creditos.ejecutar(() => creditosService.cambiarEstado(fila, estado))}
-        newLabel="Nuevo crédito"
         formSections={formSections}
         entityName="crédito"
         titleKey="cliente"
@@ -93,7 +90,6 @@ export default function CreditosPage() {
           { key: 'estado', label: 'Estado', options: estadosActivo },
           { key: 'cliente', label: 'Cliente' },
         ]}
-        createModal={({ onSubmit, onClose }) => <NuevoCreditoModal onSubmit={onSubmit} onClose={onClose} />}
         rowActions={(row) => (
           <BotonAccion accion="registrarAbono"
             icono={Wallet}

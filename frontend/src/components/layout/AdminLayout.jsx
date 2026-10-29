@@ -12,7 +12,6 @@ const TITLES = {
   '/admin': 'Dashboard',
   '/admin/roles': 'Roles y permisos',
   '/admin/usuarios': 'Usuarios',
-  '/admin/clientes': 'Clientes',
   '/admin/proveedores': 'Proveedores',
   '/admin/terceros': 'Terceros',
   '/admin/productos': 'Productos',

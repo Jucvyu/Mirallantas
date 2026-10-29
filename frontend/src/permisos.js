@@ -14,7 +14,6 @@ export const MODULOS_ADMIN = [
   { ruta: '/admin/productos', permiso: 'Productos' },
   { ruta: '/admin/categorias', permiso: 'Categorías' },
   { ruta: '/admin/marcas', permiso: 'Marcas' },
-  { ruta: '/admin/clientes', permiso: 'Clientes' },
   { ruta: '/admin/proveedores', permiso: 'Proveedores' },
   { ruta: '/admin/terceros', permiso: 'Terceros' },
   { ruta: '/admin/pedidos-cotizacion', permiso: 'Pedidos-Cotización' },

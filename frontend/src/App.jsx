@@ -18,7 +18,6 @@ const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
 const DashboardPage = lazy(() => import('./features/admin/dashboard/DashboardPage'));
 const RolesPage = lazy(() => import('./features/admin/roles/RolesPage'));
 const UsuariosPage = lazy(() => import('./features/admin/usuarios/UsuariosPage'));
-const ClientesPage = lazy(() => import('./features/admin/clientes/ClientesPage'));
 const ProveedoresPage = lazy(() => import('./features/admin/proveedores/ProveedoresPage'));
 const TercerosPage = lazy(() => import('./features/admin/terceros/TercerosPage'));
 const ProductosPage = lazy(() => import('./features/admin/generic/ProductosPage'));
@@ -45,7 +44,6 @@ const CarteraPage = lazy(() => import('./features/portal/CarteraPage'));
 const PAGINAS_ADMIN = [
   { ruta: 'roles', permiso: 'Roles', pagina: <RolesPage /> },
   { ruta: 'usuarios', permiso: 'Usuarios', pagina: <UsuariosPage /> },
-  { ruta: 'clientes', permiso: 'Clientes', pagina: <ClientesPage /> },
   { ruta: 'proveedores', permiso: 'Proveedores', pagina: <ProveedoresPage /> },
   { ruta: 'terceros', permiso: 'Terceros', pagina: <TercerosPage /> },
   { ruta: 'productos', permiso: 'Productos', pagina: <ProductosPage /> },

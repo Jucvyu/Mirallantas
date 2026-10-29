@@ -64,11 +64,6 @@ export default function CategoriasPage() {
       ),
     },
     { key: 'descripcion', label: 'Descripción' },
-    {
-      key: 'productos',
-      label: 'Productos',
-      render: (row) => productos.filas.filter((p) => p.categoriaId === row.id).length,
-    },
     { key: 'estado', label: 'Estado' },
   ];
 

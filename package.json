@@ -2,7 +2,7 @@
   "name": "mirallantas-erp",
   "private": true,
   "version": "0.1.0",
-  "description": "MiraLlantas ERP (monorepo): frontend/, backend/ y database/",
+  "description": "MiraLlantas (monorepo): frontend/, backend/ y database/",
   "type": "module",
   "engines": {
     "node": ">=22"

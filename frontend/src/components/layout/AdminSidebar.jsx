@@ -18,7 +18,6 @@ import {
   ShoppingCart,
   Stamp,
   Tag,
-  UserRound,
   Users,
   Wrench,
   X,
@@ -53,7 +52,6 @@ const SECTIONS = [
   {
     label: 'CONTACTOS',
     items: [
-      { to: '/admin/clientes', label: 'Clientes', icon: UserRound },
       { to: '/admin/proveedores', label: 'Proveedores', icon: Building2 },
       { to: '/admin/terceros', label: 'Terceros', icon: Building2 },
     ],

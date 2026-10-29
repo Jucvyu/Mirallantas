@@ -2,7 +2,7 @@ import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { marcasService, productosService } from '../../../services';
+import { marcasService } from '../../../services';
 
 // Catálogo de marcas: los productos se asocian a una marca y el catálogo
 // del cliente filtra por ella.
@@ -18,16 +18,9 @@ const formSections = [
 
 export default function MarcasPage() {
   const marcas = useRecurso(marcasService);
-  // Los productos se piden solo para contar cuántos hay de cada marca
-  const productos = useRecurso(productosService);
 
   const columns = [
     { key: 'nombre', label: 'Marca' },
-    {
-      key: 'productos',
-      label: 'Productos',
-      render: (row) => productos.filas.filter((p) => p.marcaId === row.id).length,
-    },
     { key: 'estado', label: 'Estado' },
   ];
 

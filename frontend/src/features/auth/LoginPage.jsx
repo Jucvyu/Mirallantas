@@ -201,7 +201,7 @@ export default function LoginPage() {
           <div>
             <Logo size="lg" tono="oscuro" />
             <h1 className="ml-aparece mt-10 max-w-sm text-4xl font-extrabold leading-tight text-white">
-              ERP para tu negocio de llantas
+              La plataforma para tu negocio de llantas
             </h1>
             <p className="ml-aparece mt-4 max-w-sm text-slate-400" style={{ animationDelay: '80ms' }}>
               Gestión completa de ventas, pedidos, reencauche, créditos, entregas y más — en una
@@ -270,7 +270,7 @@ export default function LoginPage() {
             ) : (
               <>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Iniciar sesión</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Accede a tu cuenta ERP</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Accede a tu cuenta</p>
 
               <AvisoError mensaje={errorApi} className="ml-aparece mt-4" />
 

@@ -61,7 +61,6 @@ const columns = [
     ),
   },
   { key: 'cliente', label: 'Cliente' },
-  { key: 'proveedor', label: 'Proveedor' },
   { key: 'metodoPago', label: 'Método de pago' },
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Venta directa' },
   { key: 'total', label: 'Total' },

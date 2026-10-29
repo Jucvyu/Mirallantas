@@ -1,7 +1,7 @@
 /**
  * Estilos compartidos de los campos de formulario.
  *
- * Todos los formularios del ERP (los del esquema en `FormModal` y los que
+ * Todos los formularios del aplicativo (los del esquema en `FormModal` y los que
  * se arman a mano, como "Nuevo pedido" o "Registrar entrega") importan
  * estas constantes para que los inputs se vean igual en toda la app.
  *
