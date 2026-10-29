@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { nuevaClaveIdempotencia } from '../../services';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
 import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
@@ -53,6 +53,13 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
   const requiereSoporte = metodo === 'Transferencia';
   const saldoActual = parseCOP(credito?.saldoPendiente);
   const montoNum = parseCOP(monto);
+
+  // Si queda menos del abono mínimo, el último pago debe ser por el saldo
+  // completo: el monto se fija y no se puede cambiar.
+  const pagoTotalObligatorio = Boolean(credito) && saldoActual > 0 && saldoActual < ABONO_MINIMO;
+  useEffect(() => {
+    if (pagoTotalObligatorio) setMonto(formatoMiles(String(saldoActual)));
+  }, [pagoTotalObligatorio, saldoActual]);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -167,13 +174,18 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
                   id="ab-monto"
                   value={monto}
                   inputMode="numeric"
-                  onChange={(e) => setMonto(formatoMiles(e.target.value))}
+                  onChange={(e) => !pagoTotalObligatorio && setMonto(formatoMiles(e.target.value))}
+                  readOnly={pagoTotalObligatorio}
                   placeholder="500000"
-                  className={`${INPUT} ${errors.monto ? BORDER_ERR : BORDER_OK} pl-7`}
+                  className={`${INPUT} ${errors.monto ? BORDER_ERR : BORDER_OK} pl-7 ${pagoTotalObligatorio ? 'cursor-not-allowed opacity-70' : ''}`}
                 />
               </div>
               {errors.monto ? (
                 <p className="mt-1 text-xs font-medium text-red-500">{errors.monto}</p>
+              ) : pagoTotalObligatorio ? (
+                <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  El saldo es menor a {formatCOP(ABONO_MINIMO)}: este último abono debe pagar el total pendiente.
+                </p>
               ) : (
                 credito &&
                 montoNum > 0 && (

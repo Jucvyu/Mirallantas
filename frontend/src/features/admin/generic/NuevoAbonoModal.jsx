@@ -16,7 +16,7 @@ import {
   SECTION,
   formatoMiles,
 } from '../../../components/base/formStyles';
-import { mediosPago } from '../../../constantes';
+import { ABONO_MINIMO, mediosPago } from '../../../constantes';
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { formatCOP, parseCOP } from '../../../utils/formato';
@@ -82,6 +82,13 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
   const saldoActual = factura ? factura.saldoPendiente : 0;
   const saldoNuevo = Math.max(0, saldoActual - valor);
 
+  // Cuando queda menos del abono mínimo, el último pago tiene que ser por el
+  // saldo completo: el monto se fija y no se puede cambiar.
+  const pagoTotalObligatorio = Boolean(factura) && saldoActual > 0 && saldoActual < ABONO_MINIMO;
+  useEffect(() => {
+    if (pagoTotalObligatorio) setMonto(formatoMiles(String(saldoActual)));
+  }, [pagoTotalObligatorio, saldoActual]);
+
   // El pantallazo solo tiene sentido en transferencia: el efectivo se paga
   // en el local y la tarjeta deja su propio recibo.
   const requiereComprobante = metodo === 'Transferencia';
@@ -107,6 +114,8 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
    * mayor al saldo del crédito, el campo se ajusta solo al saldo total.
    */
   const escribirMonto = (texto) => {
+    // Último pago obligatorio: el monto queda fijo en el saldo
+    if (pagoTotalObligatorio) return;
     const limpio = formatoMiles(texto);
     if (factura && parseCOP(limpio) > saldoActual) {
       setMonto(formatoMiles(String(saldoActual)));
@@ -283,12 +292,17 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
                   inputMode="numeric"
                   value={monto}
                   onChange={(e) => escribirMonto(e.target.value)}
+                  readOnly={pagoTotalObligatorio}
                   placeholder="2.000.000"
-                  className={`${CAMPO} ${errores.monto ? BORDE_ERR : BORDE_OK} pl-8`}
+                  className={`${CAMPO} ${errores.monto ? BORDE_ERR : BORDE_OK} pl-8 ${pagoTotalObligatorio ? 'cursor-not-allowed opacity-70' : ''}`}
                 />
               </div>
               {errores.monto ? (
                 <p className="mt-1 text-xs font-medium text-red-500">{errores.monto}</p>
+              ) : pagoTotalObligatorio ? (
+                <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  El saldo es menor a {formatCOP(ABONO_MINIMO)}: este último abono debe pagar el total pendiente.
+                </p>
               ) : (
                 recortado && (
                   <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">

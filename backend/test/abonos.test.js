@@ -123,6 +123,24 @@ describe('Abono sobre una factura', () => {
     const r = await e.api('/abonos?q=CRE-001&porPagina=100', { token: t.admin });
     assert.ok(r.cuerpo.datos.filter((a) => a.factura === FACTURA).length >= 3);
   });
+
+  test('con saldo menor a $20.000 solo se acepta el pago del saldo completo', async () => {
+    // Deja el crédito con un saldo pequeño (menor al abono mínimo)
+    await e.db.query(
+      'UPDATE credito SET saldo_pendiente = 15000 FROM venta v WHERE v.id = credito.venta_id AND v.numero = $1',
+      [FACTURA],
+    );
+    // Un abono parcial (distinto del saldo) se rechaza
+    const parcial = await abonar({ factura: FACTURA, monto: 5000, medioPago: 'Efectivo' });
+    assert.equal(parcial.estado, 422);
+    assert.match(parcial.cuerpo.error, /mínimo/);
+    assert.equal(await saldoDe(FACTURA), 15000, 'no se registró el parcial');
+
+    // Solo se acepta el total pendiente exacto
+    const total = await abonar({ factura: FACTURA, monto: 15000, medioPago: 'Efectivo' });
+    assert.equal(total.estado, 201);
+    assert.equal(await saldoDe(FACTURA), 0);
+  });
 });
 
 describe('Aceptación en el local: solo efectivo o transferencia', () => {
