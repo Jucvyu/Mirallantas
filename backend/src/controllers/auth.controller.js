@@ -2,6 +2,7 @@ import { enTransaccion } from '../db.js';
 import { HttpError } from '../errores.js';
 import { config } from '../config.js';
 import {
+  claveIp,
   debeActivar2fa,
   errorCuentaInactiva,
   firmarDesafio2fa,
@@ -18,6 +19,7 @@ import { exigirCaptcha } from '../utils/captcha.js';
 import { cifrar, descifrar } from '../utils/cifrado.js';
 import { cifrarPassword, compararPassword, HASH_RELLENO } from '../utils/contrasenas.js';
 import { correoDeGoogle, googleDisponible } from '../utils/google.js';
+import { cerrarConexionesDe } from '../utils/tiempoReal.js';
 import * as totp from '../utils/totp.js';
 import * as vista from '../views/usuarios.view.js';
 
@@ -33,19 +35,23 @@ import * as vista from '../views/usuarios.view.js';
 /** Minutos que faltan para que termine un bloqueo. */
 const minutosRestantes = (hasta) => Math.max(1, Math.ceil((new Date(hasta) - Date.now()) / 60000));
 
-/** Rechaza el intento si la cuenta está bloqueada por intentos fallidos. */
-function exigirNoBloqueado(usuario) {
-  if (usuario?.bloqueado_hasta && new Date(usuario.bloqueado_hasta) > new Date()) {
+/**
+ * Rechaza el intento si la cuenta está bloqueada por intentos fallidos
+ * desde esta IP (o para todos, si se llegó al tope general).
+ */
+async function exigirNoBloqueado(req, usuario) {
+  const hasta = usuario && (await usuariosModel.bloqueadoHasta(usuario.id, claveIp(req)));
+  if (hasta) {
     throw new HttpError(
       429,
-      `Demasiados intentos fallidos. La cuenta está bloqueada por ${minutosRestantes(usuario.bloqueado_hasta)} minuto(s).`,
+      `Demasiados intentos fallidos. La cuenta está bloqueada por ${minutosRestantes(hasta)} minuto(s).`,
     );
   }
 }
 
 /** Cuenta un intento fallido y lo deja en la bitácora. */
 async function registrarFallo(req, usuario, tipo, correo) {
-  const bloqueado = usuario ? await usuariosModel.registrarFallo(usuario.id) : false;
+  const bloqueado = usuario ? await usuariosModel.registrarFallo(usuario.id, claveIp(req)) : false;
   await eventos.registrar({
     tipo: bloqueado ? 'cuenta_bloqueada' : tipo,
     gravedad: bloqueado ? 'Alta' : 'Alerta',
@@ -74,7 +80,7 @@ async function completarInicio(req, res, usuario) {
       detalle: `Antes: ${usuario.ultima_ip ?? 'sin registro'}`,
     });
   }
-  await usuariosModel.registrarAcceso(usuario.id, ip);
+  await usuariosModel.registrarAcceso(usuario.id, ip, claveIp(req));
   // Una cuenta, un dispositivo: la sesión nueva cierra las demás (sus tokens dejan de servir)
   await usuariosModel.subirVersionSesion(usuario.id);
   usuario.version_sesion += 1;
@@ -94,7 +100,7 @@ export async function iniciarSesion(req, res) {
   // Primero el captcha: sin superarlo ni siquiera se revisa la contraseña
   await exigirCaptcha(captcha, req.ip);
   const usuario = await usuariosModel.buscarCuenta({ correo });
-  exigirNoBloqueado(usuario);
+  await exigirNoBloqueado(req, usuario);
 
   const coincide = await compararPassword(password, usuario?.password_hash ?? HASH_RELLENO);
   if (!usuario || !coincide) {
@@ -129,7 +135,7 @@ export async function iniciarConGoogle(req, res) {
     await eventos.registrar({ tipo: 'inicio_google_sin_cuenta', gravedad: 'Alerta', correo, ...origen(req) });
     throw new HttpError(404, 'No hay una cuenta con este correo de Google. Regístrate primero o entra con tu contraseña.');
   }
-  exigirNoBloqueado(usuario);
+  await exigirNoBloqueado(req, usuario);
   if (!usuariosModel.cuentaHabilitada(usuario)) {
     await eventos.registrar({ tipo: 'acceso_cuenta_inactiva', gravedad: 'Alerta', usuarioId: usuario.id, correo, ...origen(req) });
     throw errorCuentaInactiva();
@@ -147,7 +153,7 @@ export async function verificarDobleFactor(req, res) {
   if (!usuario || carga.ver !== usuario.version_sesion || !usuario.totp_activo) {
     throw new HttpError(401, 'Tu sesión expiró o no es válida. Inicia sesión de nuevo.');
   }
-  exigirNoBloqueado(usuario);
+  await exigirNoBloqueado(req, usuario);
 
   const paso = totp.pasoDelCodigo(descifrar(usuario.totp_secreto), codigo);
   if (paso === null) {
@@ -165,6 +171,8 @@ export async function verificarDobleFactor(req, res) {
 /** POST /auth/salir — cierra la sesión en todos los dispositivos. */
 export async function cerrarSesion(req, res) {
   await usuariosModel.subirVersionSesion(req.usuario.id);
+  // Las pestañas abiertas dejan de recibir avisos en tiempo real
+  cerrarConexionesDe(req.usuario.id);
   await eventos.registrar({ tipo: 'cierre_sesion', usuarioId: req.usuario.id, correo: req.usuario.correo, ...origen(req) });
   res.status(204).end();
 }

@@ -8,10 +8,11 @@
  * así nadie recibe información que no le toca.
  */
 import { HttpError } from '../errores.js';
+import { sesionVigente } from '../models/usuarios.model.js';
 
 /** Conexiones abiertas. */
 const conexiones = new Set();
-/** Cuántas conexiones tiene abiertas cada usuario. */
+/** Conexiones abiertas de cada usuario: id → Set de respuestas. */
 const porUsuario = new Map();
 /** Pestañas abiertas a la vez por usuario (una conexión por pestaña). */
 export const MAXIMO_POR_USUARIO = 10;
@@ -30,8 +31,8 @@ export function suscribir(req, res) {
   // agota el servidor abriendo miles. La pestaña rechazada lo reintenta
   // sola más tarde (con espera creciente).
   const usuario = req.usuario.id;
-  const abiertas = porUsuario.get(usuario) ?? 0;
-  if (abiertas >= MAXIMO_POR_USUARIO) {
+  const suyas = porUsuario.get(usuario) ?? new Set();
+  if (suyas.size >= MAXIMO_POR_USUARIO) {
     throw new HttpError(429, 'Tienes demasiadas pestañas abiertas. Cierra alguna para recibir los cambios al instante.');
   }
 
@@ -46,17 +47,33 @@ export function suscribir(req, res) {
   // El navegador reintenta a los 3 s si se corta
   res.write('retry: 3000\n\n');
 
-  const latido = setInterval(() => res.write(': latido\n\n'), LATIDO_MS);
+  // En cada latido se revisa que la sesión siga valiendo: si la cerraron,
+  // abrieron otra en otro dispositivo, cambió la contraseña o desactivaron
+  // la cuenta, la conexión se corta (y al reconectar recibe 401).
+  const version = req.versionSesion;
+  const latido = setInterval(async () => {
+    try {
+      if (!(await sesionVigente(usuario, version))) return res.end();
+    } catch {
+      // Si la base no responde, se revisa en el próximo latido
+    }
+    res.write(': latido\n\n');
+  }, LATIDO_MS);
   conexiones.add(res);
-  porUsuario.set(usuario, abiertas + 1);
+  suyas.add(res);
+  porUsuario.set(usuario, suyas);
 
   req.on('close', () => {
     clearInterval(latido);
     conexiones.delete(res);
-    const quedan = (porUsuario.get(usuario) ?? 1) - 1;
-    if (quedan > 0) porUsuario.set(usuario, quedan);
-    else porUsuario.delete(usuario);
+    suyas.delete(res);
+    if (!suyas.size) porUsuario.delete(usuario);
   });
+}
+
+/** Corta al instante las conexiones de un usuario (al cerrar su sesión). */
+export function cerrarConexionesDe(usuario) {
+  for (const res of porUsuario.get(usuario) ?? []) res.end();
 }
 
 /** Avisa que cambió un recurso (p. ej. 'cotizaciones'). */

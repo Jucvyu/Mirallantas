@@ -35,15 +35,31 @@ const cambiar = (solicitud, password) =>
 const ultimoCodigo = () => bandeja.at(-1).texto.match(/\b(\d{6})\b/)[1];
 
 describe('Paso 1: buscar el correo', () => {
-  test('un correo que no existe descuenta intentos y al quinto bloquea 1 minuto', async () => {
-    for (const quedan of [4, 3, 2, 1]) {
+  test('un correo que no existe responde igual que uno registrado (no revela quién tiene cuenta)', async () => {
+    const enviados = bandeja.length;
+    const inexistente = await solicitar('nadie@ejemplo.com');
+    const registrado = await solicitar('maria@gmail.com');
+    assert.equal(inexistente.estado, 200);
+    assert.deepEqual(Object.keys(inexistente.cuerpo).sort(), Object.keys(registrado.cuerpo).sort());
+    assert.match(inexistente.cuerpo.correo, /^na\*+@ejemplo\.com$/);
+    assert.equal(bandeja.length, enviados + 1, 'solo se envió el correo de la cuenta registrada');
+
+    // Su código nunca se verifica: no hay a quién cambiarle la contraseña
+    const { rows } = await e.db.query('SELECT usuario_id FROM recuperacion_password WHERE id = $1', [inexistente.cuerpo.solicitud]);
+    assert.equal(rows[0].usuario_id, null);
+    assert.equal((await verificar(inexistente.cuerpo.solicitud, '123456')).estado, 422);
+  });
+
+  test('un correo que no existe descuenta intentos y al sexto bloquea 1 minuto', async () => {
+    await e.db.query('DELETE FROM bloqueo_recuperacion');
+    for (const quedan of [4, 3, 2, 1, 0]) {
       const r = await solicitar('nadie@ejemplo.com');
-      assert.equal(r.estado, 404);
+      assert.equal(r.estado, 200);
       assert.equal(r.cuerpo.intentosRestantes, quedan);
     }
-    const quinto = await solicitar('nadie@ejemplo.com');
-    assert.equal(quinto.estado, 429);
-    assert.ok(quinto.cuerpo.bloqueadoHasta);
+    const sexto = await solicitar('nadie@ejemplo.com');
+    assert.equal(sexto.estado, 429);
+    assert.ok(sexto.cuerpo.bloqueadoHasta);
 
     // Bloqueada: ni siquiera con un correo que sí existe
     const bloqueada = await solicitar('maria@gmail.com');
@@ -56,7 +72,7 @@ describe('Paso 1: buscar el correo', () => {
 
   test('pasado el bloqueo, la IP recupera sus 5 intentos', async () => {
     await e.db.query(
-      "INSERT INTO bloqueo_recuperacion (ip, intentos_restantes, bloqueado_hasta) VALUES ('::1', 0, now() - interval '1 second'), ('::ffff:127.0.0.1', 0, now() - interval '1 second')",
+      "INSERT INTO bloqueo_recuperacion (ip, intentos_restantes, bloqueado_hasta) VALUES ('::/56', 0, now() - interval '1 second'), ('127.0.0.1', 0, now() - interval '1 second')",
     );
     const estado = await e.api('/auth/recuperar/estado');
     assert.equal(estado.cuerpo.intentosRestantes, 5);

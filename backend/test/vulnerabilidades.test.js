@@ -104,6 +104,53 @@ describe('Cuerpos enormes sin sesión', () => {
   });
 });
 
+describe('Bloquear la cuenta de otra persona', () => {
+  const login = (password) =>
+    e.api('/auth/login', { metodo: 'POST', cuerpo: { correo: 'pedro.m@mirallantas.com', password } });
+
+  test('5 contraseñas erradas bloquean solo a la IP que las escribió', async () => {
+    for (let i = 0; i < 5; i += 1) assert.equal((await login('ClaveIncorrecta1')).estado, 401);
+    assert.equal((await login(e.passwordDemo)).estado, 429, 'esta IP queda bloqueada');
+
+    // Si el bloqueo hubiera sido de otra IP (el atacante), el dueño entra
+    await e.db.query(
+      "UPDATE bloqueo_inicio SET ip = '203.0.113.9' FROM usuario u WHERE u.id = usuario_id AND u.correo = 'pedro.m@mirallantas.com'",
+    );
+    assert.equal((await login(e.passwordDemo)).estado, 200);
+  });
+
+  test('un ataque repartido entre muchas IP sí bloquea la cuenta para todos', async () => {
+    const id = (await e.db.query("SELECT id FROM usuario WHERE correo = 'pedro.m@mirallantas.com'")).rows[0].id;
+    // 29 fallos desde otras IP y uno más desde esta llegan al tope general (30)
+    await e.db.query('UPDATE usuario SET intentos_fallidos = 29 WHERE id = $1', [id]);
+    assert.equal((await login('ClaveIncorrecta1')).estado, 401);
+    await e.db.query('DELETE FROM bloqueo_inicio WHERE usuario_id = $1', [id]);
+    assert.equal((await login(e.passwordDemo)).estado, 429);
+    await e.db.query('UPDATE usuario SET bloqueado_hasta = NULL WHERE id = $1', [id]);
+  });
+});
+
+describe('Tiempo real después de cerrar sesión', () => {
+  test('al cerrar sesión se corta la conexión abierta', async () => {
+    const token = await e.iniciarSesion('admin@mirallantas.com');
+    const abortar = new AbortController();
+    const respuesta = await fetch(`${e.base}/eventos`, { headers: { Authorization: `Bearer ${token}` }, signal: abortar.signal });
+    assert.equal(respuesta.status, 200);
+    const lector = respuesta.body.getReader();
+    await lector.read(); // "retry: 3000"
+
+    assert.equal((await e.api('/auth/salir', { metodo: 'POST', token })).estado, 204);
+    const cortada = await Promise.race([
+      (async () => {
+        for (;;) if ((await lector.read()).done) return true;
+      })(),
+      new Promise((listo) => setTimeout(() => listo(false), 3000)),
+    ]);
+    abortar.abort();
+    assert.ok(cortada, 'la conexión se cerró');
+  });
+});
+
 describe('Tiempo real: abrir conexiones sin límite', () => {
   test('cada usuario tiene máximo 10 conexiones abiertas', async () => {
     const token = await e.iniciarSesion('pedro.m@mirallantas.com');

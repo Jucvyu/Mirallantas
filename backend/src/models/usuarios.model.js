@@ -115,35 +115,96 @@ export async function eliminar(id, db = POOL) {
 
 // ---- Seguridad de la sesión --------------------------------------------------
 
-/** Intentos fallidos seguidos que bloquean la cuenta. */
+/**
+ * Intentos fallidos seguidos, desde una misma IP, que bloquean la cuenta
+ * para esa IP (migración 0028). Así nadie bloquea la cuenta de otro: el
+ * dueño, desde su conexión, sigue entrando.
+ */
 export const MAXIMO_INTENTOS = 5;
+/**
+ * Tope general de intentos fallidos seguidos, sumando todas las IP: frena
+ * un ataque repartido entre muchas conexiones. Al llegar, se bloquea la
+ * cuenta para todos.
+ */
+export const MAXIMO_INTENTOS_CUENTA = 30;
 /** Minutos que dura el bloqueo. */
 export const MINUTOS_BLOQUEO = 15;
 
-/**
- * Suma un intento fallido. Al llegar al máximo bloquea la cuenta unos
- * minutos y reinicia el contador. Devuelve true si quedó bloqueada.
- */
-export async function registrarFallo(id) {
+/** Hasta cuándo está bloqueada la cuenta para esta IP (o para todos), o null. */
+export async function bloqueadoHasta(id, ip) {
   const { rows } = await query(
+    `SELECT GREATEST(u.bloqueado_hasta, b.bloqueado_hasta) AS hasta
+       FROM usuario u
+       LEFT JOIN bloqueo_inicio b ON b.usuario_id = u.id AND b.ip = $2
+      WHERE u.id = $1`,
+    [id, ip],
+  );
+  const hasta = rows[0]?.hasta;
+  return hasta && new Date(hasta) > new Date() ? hasta : null;
+}
+
+/**
+ * Suma un intento fallido a la IP y al tope general. Al llegar a su máximo
+ * bloquea unos minutos y reinicia su contador. Devuelve true si quedó
+ * bloqueada (para esa IP o para todos).
+ */
+export async function registrarFallo(id, ip) {
+  const { rows: porIp } = await query(
+    `INSERT INTO bloqueo_inicio (usuario_id, ip, intentos_fallidos) VALUES ($1, $2, 1)
+     ON CONFLICT (usuario_id, ip) DO UPDATE SET
+       intentos_fallidos = CASE WHEN bloqueo_inicio.intentos_fallidos + 1 >= $3 THEN 0
+                                ELSE bloqueo_inicio.intentos_fallidos + 1 END,
+       bloqueado_hasta   = CASE WHEN bloqueo_inicio.intentos_fallidos + 1 >= $3
+                                THEN now() + make_interval(mins => $4) ELSE bloqueo_inicio.bloqueado_hasta END,
+       actualizado_en    = now()
+     RETURNING COALESCE(bloqueado_hasta > now(), FALSE) AS bloqueado`,
+    [id, ip, MAXIMO_INTENTOS, MINUTOS_BLOQUEO],
+  );
+  const { rows: general } = await query(
     `UPDATE usuario
         SET intentos_fallidos = CASE WHEN intentos_fallidos + 1 >= $2 THEN 0 ELSE intentos_fallidos + 1 END,
             bloqueado_hasta   = CASE WHEN intentos_fallidos + 1 >= $2
                                      THEN now() + make_interval(mins => $3) ELSE bloqueado_hasta END
       WHERE id = $1
-      RETURNING bloqueado_hasta > now() AS bloqueado`,
-    [id, MAXIMO_INTENTOS, MINUTOS_BLOQUEO],
+      RETURNING COALESCE(bloqueado_hasta > now(), FALSE) AS bloqueado`,
+    [id, MAXIMO_INTENTOS_CUENTA, MINUTOS_BLOQUEO],
   );
-  return rows[0]?.bloqueado ?? false;
+  // Las IP que llevan un día sin fallar ya no tienen nada que recordar
+  await query("DELETE FROM bloqueo_inicio WHERE actualizado_en < now() - interval '1 day'");
+  return Boolean(porIp[0]?.bloqueado || general[0]?.bloqueado);
 }
 
-/** Inicio de sesión correcto: limpia los fallos y guarda la IP. */
-export async function registrarAcceso(id, ip) {
+/** Inicio de sesión correcto: limpia los fallos (los de esta IP y el tope general) y guarda la IP. */
+export async function registrarAcceso(id, ip, claveIp = ip) {
   await query(
     `UPDATE usuario SET intentos_fallidos = 0, bloqueado_hasta = NULL, ultimo_acceso = now(), ultima_ip = $2
       WHERE id = $1`,
     [id, ip],
   );
+  await query('DELETE FROM bloqueo_inicio WHERE usuario_id = $1 AND ip = $2', [id, claveIp]);
+}
+
+/** Quita todos los bloqueos de la cuenta (el dueño recuperó su contraseña). */
+export async function desbloquear(db, id) {
+  await db.query('UPDATE usuario SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id = $1', [id]);
+  await db.query('DELETE FROM bloqueo_inicio WHERE usuario_id = $1', [id]);
+}
+
+/**
+ * ¿Sigue valiendo una sesión? La cuenta, su rol y su ficha de cliente
+ * siguen activos y nadie cerró la sesión (misma versión). Es la consulta
+ * liviana que repite el tiempo real en cada latido.
+ */
+export async function sesionVigente(id, version) {
+  const { rows } = await query(
+    `SELECT u.version_sesion = $2 AND u.activo AND r.activo AND COALESCE(cl.activo, TRUE) AS vigente
+       FROM usuario u
+       JOIN rol r ON r.id = u.rol_id
+       LEFT JOIN cliente cl ON cl.id = u.cliente_id
+      WHERE u.id = $1`,
+    [id, version],
+  );
+  return rows[0]?.vigente === true;
 }
 
 /** Invalida todos los tokens emitidos al usuario (cierre de sesión global). */

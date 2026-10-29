@@ -12,6 +12,8 @@ import { AYUDA_PASSWORD, errorPassword } from './reglasClave';
 // =========================================================================
 // "¿Olvidaste tu contraseña?" en tres pasos:
 //   1. correo   → la API busca la cuenta y envía un código de 6 dígitos.
+//                 La respuesta no dice si el correo existe (así nadie
+//                 averigua quién tiene cuenta).
 //                 Cada solicitud gasta un intento, exista o no el correo
 //                 (5 en total); al agotarlos el modal se bloquea 1 minuto
 //                 con un contador y luego se recuperan los 5.
@@ -112,11 +114,6 @@ export default function RecuperarPasswordModal({ onClose }) {
         setPaso('codigo');
       } catch (error) {
         if (revisarBloqueo(error.datos)) return;
-        // Correo inexistente: el mensaje ya dice cuántos intentos quedan
-        if (error.estado === 404) {
-          setAviso(error.message);
-          return;
-        }
         throw error;
       } finally {
         captchaRef.current?.reiniciar();
@@ -252,8 +249,9 @@ export default function RecuperarPasswordModal({ onClose }) {
           // ---- Paso 2 ----
           <>
             <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              Enviamos un código de 6 dígitos a <strong>{solicitud.correo}</strong>. Vence en 10 minutos y
-              tienes {solicitud.intentosCodigo} intentos.
+              Si <strong>{solicitud.correo}</strong> tiene una cuenta activa, le enviamos un código de 6
+              dígitos. Vence en 10 minutos y tienes {solicitud.intentosCodigo} intentos. Si no te llega,
+              revisa la carpeta de spam o que el correo esté bien escrito.
             </p>
             <CampoCodigo id="rec-codigo" valor={codigo} onCambio={setCodigo} autoFocus />
             {aviso && <Aviso>{aviso}</Aviso>}

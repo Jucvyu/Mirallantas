@@ -1,3 +1,4 @@
+import { ipKeyGenerator } from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { HttpError } from '../errores.js';
@@ -16,6 +17,13 @@ import { accionDe, NOMBRE_ACCION } from '../privilegios.js';
 
 /** Datos de la petición que se guardan en la bitácora de seguridad. */
 export const origen = (req) => ({ ip: req.ip, agente: req.get('user-agent') });
+
+/**
+ * IP para contar intentos y peticiones. Las IPv6 se agrupan por su red /56:
+ * una sola conexión tiene millones de direcciones y, si no, cada una
+ * empezaría de cero.
+ */
+export const claveIp = (req) => ipKeyGenerator(req.ip);
 
 /**
  * Crea el token de sesión de un usuario (válido por JWT_EXPIRES_IN).
@@ -112,6 +120,8 @@ export async function autenticar(req, res, next) {
   }
 
   req.usuario = { ...usuarioPublico(usuario), debeActivar2fa: pendiente2fa, permisos: new Set(usuario.permisos) };
+  // Versión de la sesión del token: el tiempo real la usa para cortar la conexión si cambia
+  req.versionSesion = carga.ver;
   next();
 }
 

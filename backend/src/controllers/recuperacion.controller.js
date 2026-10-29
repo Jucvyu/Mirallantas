@@ -1,13 +1,13 @@
 import { randomInt } from 'node:crypto';
 import { enTransaccion } from '../db.js';
 import { HttpError } from '../errores.js';
-import { errorCuentaInactiva, origen } from '../middleware/auth.js';
+import { claveIp, origen } from '../middleware/auth.js';
 import * as eventos from '../models/eventos.model.js';
 import * as recuperacion from '../models/recuperacion.model.js';
 import * as usuariosModel from '../models/usuarios.model.js';
 import { exigirCaptcha } from '../utils/captcha.js';
 import { coincideHuella, huella } from '../utils/cifrado.js';
-import { enviarCorreo, ErrorCorreo } from '../utils/correo.js';
+import { enviarCorreo } from '../utils/correo.js';
 import { cifrarPassword } from '../utils/contrasenas.js';
 import { plantillaRecuperacion } from '../utils/plantillaRecuperacion.js';
 
@@ -15,7 +15,8 @@ import { plantillaRecuperacion } from '../utils/plantillaRecuperacion.js';
  * "¿Olvidaste tu contraseña?" en tres pasos:
  *
  *   1. solicitar  el usuario escribe su correo y, si existe, se le envía un
- *                 código de 6 dígitos. Cada solicitud gasta un intento,
+ *                 código de 6 dígitos (la respuesta no dice si existe).
+ *                 Cada solicitud gasta un intento,
  *                 exista o no el correo: 5 por IP; al agotarlos la IP
  *                 espera 1 minuto y después recupera los 5.
  *   2. verificar  escribe el código. Tiene 3 intentos; si los pierde, el
@@ -53,50 +54,63 @@ async function exigirIpLibre(ip) {
 
 /** GET /auth/recuperar/estado — intentos que le quedan a esta IP. */
 export async function estado(req, res) {
-  res.json(await recuperacion.estadoIp(req.ip));
+  res.json(await recuperacion.estadoIp(claveIp(req)));
 }
 
-/** POST /auth/recuperar/solicitar — paso 1: buscar el correo y enviar el código. */
+/** Envía el código sin hacer esperar la respuesta (ver `solicitar`). */
+function enviarCodigo(usuario, codigo) {
+  enviarCorreo({
+    para: usuario.correo,
+    ...plantillaRecuperacion({ nombre: usuario.nombre, codigo, minutos: recuperacion.MINUTOS_VIGENCIA }),
+  }).catch((error) => {
+    // El motivo técnico queda en los registros; la persona puede pedir otro código
+    console.error(`No se pudo enviar el código de recuperación (usuario ${usuario.id}): ${error.message}`);
+  });
+}
+
+/**
+ * POST /auth/recuperar/solicitar — paso 1: buscar el correo y enviar el código.
+ *
+ * La respuesta es la misma exista o no la cuenta (y esté activa o no): así
+ * nadie puede averiguar qué correos están registrados. Sin cuenta, la
+ * solicitud se guarda sin usuario y con un código que no se envía a nadie
+ * (migración 0029). El correo sale en segundo plano para que el tiempo de
+ * respuesta tampoco delate si se envió.
+ */
 export async function solicitar(req, res) {
   const { correo, captcha } = req.validado.body;
   const { ip, agente } = origen(req);
   // Sin superar el captcha no se envía el código
   await exigirCaptcha(captcha, ip);
-  await exigirIpLibre(ip);
+  await exigirIpLibre(claveIp(req));
 
   const usuario = await usuariosModel.buscarCuenta({ correo });
   // Una cuenta inactiva no recupera la contraseña: primero hay que reactivarla
-  if (usuario && !usuariosModel.cuentaHabilitada(usuario)) throw errorCuentaInactiva();
+  const habilitada = usuario && usuariosModel.cuentaHabilitada(usuario);
   // Cada solicitud gasta un intento de la IP, exista o no el correo (5; al
   // agotarlos espera 1 minuto). El quinto código sí se envía.
-  const estadoIp = await recuperacion.descontarIntentoIp(ip);
-  if (!usuario) {
-    await eventos.registrar({ tipo: 'recuperacion_correo_inexistente', gravedad: 'Alerta', correo, ip, agente });
-    const mensaje = estadoIp.bloqueadoHasta
-      ? `No hay ninguna cuenta con ese correo. Agotaste los intentos: espera ${textoMinutos()}.`
-      : `No hay ninguna cuenta con ese correo. Te quedan ${estadoIp.intentosRestantes} intento(s).`;
-    throw errorConEstado(estadoIp.bloqueadoHasta ? 429 : 404, mensaje, estadoIp);
-  }
+  const estadoIp = await recuperacion.descontarIntentoIp(claveIp(req));
 
   const codigo = String(randomInt(0, 1_000_000)).padStart(6, '0');
-  const solicitud = await recuperacion.crear(usuario.id, huella(codigo));
+  const solicitud = await recuperacion.crear(habilitada ? usuario.id : null, huella(codigo));
 
-  try {
-    await enviarCorreo({
-      para: usuario.correo,
-      ...plantillaRecuperacion({ nombre: usuario.nombre, codigo, minutos: recuperacion.MINUTOS_VIGENCIA }),
+  if (habilitada) {
+    enviarCodigo(usuario, codigo);
+    await eventos.registrar({ tipo: 'recuperacion_solicitada', usuarioId: usuario.id, correo: usuario.correo, ip, agente });
+  } else {
+    await eventos.registrar({
+      tipo: usuario ? 'recuperacion_cuenta_inactiva' : 'recuperacion_correo_inexistente',
+      gravedad: 'Alerta',
+      usuarioId: usuario?.id,
+      correo,
+      ip,
+      agente,
     });
-  } catch (error) {
-    if (!(error instanceof ErrorCorreo)) throw error;
-    // El motivo técnico queda en los registros; al usuario, un mensaje claro
-    console.error(`No se pudo enviar el código de recuperación (usuario ${usuario.id}): ${error.message}`);
-    throw new HttpError(503, 'No pudimos enviar el código en este momento. Intenta de nuevo en unos minutos.');
   }
-  await eventos.registrar({ tipo: 'recuperacion_solicitada', usuarioId: usuario.id, correo: usuario.correo, ip, agente });
 
   res.json({
     solicitud: solicitud.id,
-    correo: enmascarar(usuario.correo),
+    correo: enmascarar(correo),
     intentosCodigo: recuperacion.INTENTOS_CODIGO,
     venceEn: solicitud.expira_en,
     // Solicitudes de código que le quedan a esta IP antes de esperar 1 minuto
@@ -108,7 +122,7 @@ export async function solicitar(req, res) {
 export async function verificar(req, res) {
   const { solicitud: id, codigo } = req.validado.body;
   const { ip, agente } = origen(req);
-  await exigirIpLibre(ip);
+  await exigirIpLibre(claveIp(req));
 
   // Revisar y descontar en una sola transacción con la fila bloqueada: si
   // llegan muchos códigos a la vez (para adivinarlo), se atienden de uno en
@@ -116,7 +130,8 @@ export async function verificar(req, res) {
   const { solicitud, correcto, quedan } = await enTransaccion(async (db) => {
     const vigente = await recuperacion.buscarVigente(id, { bloquear: true }, db);
     if (!vigente) return {};
-    if (coincideHuella(codigo, vigente.codigo_hash)) {
+    // Una solicitud sin cuenta (correo inexistente) nunca se verifica
+    if (vigente.usuario_id && coincideHuella(codigo, vigente.codigo_hash)) {
       await recuperacion.marcarVerificada(id, db);
       return { solicitud: vigente, correcto: true };
     }
@@ -133,7 +148,7 @@ export async function verificar(req, res) {
       agente,
     });
     if (quedan === 0) {
-      const estadoIp = await recuperacion.bloquearIp(ip);
+      const estadoIp = await recuperacion.bloquearIp(claveIp(req));
       throw errorConEstado(
         429,
         `Código incorrecto. Agotaste los intentos: espera ${textoMinutos()} y solicita un código nuevo.`,
@@ -150,24 +165,21 @@ export async function verificar(req, res) {
 export async function cambiar(req, res) {
   const { solicitud: id, password } = req.validado.body;
   const solicitud = await recuperacion.buscarVigente(id);
-  if (!solicitud?.verificado) {
+  if (!solicitud?.verificado || !solicitud.usuario_id) {
     throw new HttpError(410, 'La solicitud venció o no se verificó. Vuelve a empezar.');
   }
 
   await enTransaccion(async (db) => {
-    await usuariosModel.actualizar(db, solicitud.usuario_id, [
-      ['password_hash', await cifrarPassword(password)],
-      // Si estaba bloqueada por intentos de inicio de sesión, se desbloquea
-      ['intentos_fallidos', 0],
-      ['bloqueado_hasta', null],
-    ]);
+    await usuariosModel.actualizar(db, solicitud.usuario_id, [['password_hash', await cifrarPassword(password)]]);
+    // Si estaba bloqueada por intentos de inicio de sesión, se desbloquea
+    await usuariosModel.desbloquear(db, solicitud.usuario_id);
     // Cierra las sesiones abiertas (por si alguien más tenía acceso)
     await usuariosModel.subirVersionSesion(solicitud.usuario_id, db);
     await recuperacion.marcarUsada(db, id);
   });
 
   // Ya recuperó su contraseña: la IP vuelve a tener todos sus intentos
-  await recuperacion.reiniciarIp(origen(req).ip);
+  await recuperacion.reiniciarIp(claveIp(req));
   await eventos.registrar({
     tipo: 'password_recuperada',
     gravedad: 'Alerta',
