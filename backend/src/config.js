@@ -87,6 +87,18 @@ export const config = Object.freeze({
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
   // Orígenes del frontend autorizados, separados por coma
   corsOrigenes,
+  // Límite de peticiones por usuario (cubo de fichas): cuántas caben en el
+  // cubo y cuántas se recargan por minuto. En las pruebas está apagado
+  // salvo que se fije LIMITE_API_FICHAS.
+  // 200 por minuto: abrir una pantalla del panel pide ~6-10 cosas y cada
+  // cambio de otro empleado (tiempo real) recarga ~4-6 listados en cada
+  // pestaña abierta. Un día muy movido ronda las 100-120 por minuto; con
+  // 200 sobra margen y un programa que abuse queda frenado igual.
+  limiteApi: {
+    activo: entorno !== 'test' || Boolean(process.env.LIMITE_API_FICHAS),
+    capacidad: Number(process.env.LIMITE_API_FICHAS ?? 200),
+    porMinuto: Number(process.env.LIMITE_API_POR_MINUTO ?? process.env.LIMITE_API_FICHAS ?? 200),
+  },
   // Zona horaria del negocio: define qué día es "hoy" para fechas y vigencias
   zonaHoraria: process.env.APP_TIMEZONE ?? 'America/Bogota',
 });

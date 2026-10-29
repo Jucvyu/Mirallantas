@@ -84,10 +84,10 @@ export async function levantarEntorno({ variables = {} } = {}) {
     // Un PDF (u otro archivo) se devuelve como bytes, sin interpretarlo
     if (!tipo.includes('json')) {
       const bytes = Buffer.from(await respuesta.arrayBuffer());
-      return { estado: respuesta.status, cuerpo: null, tipo, bytes };
+      return { estado: respuesta.status, cuerpo: null, tipo, bytes, cabeceras: respuesta.headers };
     }
     const texto = await respuesta.text();
-    return { estado: respuesta.status, cuerpo: texto ? JSON.parse(texto) : null, tipo };
+    return { estado: respuesta.status, cuerpo: texto ? JSON.parse(texto) : null, tipo, cabeceras: respuesta.headers };
   };
 
   const iniciarSesion = async (correo, password = passwordDemo) => {

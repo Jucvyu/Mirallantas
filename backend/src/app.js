@@ -1,7 +1,6 @@
 import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
-import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { config } from './config.js';
 import { query } from './db.js';
@@ -9,6 +8,7 @@ import { HttpError, manejadorErrores } from './errores.js';
 import { limpiarImagenes } from './utils/limpiezaImagenes.js';
 import { avisarCambio, debeAvisar, recursoDe, suscribir } from './utils/tiempoReal.js';
 import { autenticar } from './middleware/auth.js';
+import { limitePeticiones } from './middleware/limitePeticiones.js';
 // Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
 // llaman a los controladores (src/controllers), que usan los modelos
 // (src/models) para hablar con la base y las vistas (src/views) para
@@ -59,25 +59,16 @@ export function crearApp() {
       origin: config.corsOrigenes,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+      // El frontend puede leer cuántas fichas le quedan y cuánto esperar
+      exposedHeaders: ['RateLimit', 'RateLimit-Policy', 'Retry-After'],
       maxAge: 600,
     }),
   );
 
-  // Límite general por IP contra el abuso de la API (el login tiene uno
-  // más estricto en auth.routes.js)
-  if (!config.esPrueba) {
-    app.use(
-      '/api',
-      rateLimit({
-        windowMs: 60 * 1000,
-        // Con la actualización en tiempo real cada cambio dispara unas pocas recargas
-        limit: 600,
-        standardHeaders: 'draft-8',
-        legacyHeaders: false,
-        message: { error: 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.' },
-      }),
-    );
-  }
+  // Límite general por usuario contra el abuso de la API: un cubo de 200
+  // fichas que se recarga a 200 por minuto (ver middleware/limitePeticiones.js).
+  // El login tiene uno más estricto por IP en auth.routes.js.
+  if (config.limiteApi.activo) app.use('/api', limitePeticiones);
 
   // Las fotos y los comprobantes viajan dentro del JSON como imágenes en
   // texto (data URL), por eso el límite es mayor que el de 100 KB por defecto
