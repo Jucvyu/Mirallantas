@@ -3,10 +3,11 @@ import { FileText } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import { estadosSolicitudCredito, PLAZOS_CREDITO } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { opcionesClientes } from '../../../utils/opciones';
-import { clientesService, solicitudesCreditoService } from '../../../services';
+import { clientesSeleccionablesService, solicitudesCreditoService } from '../../../services';
 import DetalleSolicitudCreditoModal from './DetalleSolicitudCreditoModal';
 
 // Solicitudes de crédito. Cada cotización-pedido a crédito crea la suya
@@ -17,7 +18,7 @@ import DetalleSolicitudCreditoModal from './DetalleSolicitudCreditoModal';
 // cotización se rechaza. El estado no se cambia a mano.
 const columns = [
   { key: 'id', label: 'Nº Solicitud' },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || '—' },
   { key: 'monto', label: 'Monto a financiar' },
   { key: 'plazoDias', label: 'Plazo', render: (row) => `${row.plazoDias} días` },
@@ -48,7 +49,7 @@ function seccionesFormulario(opciones) {
 }
 
 export default function SolicitudesCreditoPage() {
-  const clientes = useRecurso(clientesService);
+  const clientes = useRecurso(clientesSeleccionablesService);
   const solicitudes = useRecurso(solicitudesCreditoService);
   // Solicitud abierta en "Ver detalle"
   const [detalleDe, setDetalleDe] = useState(null);

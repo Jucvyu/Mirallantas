@@ -3,6 +3,7 @@ import { FileText, Receipt } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import { estadosAbono, FLUJO_ESTADOS_ABONO, mediosPago } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { abonosService } from '../../../services';
@@ -17,7 +18,7 @@ import NuevoAbonoModal from './NuevoAbonoModal';
 const columns = [
   { key: 'id', label: 'Nº Abono' },
   { key: 'credito', label: 'Crédito' },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   { key: 'fecha', label: 'Fecha' },
   { key: 'monto', label: 'Monto' },
   { key: 'metodoPago', label: 'Método de pago' },

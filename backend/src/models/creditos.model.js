@@ -13,6 +13,7 @@ const CREDITO = {
     cr.id, cr.numero, cr.monto_total AS "montoTotal", cr.saldo_pendiente AS "saldoPendiente",
     cr.plazo_dias AS "plazoDias", cr.fecha_apertura AS "fechaApertura", cr.fecha_limite AS "fechaLimite",
     cr.activo, cr.iniciado, cr.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+    cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
     v.numero AS venta, co.numero AS cotizacion`,
   desde: `
     FROM credito cr

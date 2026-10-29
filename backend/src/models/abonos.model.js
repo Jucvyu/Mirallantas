@@ -14,6 +14,7 @@ const SELECT_ABONO = `
   a.id, a.numero, a.fecha, a.monto, a.medio_pago AS "medioPago",
   a.comprobante_url AS "comprobanteUrl", a.estado, a.motivo_rechazo AS "motivoRechazo",
   cr.numero AS credito, v.numero AS factura, cl.nombre_completo AS cliente,
+  cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
   cl.tipo_documento AS "tipoDocumento", cl.numero_documento AS "numeroDocumento",
   cr.saldo_pendiente AS "saldoCredito"`;
 

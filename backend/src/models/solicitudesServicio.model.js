@@ -39,6 +39,7 @@ const SELECT = `
   s.descripcion, s.foto_url AS foto, s.fotos, s.observacion_revision AS "observacionRevision",
   s.motivo_cancelacion AS "motivoCancelacion",
   s.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+  cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
   s.servicio_id AS "servicioId", sv.nombre AS servicio,
   s.tercero_id AS "terceroId", te.nombre_razon_social AS tercero,
   s.precio, s.costo, sv.precio AS "precioSugerido", s.pago_estado AS "pagoEstado", s.pago_medio AS "pagoMedio",

@@ -3,10 +3,11 @@ import { Ban, Eye, Receipt } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import { CUOTA_INICIAL_PORCENTAJE, cuotaMinimaDe, metodosPago } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { clientesService, proveedoresService, tercerosService, ventasService } from '../../../services';
+import { clientesSeleccionablesService, proveedoresService, tercerosService, ventasService } from '../../../services';
 import { parseCOP } from '../../../utils/formato';
 import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
 import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';
@@ -60,7 +61,7 @@ const columns = [
       </span>
     ),
   },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   { key: 'metodoPago', label: 'Método de pago' },
   { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Venta directa' },
   { key: 'total', label: 'Total' },
@@ -141,7 +142,7 @@ export default function VentasPage() {
   // Venta que se va a anular, a la espera de la confirmación
   const [anulando, setAnulando] = useState(null);
 
-  const clientes = useRecurso(clientesService);
+  const clientes = useRecurso(clientesSeleccionablesService);
   const proveedores = useRecurso(proveedoresService);
   const terceros = useRecurso(tercerosService);
   const ventas = useRecurso(ventasService);

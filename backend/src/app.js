@@ -34,6 +34,7 @@ import { rutasPortal } from './routes/portal.routes.js';
 import { rutasProductos } from './routes/productos.routes.js';
 import { rutasReferencias } from './routes/referencias.routes.js';
 import { rutasRoles, rutasUsuarios } from './routes/seguridad.routes.js';
+import { rutasSeleccion } from './routes/seleccion.routes.js';
 import { rutasSolicitudesServicio } from './routes/solicitudesServicio.routes.js';
 import { rutasVentas } from './routes/ventas.routes.js';
 
@@ -139,6 +140,7 @@ export function crearApp() {
   app.use('/api/clientes', rutasClientes);
   app.use('/api/proveedores', rutasProveedores);
   app.use('/api/terceros', rutasTerceros);
+  app.use('/api/seleccion', rutasSeleccion);
 
   // ---- Operación y cartera ----
   app.use('/api/cotizaciones', rutasCotizaciones);

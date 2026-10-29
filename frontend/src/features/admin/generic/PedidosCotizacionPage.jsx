@@ -4,6 +4,7 @@ import Badge from '../../../components/base/Badge';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import MotivoModal from '../../../components/base/MotivoModal';
 import {
   estadosCotizacion,
@@ -74,7 +75,7 @@ const columns = [
       </span>
     ),
   },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   {
     key: 'metodoPago',
     label: 'Método de pago',

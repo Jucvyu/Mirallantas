@@ -10,7 +10,7 @@ import { PLAZO_RESPUESTA_HORAS, SERVICIO_POR_DEFECTO } from '../../../constantes
 import { useValidacion } from '../../../hooks/useValidacion';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { clientesService, serviciosService } from '../../../services';
+import { clientesSeleccionablesService, serviciosService } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
 import { servicioInitialValues, servicioSectionsAdmin } from '../../shared/servicioSections';
 import SelectorProductosModal from '../shared/SelectorProductosModal';
@@ -32,7 +32,7 @@ const CANTIDAD_MAXIMA = 999;
  * cliente, y una cotización ya guardada conserva el suyo.
  */
 export default function NuevoPedidoModal({ onSubmit, onClose }) {
-  const clientes = useRecurso(clientesService);
+  const clientes = useRecurso(clientesSeleccionablesService);
   const servicios = useRecurso(serviciosService);
   const { enviando, errorEnvio, enviar } = useEnvio();
 

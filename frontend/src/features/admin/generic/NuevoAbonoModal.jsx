@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SearchSelect from '../../../components/base/SearchSelect';
 import { useRecurso } from '../../../hooks/useRecurso';
-import { abonosService, clientesService, nuevaClaveIdempotencia } from '../../../services';
+import { abonosService, clientesSeleccionablesService, nuevaClaveIdempotencia } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
 import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
@@ -36,7 +36,7 @@ import Skeleton from '../../../components/base/Skeleton';
 export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose }) {
   // Una clave por formulario abierto: si el envío se repite, no se duplica el abono
   const [claveIdempotencia] = useState(nuevaClaveIdempotencia);
-  const clientes = useRecurso(clientesService);
+  const clientes = useRecurso(clientesSeleccionablesService);
   const opcionesCliente = useMemo(() => opcionesClientes(clientes.filas), [clientes.filas]);
   const [clienteId, setClienteId] = useState(creditoFijo?.clienteId ?? '');
   const [facturas, setFacturas] = useState([]);

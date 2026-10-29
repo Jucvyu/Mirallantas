@@ -3,6 +3,7 @@ import { Wallet } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import { CREDITO_SIN_INICIAR, estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { creditosService } from '../../../services';
@@ -18,7 +19,7 @@ function vencido(row) {
 // estado. El saldo baja solo cuando un asesor confirma un abono.
 const columns = [
   { key: 'id', label: 'Nº Crédito' },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   { key: 'montoTotal', label: 'Monto total' },
   { key: 'saldoPendiente', label: 'Saldo pendiente' },
   { key: 'plazoDias', label: 'Plazo', render: (row) => `${row.plazoDias} días` },

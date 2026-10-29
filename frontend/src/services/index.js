@@ -23,7 +23,7 @@ export {
   productosService,
   catalogoPublicoService,
 } from './catalogos.service';
-export { clientesService, proveedoresService, tercerosService } from './contactos.service';
+export { clientesService, clientesSeleccionablesService, proveedoresService, tercerosService } from './contactos.service';
 export { cotizacionesService, ventasService, comprasService } from './operacion.service';
 export {
   creditosService,

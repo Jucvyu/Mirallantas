@@ -6,6 +6,27 @@ import { POOL } from './listado.model.js';
  * modelo genérico de catálogos (catalogos.model.js).
  */
 
+/**
+ * Clientes que se pueden elegir en los formularios: solo las fichas con una
+ * cuenta de usuario ACTIVA de rol Cliente (los clientes se crean desde
+ * Usuarios). Trae el documento para distinguir dos nombres parecidos.
+ */
+export async function seleccionables() {
+  const { rows } = await POOL.query(
+    `SELECT c.id, c.nombre_completo AS "nombreCompleto",
+            c.tipo_documento AS "tipoDocumento", c.numero_documento AS "numeroDocumento",
+            c.telefono, c.correo, c.direccion
+       FROM cliente c
+      WHERE c.activo
+        AND EXISTS (
+          SELECT 1 FROM usuario u JOIN rol r ON r.id = u.rol_id
+           WHERE u.cliente_id = c.id AND r.nombre = 'Cliente' AND u.activo
+        )
+      ORDER BY c.nombre_completo, c.id`,
+  );
+  return rows;
+}
+
 /** Id del cliente con ese documento, o null si no existe. */
 export async function idPorDocumento(db, tipoDocumento, numeroDocumento) {
   const { rows } = await db.query('SELECT id FROM cliente WHERE tipo_documento = $1 AND numero_documento = $2', [

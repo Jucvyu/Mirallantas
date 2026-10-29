@@ -11,6 +11,7 @@ import { consultarListado } from './listado.model.js';
 const SOLICITUD = `
   s.id, s.numero, s.monto, s.plazo_dias AS "plazoDias", s.fecha, s.estado, s.motivo,
   s.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+  cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
   co.numero AS cotizacion, co.total AS "totalCotizacion", co.cuota_inicial AS "cuotaInicial"`;
 
 const DESDE = `FROM solicitud_credito s

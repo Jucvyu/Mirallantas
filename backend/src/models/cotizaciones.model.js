@@ -31,6 +31,7 @@ const COTIZACION = {
     c.estado, c.estado_entrega AS "estadoEntrega", c.direccion_entrega AS "direccionEntrega",
     c.motivo_cancelacion AS "motivoCancelacion", ${CAMPOS_ETAPA},
     c.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+    cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
     c.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     (SELECT v.numero FROM venta v WHERE v.cotizacion_id = c.id) AS venta,
     -- Pago de contado: estado de la consignación más reciente (null = no tiene)

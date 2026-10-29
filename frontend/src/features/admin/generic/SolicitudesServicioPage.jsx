@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import Badge from '../../../components/base/Badge';
 import DataTable from '../../../components/base/DataTable';
+import { columnaCliente } from '../../../components/base/celdaCliente';
 import FormModal from '../../../components/base/FormModal';
 import PageHeader from '../../../components/base/PageHeader';
 import { estadosEvidenciaCarcasa, estadosServicio } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
-import { clientesService, solicitudesServicioService, tercerosService } from '../../../services';
+import { clientesSeleccionablesService, solicitudesServicioService, tercerosService } from '../../../services';
 import { formatCOP, parseCOP } from '../../../utils/formato';
 import DetallePagoServicioModal from './DetallePagoServicioModal';
 import TarjetaSolicitudServicio from './TarjetaSolicitudServicio';
@@ -68,7 +69,7 @@ function agrupar(solicitudes) {
 
 const columns = [
   { key: 'id', label: 'Cotización / Solicitud' },
-  { key: 'cliente', label: 'Cliente' },
+  columnaCliente(),
   { key: 'cantidadSolicitudes', label: 'Servicios', render: (g) => `${g.cantidadSolicitudes} · ${g.llantas} llantas` },
   { key: 'valor', label: 'Valor' },
   { key: 'pagoEstado', label: 'Pago', render: (g) => <Badge tone={TONO_PAGO[g.pagoEstado]}>{g.pagoEstado}</Badge> },
@@ -121,7 +122,7 @@ function seccionesFormulario({ clientes, terceros }) {
 }
 
 export default function SolicitudesServicioPage() {
-  const clientes = useRecurso(clientesService);
+  const clientes = useRecurso(clientesSeleccionablesService);
   const terceros = useRecurso(tercerosService);
   const solicitudes = useRecurso(solicitudesServicioService);
   // Solicitud abierta en "Ver pago" y en "Editar"
