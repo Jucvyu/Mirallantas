@@ -12,6 +12,7 @@ import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { clientesSeleccionablesService, serviciosService } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
+import ResumenCliente from '../../../components/base/ResumenCliente';
 import { servicioInitialValues, servicioSectionsAdmin } from '../../shared/servicioSections';
 import SelectorProductosModal from '../shared/SelectorProductosModal';
 
@@ -188,6 +189,7 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
                   error={Boolean(errors.cliente)}
                 />
                 {errors.cliente && <p className="mt-1 text-xs font-medium text-red-500">{errors.cliente}</p>}
+                <ResumenCliente cliente={clientes.filas.find((c) => c.id === clienteId)} />
               </div>
 
               <div className="sm:col-span-2">

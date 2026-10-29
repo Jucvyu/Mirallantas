@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Plus, Search } from 'lucide-react';
+import { Check, ChevronDown, Plus, Search, X } from 'lucide-react';
 import { BORDER_ERR, BORDER_OK, INPUT } from '../formStyles';
 
 /**
- * Selector con buscador.
+ * Selector con buscador: el campo ES la barra de búsqueda desde el inicio.
+ * No hay un botón que abra otro campo aparte: se escribe directamente y la
+ * lista aparece debajo filtrándose. Al elegir, el campo muestra la opción
+ * (y su detalle, p. ej. el documento del cliente); al enfocarlo se puede
+ * escribir de nuevo para buscar otra.
  *
  *   <SearchSelect value={id} options={[{ valor, etiqueta, detalle }]} onChange={setId} />
  *   <SearchSelect value="195/65R15" options={['195/65R15', …]} permitirNuevo onChange={…} />
  *
  * - Las opciones pueden ser textos o objetos { valor, etiqueta, detalle }.
  *   Con objetos se guarda el `valor` (p. ej. el id real del cliente) y se
- *   busca tanto en la etiqueta como en el detalle (p. ej. "CC 1020304050"),
- *   así se distinguen dos clientes con el mismo nombre.
+ *   busca tanto en la etiqueta como en el detalle (p. ej. "CC 1020304050").
  * - `permitirNuevo`: si lo escrito no coincide con ninguna opción, ofrece
  *   usarlo como valor nuevo (p. ej. una medida que todavía no existe).
- *   Se compara sin mayúsculas ni espacios para no duplicar opciones.
  */
 
 /** Convierte un texto en opción con la misma forma que los objetos. */
@@ -36,16 +38,20 @@ export default function SearchSelect({
   const [abierto, setAbierto] = useState(false);
   const [query, setQuery] = useState('');
   const contenedor = useRef(null);
-  const buscador = useRef(null);
+  const campo = useRef(null);
   const opciones = useMemo(() => options.map(normalizar), [options]);
 
   // Cerrar al hacer click fuera o con Escape
   useEffect(() => {
     if (!abierto) return undefined;
-    const alClickFuera = (e) => {
-      if (!contenedor.current?.contains(e.target)) setAbierto(false);
+    const cerrarAhora = () => {
+      setAbierto(false);
+      setQuery('');
     };
-    const alTeclear = (e) => e.key === 'Escape' && setAbierto(false);
+    const alClickFuera = (e) => {
+      if (!contenedor.current?.contains(e.target)) cerrarAhora();
+    };
+    const alTeclear = (e) => e.key === 'Escape' && cerrarAhora();
     document.addEventListener('pointerdown', alClickFuera);
     document.addEventListener('keydown', alTeclear);
     return () => {
@@ -54,10 +60,8 @@ export default function SearchSelect({
     };
   }, [abierto]);
 
-  // El foco cae en el buscador apenas se abre
-  useEffect(() => {
-    if (abierto) buscador.current?.focus();
-  }, [abierto]);
+  const elegida = opciones.find((o) => o.valor === value);
+  const etiquetaElegida = elegida?.etiqueta ?? (permitirNuevo && value ? String(value) : '');
 
   const filtradas = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,58 +73,78 @@ export default function SearchSelect({
   const yaExiste = opciones.some((o) => clave(o.etiqueta) === clave(query));
   const ofrecerNuevo = permitirNuevo && query.trim() && !yaExiste;
 
-  const elegida = opciones.find((o) => o.valor === value);
-  const textoBoton = elegida?.etiqueta ?? (permitirNuevo && value ? String(value) : '');
-
-  const elegir = (valor) => {
-    onChange(valor);
+  const abrir = () => {
+    setAbierto(true);
+    setQuery('');
+  };
+  const cerrar = () => {
     setAbierto(false);
     setQuery('');
   };
 
+  const elegir = (valor) => {
+    onChange(valor);
+    cerrar();
+    campo.current?.blur();
+  };
+
+  // Cuando está abierto el campo muestra lo que se escribe; cerrado, la opción elegida
+  const valorCampo = abierto ? query : etiquetaElegida;
+
   return (
     <div ref={contenedor} className="relative">
-      <button
-        id={id}
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={abierto}
-        className={`${INPUT} ${error ? BORDER_ERR : BORDER_OK} flex items-center justify-between gap-2 text-left ${
-          textoBoton ? '' : 'text-slate-400 dark:text-slate-500'
-        }`}
-      >
-        <span className="min-w-0 truncate">
-          {textoBoton || placeholder}
-          {elegida?.detalle && <span className="ml-2 text-xs text-slate-400">{elegida.detalle}</span>}
-        </span>
+      <div className="relative">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          id={id}
+          ref={campo}
+          type="text"
+          role="combobox"
+          aria-expanded={abierto}
+          aria-autocomplete="list"
+          autoComplete="off"
+          value={valorCampo}
+          onFocus={abrir}
+          onChange={(e) => {
+            if (!abierto) setAbierto(true);
+            setQuery(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            if (filtradas.length === 1) elegir(filtradas[0].valor);
+            else if (ofrecerNuevo) elegir(clave(query));
+          }}
+          placeholder={etiquetaElegida && !abierto ? etiquetaElegida : placeholderBusqueda || placeholder}
+          className={`${INPUT} ${error ? BORDER_ERR : BORDER_OK} pl-9 ${value ? 'pr-16' : 'pr-9'}`}
+        />
+        {/* Limpiar la selección */}
+        {value && !abierto && (
+          <button
+            type="button"
+            aria-label="Quitar la selección"
+            onClick={() => onChange('')}
+            className="absolute right-8 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            <X size={14} />
+          </button>
+        )}
         <ChevronDown
           size={16}
-          className={`shrink-0 text-slate-400 transition-transform duration-200 ${abierto ? 'rotate-180' : ''}`}
+          onClick={() => (abierto ? cerrar() : campo.current?.focus())}
+          className={`absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 transition-transform duration-200 ${
+            abierto ? 'rotate-180' : ''
+          }`}
         />
-      </button>
+      </div>
+
+      {/* El detalle de la opción elegida (p. ej. el documento), cuando no se está buscando */}
+      {elegida?.detalle && !abierto && (
+        <p className="mt-1 truncate pl-1 text-[11px] text-slate-400">{elegida.detalle}</p>
+      )}
 
       {abierto && (
         <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl ml-glass-panel border">
-          {/* ---- Barra de búsqueda ---- */}
-          <div className="relative border-b border-slate-100 p-2 dark:border-white/10">
-            <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              ref={buscador}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter elige la única coincidencia o el valor nuevo
-                if (e.key !== 'Enter') return;
-                e.preventDefault();
-                if (filtradas.length === 1) elegir(filtradas[0].valor);
-                else if (ofrecerNuevo) elegir(clave(query));
-              }}
-              placeholder={placeholderBusqueda}
-              className={`${INPUT} ${BORDER_OK} py-1.5 pl-8 pr-3 text-xs`}
-            />
-          </div>
-
           <ul role="listbox" className="max-h-60 overflow-y-auto p-1">
             {ofrecerNuevo && (
               <li>

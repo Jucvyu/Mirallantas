@@ -3,6 +3,7 @@ import SearchSelect from '../../../components/base/SearchSelect';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { abonosService, clientesSeleccionablesService, nuevaClaveIdempotencia } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
+import ResumenCliente from '../../../components/base/ResumenCliente';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
 import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
@@ -213,6 +214,7 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
                     error={Boolean(errores.cliente)}
                   />
                 )}
+                {!creditoFijo && <ResumenCliente cliente={clientes.filas.find((c) => c.id === clienteId)} />}
                 {errores.cliente && <p className="mt-1 text-xs font-medium text-red-500">{errores.cliente}</p>}
               </div>
 
