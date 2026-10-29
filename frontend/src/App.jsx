@@ -8,6 +8,9 @@ import LandingPage from './features/landing/LandingPage';
 import LoginPage from './features/auth/LoginPage';
 import CuentaInactivaPage from './features/auth/CuentaInactivaPage';
 import AccesoDenegadoPage from './features/auth/AccesoDenegadoPage';
+import NoEncontradaPage from './features/auth/NoEncontradaPage';
+import AvisosDeConexion from './components/estado/AvisosDeConexion';
+import LimiteDeErrores from './components/estado/LimiteDeErrores';
 
 // Cada pantalla del panel y del portal se descarga al abrirla por primera
 // vez (así la página de inicio y el login cargan mucho más rápido).
@@ -62,6 +65,10 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          {/* Sin internet o servidor caído: aviso encima de todo */}
+          <AvisosDeConexion />
+          {/* Un error al dibujar una pantalla muestra un aviso en vez de dejarla en blanco */}
+          <LimiteDeErrores>
           <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -90,6 +97,7 @@ export default function App() {
               {PAGINAS_ADMIN.map(({ ruta, permiso, pagina }) => (
                 <Route key={ruta} path={ruta} element={<ConPermiso modulo={permiso}>{pagina}</ConPermiso>} />
               ))}
+              <Route path="*" element={<NoEncontradaPage compacta inicio="/admin" />} />
             </Route>
 
             {/* ---- Portal del cliente (cada pantalla con su permiso) ---- */}
@@ -105,9 +113,13 @@ export default function App() {
               <Route path="catalogo" element={<ConPermiso modulo="Catálogo (portal)"><CatalogoPage /></ConPermiso>} />
               <Route path="pedidos" element={<ConPermiso modulo="Mis cotizaciones"><ClientPedidosPage /></ConPermiso>} />
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
+              <Route path="*" element={<NoEncontradaPage compacta inicio="/portal" />} />
             </Route>
+            {/* Cualquier otra dirección */}
+            <Route path="*" element={<NoEncontradaPage />} />
           </Routes>
           </Suspense>
+          </LimiteDeErrores>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

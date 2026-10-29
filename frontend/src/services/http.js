@@ -19,6 +19,46 @@ export const EVENTO_SESION_EXPIRADA = 'mirallantas:sesion-expirada';
 /** Evento que se dispara cuando desactivan la cuenta con la sesión abierta. */
 export const EVENTO_CUENTA_INACTIVA = 'mirallantas:cuenta-inactiva';
 
+/** Evento que se dispara cuando el servidor no responde (caído o reiniciándose). */
+export const EVENTO_SERVIDOR_CAIDO = 'mirallantas:servidor-caido';
+
+/** Respuestas del proveedor cuando la API está caída o arrancando. */
+const ESTADOS_SERVIDOR_CAIDO = [502, 503, 504];
+
+/**
+ * ¿Falló el servidor antes de que la pantalla de aviso estuviera lista? (p. ej.
+ * al cargar las listas iniciales). La pantalla lo lee al aparecer.
+ */
+export let servidorCaidoAlIniciar = false;
+
+/** Avisa a la aplicación que el servidor no responde. */
+function avisarServidorCaido() {
+  servidorCaidoAlIniciar = true;
+  window.dispatchEvent(new Event(EVENTO_SERVIDOR_CAIDO));
+}
+
+/** Mensaje para cuando una petición no llega al servidor: sin internet o servidor caído. */
+function errorSinConexion() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return new ErrorApi(0, 'No tienes conexión a internet. Revisa tu red e inténtalo de nuevo.');
+  }
+  avisarServidorCaido();
+  return new ErrorApi(0, 'No pudimos comunicarnos con el servidor. Inténtalo de nuevo en unos segundos.');
+}
+
+/**
+ * ¿El servidor responde? Lo usa la pantalla de "servidor no disponible"
+ * para saber cuándo volvió.
+ */
+export async function servidorDisponible() {
+  try {
+    const respuesta = await fetch(`${URL_API}/salud`, { cache: 'no-store' });
+    return respuesta.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Código con el que la API avisa que la cuenta está inactiva. */
 export const CODIGO_CUENTA_INACTIVA = 'CUENTA_INACTIVA';
 
@@ -94,9 +134,12 @@ export async function api(ruta, { metodo = 'GET', cuerpo, cabecerasExtra = {} } 
       body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
     });
   } catch {
-    // fetch solo falla así cuando no hay conexión con el servidor
-    throw new ErrorApi(0, 'No hay conexión con el servidor. Revisa que la API esté encendida.');
+    // fetch solo falla así cuando no hay internet o el servidor no responde
+    throw errorSinConexion();
   }
+
+  // Servidor caído o arrancando (el proveedor responde 502/503/504)
+  if (ESTADOS_SERVIDOR_CAIDO.includes(respuesta.status)) avisarServidorCaido();
 
   // 204 = "sin contenido" (por ejemplo, al eliminar)
   const datos = respuesta.status === 204 ? null : await respuesta.json().catch(() => null);
@@ -134,7 +177,7 @@ export async function descargarArchivo(ruta, nombre) {
   try {
     respuesta = await fetch(`${URL_API}${ruta}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   } catch {
-    throw new ErrorApi(0, 'No hay conexión con el servidor. Revisa que la API esté encendida.');
+    throw errorSinConexion();
   }
   if (!respuesta.ok) {
     const datos = await respuesta.json().catch(() => null);

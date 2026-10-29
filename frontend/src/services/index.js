@@ -32,4 +32,11 @@ export {
   solicitudesServicioService,
 } from './cartera.service';
 export { avisosPersonalService, dashboardService, notificacionesService, portalService } from './tableros.service';
-export { CODIGO_CUENTA_INACTIVA, EVENTO_CUENTA_INACTIVA, EVENTO_SESION_EXPIRADA, nuevaClaveIdempotencia } from './http';
+export {
+  CODIGO_CUENTA_INACTIVA,
+  EVENTO_CUENTA_INACTIVA,
+  EVENTO_SERVIDOR_CAIDO,
+  EVENTO_SESION_EXPIRADA,
+  nuevaClaveIdempotencia,
+  servidorDisponible,
+} from './http';
