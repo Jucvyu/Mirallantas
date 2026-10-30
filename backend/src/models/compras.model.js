@@ -111,15 +111,30 @@ export async function hayDeCotizacion(db, cotizacionId) {
  * proveedor o, si no se registró, el último costo de compra de la llanta).
  */
 export async function lineasParaComprar(db, cotizacionId) {
+  // Una línea por (producto, proveedor): las llantas repartidas entre varios
+  // proveedores (tabla hija) dan una línea por cada uno; las de un solo
+  // proveedor, una sola con el proveedor y el costo de la línea.
   const { rows } = await db.query(
-    `SELECT d.producto_id AS "productoId", d.cantidad,
-            COALESCE(d.proveedor_id, c.proveedor_id) AS "proveedorId",
-            COALESCE(d.costo_proveedor, p.precio_compra, 0) AS "precioUnitario"
-       FROM cotizacion_detalle d
-       JOIN cotizacion c ON c.id = d.cotizacion_id
-       JOIN producto p ON p.id = d.producto_id
-      WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
-      ORDER BY d.id`,
+    `SELECT producto_id AS "productoId", cantidad,
+            proveedor_id AS "proveedorId", precio_unitario AS "precioUnitario"
+       FROM (
+         SELECT d.producto_id, dp.cantidad, dp.proveedor_id, dp.costo AS precio_unitario,
+                d.id AS did, dp.id AS ord
+           FROM cotizacion_detalle d
+           JOIN cotizacion_detalle_proveedor dp ON dp.detalle_id = d.id
+          WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
+         UNION ALL
+         SELECT d.producto_id, d.cantidad,
+                COALESCE(d.proveedor_id, c.proveedor_id),
+                COALESCE(d.costo_proveedor, p.precio_compra, 0),
+                d.id AS did, 0 AS ord
+           FROM cotizacion_detalle d
+           JOIN cotizacion c ON c.id = d.cotizacion_id
+           JOIN producto p ON p.id = d.producto_id
+          WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
+            AND NOT EXISTS (SELECT 1 FROM cotizacion_detalle_proveedor dp WHERE dp.detalle_id = d.id)
+       ) q
+      ORDER BY did, ord`,
     [cotizacionId],
   );
   return rows;

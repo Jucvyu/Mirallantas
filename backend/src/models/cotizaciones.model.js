@@ -107,7 +107,13 @@ export async function lineas(cotizacionId, db = POOL) {
             ss.precio AS "precioServicio",
             d.proveedor_id AS "proveedorLineaId", pv.nombre_razon_social AS "proveedorLinea",
             d.costo_proveedor AS "costoProveedor", d.costo_confirmado_en AS "costoConfirmadoEn",
-            p.precio_venta AS "precioSugerido", p.precio_compra AS "ultimoCosto"
+            p.precio_venta AS "precioSugerido", p.precio_compra AS "ultimoCosto",
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                       'proveedorId', dp.proveedor_id, 'proveedor', pr2.nombre_razon_social,
+                       'cantidad', dp.cantidad, 'costo', dp.costo) ORDER BY dp.id)
+                FROM cotizacion_detalle_proveedor dp JOIN proveedor pr2 ON pr2.id = dp.proveedor_id
+               WHERE dp.detalle_id = d.id), '[]') AS "proveedoresLinea"
        FROM cotizacion_detalle d
        LEFT JOIN producto p ON p.id = d.producto_id
        LEFT JOIN proveedor pv ON pv.id = d.proveedor_id
@@ -124,13 +130,38 @@ export async function lineas(cotizacionId, db = POOL) {
  * precio (con fecha y usuario), su precio de compra (lo que cobra el
  * proveedor) y el precio de venta definitivo.
  */
-export async function confirmarLinea(db, lineaId, { proveedorId, costoProveedor, precioUnitario, usuarioId }) {
+export async function confirmarLinea(db, lineaId, { proveedorId, costoProveedor, precioUnitario, proveedores, usuarioId }) {
+  // Se limpia el reparto anterior (por si se re-emite con otros proveedores)
+  await db.query('DELETE FROM cotizacion_detalle_proveedor WHERE detalle_id = $1', [lineaId]);
+
+  // Varios proveedores: el reparto va en la tabla hija; la línea no guarda
+  // proveedor propio. El precio de venta sigue siendo uno solo por llanta.
+  if (proveedores && proveedores.length > 1) {
+    await db.query(
+      `UPDATE cotizacion_detalle
+          SET proveedor_id = NULL, costo_proveedor = NULL,
+              costo_confirmado_en = now(), costo_confirmado_por = $3,
+              precio_unitario = $2::bigint, subtotal = $2::bigint * cantidad
+        WHERE id = $1`,
+      [lineaId, precioUnitario, usuarioId],
+    );
+    for (const p of proveedores) {
+      await db.query(
+        'INSERT INTO cotizacion_detalle_proveedor (detalle_id, proveedor_id, cantidad, costo) VALUES ($1, $2, $3, $4)',
+        [lineaId, p.proveedorId, p.cantidad, p.costo],
+      );
+    }
+    return;
+  }
+
+  // Un solo proveedor: puede llegar como campos sueltos o como proveedores[0]
+  const uno = proveedores?.[0];
   await db.query(
     `UPDATE cotizacion_detalle
         SET proveedor_id = $2, costo_confirmado_en = now(), costo_confirmado_por = $3,
             precio_unitario = $4::bigint, subtotal = $4::bigint * cantidad, costo_proveedor = $5
       WHERE id = $1`,
-    [lineaId, proveedorId, usuarioId, precioUnitario, costoProveedor],
+    [lineaId, uno?.proveedorId ?? proveedorId, usuarioId, precioUnitario, uno?.costo ?? costoProveedor],
   );
 }
 

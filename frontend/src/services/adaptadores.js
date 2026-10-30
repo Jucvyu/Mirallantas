@@ -143,6 +143,8 @@ export const lineaDesdeApi = (l) => ({
   proveedorLineaId: l.proveedorLineaId ?? null,
   proveedorLinea: l.proveedorLinea ?? '',
   costoProveedor: l.costoProveedor ?? null,
+  // Reparto por proveedor cuando la llanta se compra a varios
+  proveedoresLinea: l.proveedoresLinea ?? [],
   costoConfirmadoEn: l.costoConfirmadoEn ?? null,
   precioSugerido: l.precioSugerido ?? null,
   ultimoCosto: l.ultimoCosto ?? null,

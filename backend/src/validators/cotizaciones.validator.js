@@ -59,25 +59,44 @@ export const esquemaNueva = z.object({
     .min(1, 'Agrega al menos un producto o servicio.'),
 });
 
+/** Un proveedor dentro del reparto de una llanta: su cantidad y su precio de compra. */
+const proveedorDeReparto = z.object({
+  proveedorId: idRelacion,
+  cantidad: cantidad(),
+  costo: pesosPositivos('Indica el precio de compra.'),
+});
+
 /**
- * POST /cotizaciones/:numero/emitir — por cada llanta: el proveedor con el
- * que se verificó el precio, su precio de compra y el de venta definitivo.
+ * POST /cotizaciones/:numero/emitir — por cada llanta: el precio de venta y,
+ * para la compra, uno o varios proveedores. Con un solo proveedor se envían
+ * `proveedorId` y `costoProveedor`; con varios, el reparto en `proveedores`
+ * (cada uno con su cantidad y su precio de compra). El precio de venta es
+ * uno solo por llanta.
  */
 export const esquemaEmision = z.object({
   lineas: z
     .array(
-      z.object({
-        id: idRelacion,
-        proveedorId: idRelacion,
-        // Lo que cobra el proveedor (precio de compra) y lo que paga el cliente
-        costoProveedor: pesosPositivos('Indica el precio de compra.'),
-        precioUnitario: pesosPositivos('Indica el precio de venta.'),
-      })
-      // Regla de negocio: nunca se vende por debajo de lo que se compra
-      .refine((l) => l.precioUnitario >= l.costoProveedor, {
-        error: 'El precio de venta no puede ser menor que el precio de compra.',
-        path: ['precioUnitario'],
-      }),
+      z
+        .object({
+          id: idRelacion,
+          precioUnitario: pesosPositivos('Indica el precio de venta.'),
+          proveedorId: idRelacion.optional(),
+          costoProveedor: pesosPositivos('Indica el precio de compra.').optional(),
+          proveedores: z.array(proveedorDeReparto).min(1).optional(),
+        })
+        // Debe venir el reparto (varios) o el proveedor y su costo (uno)
+        .refine((l) => Boolean(l.proveedores?.length) || (l.proveedorId != null && l.costoProveedor != null), {
+          error: 'Indica el proveedor y el precio de compra.',
+          path: ['proveedorId'],
+        })
+        // Regla de negocio: nunca se vende por debajo de lo que se compra
+        .refine(
+          (l) =>
+            (l.proveedores?.length ? l.proveedores.map((p) => p.costo) : [l.costoProveedor]).every(
+              (c) => c == null || l.precioUnitario >= c,
+            ),
+          { error: 'El precio de venta no puede ser menor que el precio de compra.', path: ['precioUnitario'] },
+        ),
     )
     .min(1, 'Confirma el precio de al menos una llanta.'),
 });

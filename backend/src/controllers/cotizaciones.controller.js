@@ -288,7 +288,19 @@ export async function emitir(req, res) {
     for (const linea of productos) {
       const datos = confirmadas.find((c) => c.id === linea.id);
       if (!datos) throw new HttpError(422, `Confirma el precio de "${linea.descripcion}" antes de emitir.`);
-      await exigirActivo('proveedor', datos.proveedorId, db);
+      // Con varios proveedores, las cantidades repartidas deben sumar la de la línea
+      if (datos.proveedores?.length) {
+        const repartida = datos.proveedores.reduce((suma, p) => suma + p.cantidad, 0);
+        if (repartida !== linea.cantidad) {
+          throw new HttpError(
+            422,
+            `En "${linea.descripcion}" las cantidades por proveedor suman ${repartida}, pero la llanta es por ${linea.cantidad}.`,
+          );
+        }
+        for (const p of datos.proveedores) await exigirActivo('proveedor', p.proveedorId, db);
+      } else {
+        await exigirActivo('proveedor', datos.proveedorId, db);
+      }
       await cotizacionesModel.confirmarLinea(db, linea.id, { ...datos, usuarioId: req.usuario.id });
       subtotal += datos.precioUnitario * linea.cantidad;
     }
