@@ -158,11 +158,17 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
                           <p className="text-xs text-slate-400 dark:text-slate-500">
                             {[l.codigo, l.medida, l.solicitud].filter(Boolean).join(' · ')}
                           </p>
-                          {/* Solo el personal recibe con qué proveedor se verificó */}
-                          {l.tipo !== 'servicio' && l.costoConfirmadoEn && (
+                          {/* Solo el personal recibe con qué proveedor(es) se verificó */}
+                          {l.tipo !== 'servicio' && l.costoConfirmadoEn && l.proveedoresLinea?.length > 0 ? (
                             <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              Precio verificado con {l.proveedorLinea}
+                              Compra repartida: {l.proveedoresLinea.map((p) => `${p.proveedor} (${p.cantidad})`).join(' · ')}
                             </p>
+                          ) : (
+                            l.tipo !== 'servicio' && l.costoConfirmadoEn && (
+                              <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Precio verificado con {l.proveedorLinea}
+                              </p>
+                            )
                           )}
                           {l.tipo !== 'servicio' && esCotizacion && l.precioSugerido !== null && !l.costoConfirmadoEn && (
                             <p className="text-[11px] font-medium text-amber-600">Precio pendiente de verificar con el proveedor</p>
