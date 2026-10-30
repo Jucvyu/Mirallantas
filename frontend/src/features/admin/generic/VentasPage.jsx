@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, Receipt } from 'lucide-react';
+import { Eye, Receipt, Wallet } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
@@ -11,6 +11,7 @@ import { parseCOP } from '../../../utils/formato';
 import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
 import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
+import HistorialAbonosModal from './HistorialAbonosModal';
 
 /**
  * Venta a crédito: la cuota inicial cubre al menos el 30 % del total (el
@@ -138,6 +139,8 @@ function seccionesFormulario({ clientes, proveedores, terceros }) {
 export default function VentasPage() {
   const [comprobanteDe, setComprobanteDe] = useState(null);
   const [detalleDe, setDetalleDe] = useState(null);
+  // Venta a crédito cuyo pago (abonos) se está corrigiendo
+  const [abonosDe, setAbonosDe] = useState(null);
 
   const clientes = useRecurso(clientesSeleccionablesService);
   const proveedores = useRecurso(proveedoresService);
@@ -159,8 +162,6 @@ export default function VentasPage() {
         onRecargar={ventas.recargar}
         onCreate={(valores) => ventas.crear(valores, contexto)}
         onEdit={(fila, valores) => ventas.editar(fila, valores, contexto)}
-        // Solo para anular la venta (botón de la fila)
-        onRowUpdate={(fila, cambios) => ventas.ejecutar(() => ventasService.actualizar(fila, cambios))}
         newLabel="Nueva venta"
         formSections={seccionesFormulario({
           clientes: clientes.filas,
@@ -187,6 +188,14 @@ export default function VentasPage() {
               motivo="La venta todavía no está completada"
               onClick={() => setComprobanteDe(row)}
             />
+            {/* A crédito, el pago se corrige desde los abonos (rechazar uno confirmado por error) */}
+            <BotonAccion accion="registrarAbono"
+              icono={Wallet}
+              etiqueta="Gestionar el pago (abonos del crédito)"
+              deshabilitado={!row.credito}
+              motivo="Solo las ventas a crédito tienen abonos"
+              onClick={() => setAbonosDe(row)}
+            />
           </>
         )}
       />
@@ -206,7 +215,16 @@ export default function VentasPage() {
           onClose={() => setComprobanteDe(null)}
         />
       )}
-
+      {abonosDe && (
+        <HistorialAbonosModal
+          credito={{ id: abonosDe.credito, cliente: abonosDe.cliente }}
+          // Al cerrar se recarga: rechazar un abono cambia el total de la venta
+          onClose={() => {
+            setAbonosDe(null);
+            ventas.recargar();
+          }}
+        />
+      )}
     </div>
   );
 }

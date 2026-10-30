@@ -12,12 +12,14 @@ const VENTA = {
     v.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
     cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
     co.numero AS cotizacion,
+    cr.numero AS credito,
     v.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     v.tercero_id AS "terceroId", te.nombre_razon_social AS tercero`,
   desde: `
     FROM venta v
     JOIN cliente cl ON cl.id = v.cliente_id
     LEFT JOIN cotizacion co ON co.id = v.cotizacion_id
+    LEFT JOIN credito cr ON cr.venta_id = v.id
     LEFT JOIN proveedor pr ON pr.id = v.proveedor_id
     LEFT JOIN tercero te ON te.id = v.tercero_id`,
   columnaCliente: 'v.cliente_id',
