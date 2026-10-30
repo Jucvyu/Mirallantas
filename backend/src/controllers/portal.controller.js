@@ -8,6 +8,7 @@ import * as pagosModel from '../models/pagosCotizacion.model.js';
 import * as portalModel from '../models/portal.model.js';
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
 import * as cotizacionesModel from '../models/cotizaciones.model.js';
+import * as creditosModel from '../models/creditos.model.js';
 import { PAGO } from '../models/solicitudesServicio.model.js';
 import { enviarDato, enviarSinContenido } from '../views/respuesta.view.js';
 import { enviarResumen, enviarResumenVacio } from '../views/portal.view.js';
@@ -31,6 +32,8 @@ function exigirCliente(req) {
 export async function resumen(req, res) {
   const clienteId = clienteDeSesion(req);
   if (!clienteId) return enviarResumenVacio(res);
+  // Avisa de los créditos vencidos (en segundo plano, no demora la respuesta)
+  creditosModel.avisarVencidos().catch((e) => console.error('No se pudo avisar de créditos vencidos:', e.message));
   enviarResumen(res, {
     cotizaciones: await portalModel.cotizaciones(clienteId),
     lineas: await portalModel.lineasDeCotizaciones(clienteId),

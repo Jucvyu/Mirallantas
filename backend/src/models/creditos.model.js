@@ -1,5 +1,8 @@
-import { query } from '../db.js';
+import { enTransaccion, query } from '../db.js';
 import { consultarListado, consultarPorNumero, POOL } from './listado.model.js';
+import * as notificaciones from './notificaciones.model.js';
+import * as avisosPersonal from './notificacionesPersonal.model.js';
+import { pesos } from '../reglas.js';
 
 /**
  * Modelo de créditos (tabla `credito`).
@@ -35,6 +38,52 @@ export function listar(parametros) {
     },
     parametros,
   );
+}
+
+/**
+ * Avisa de los créditos que acaban de vencer (pasó su fecha límite y aún
+ * deben). Avisa una sola vez por crédito —al cliente y al personal de
+ * cartera— y marca el día en que avisó. La marca se pone y los avisos se
+ * crean en una misma transacción, así un fallo no deja un crédito marcado
+ * sin aviso, y dos llamadas a la vez no duplican (la fila se bloquea al
+ * actualizarla). Devuelve cuántos se avisaron. Se llama al listar la
+ * cartera y al abrir el portal.
+ */
+export async function avisarVencidos() {
+  return enTransaccion(async (db) => {
+    const { rows } = await db.query(
+      `UPDATE credito cr SET aviso_vencido_en = CURRENT_DATE
+         FROM cliente cl
+        WHERE cl.id = cr.cliente_id
+          AND cr.iniciado AND cr.saldo_pendiente > 0
+          AND cr.fecha_limite < CURRENT_DATE AND cr.aviso_vencido_en IS NULL
+        RETURNING cr.numero, cr.cliente_id AS "clienteId", cr.saldo_pendiente AS "saldo",
+                  cr.fecha_limite AS "fechaLimite", cl.nombre_completo AS "cliente"`,
+    );
+    for (const c of rows) {
+      await notificaciones.crear(
+        {
+          clienteId: c.clienteId,
+          titulo: 'Crédito vencido',
+          mensaje: `Tu crédito ${c.numero} venció el ${c.fechaLimite} y aún tiene un saldo de ${pesos(c.saldo)}. Acércate a ponerte al día.`,
+          enlace: '/portal/cartera',
+          tipo: 'alerta',
+        },
+        db,
+      );
+      await avisosPersonal.crear(
+        {
+          modulo: 'Cartera',
+          titulo: 'Crédito vencido',
+          mensaje: `El crédito ${c.numero} de ${c.cliente} venció el ${c.fechaLimite} con un saldo de ${pesos(c.saldo)}.`,
+          enlace: '/admin/creditos',
+          tipo: 'alerta',
+        },
+        db,
+      );
+    }
+    return rows.length;
+  });
 }
 
 /** Un crédito por número (ver consultarPorNumero para las opciones). */

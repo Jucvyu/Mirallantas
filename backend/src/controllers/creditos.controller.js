@@ -35,6 +35,9 @@ async function leerCompleto(req, numero) {
 /** GET /creditos — el portal solo ve los suyos. */
 export async function listar(req, res) {
   const { pagina, porPagina } = req.validado.query;
+  // Aprovecha la consulta para avisar de los créditos que acaban de vencer
+  // (en segundo plano: no demora la respuesta)
+  creditosModel.avisarVencidos().catch((e) => console.error('No se pudo avisar de créditos vencidos:', e.message));
   const resultado = await creditosModel.listar({ ...req.validado.query, clienteId: clienteDeSesion(req) });
   enviarLista(res, { ...resultado, pagina, porPagina });
 }
