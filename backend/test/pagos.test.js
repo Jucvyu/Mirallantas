@@ -48,7 +48,7 @@ describe('Pago de contado de una cotización', () => {
   });
 
   test('mientras el pago está en revisión la cotización no cambia', async () => {
-    const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
+    const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'En proceso' } });
     assert.equal(r.estado, 422);
     assert.match(r.cuerpo.error, /pendiente de confirmación/);
   });
@@ -72,7 +72,7 @@ describe('Pago de contado de una cotización', () => {
     const avisos = await e.api('/portal/notificaciones', { token: t.luis });
     assert.ok(avisos.cuerpo.datos.notificaciones.some((n) => n.titulo === `Pago rechazado · ${t.numero}`));
 
-    const cambio = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
+    const cambio = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'En proceso' } });
     assert.equal(cambio.estado, 422);
   });
 
@@ -103,15 +103,15 @@ describe('Pago de contado de una cotización', () => {
     assert.equal(enPortal.pagos.length, 2);
   });
 
-  test('aprobado el pago, la cotización queda Aprobada sola', async () => {
+  test('aprobado el pago, la cotización queda En proceso sola', async () => {
     const r = await e.api(`/cotizaciones/${t.numero}/pago`, {
       metodo: 'POST',
       token: t.admin,
       cuerpo: { estado: 'Aprobado' },
     });
     assert.equal(r.cuerpo.datos.pagoEstado, 'Aprobado');
-    // Con el pago aprobado queda "Aprobada" sola, sin que el asesor la cambie
-    assert.equal(r.cuerpo.datos.estado, 'Aprobada');
+    // Con el pago aprobado pasa sola a "En proceso", sin que el asesor la cambie
+    assert.equal(r.cuerpo.datos.estado, 'En proceso');
   });
 
   test('pagada, aparece su venta pendiente; aprobada, su compra al proveedor', async () => {
@@ -133,8 +133,7 @@ describe('Pago de contado de una cotización', () => {
     const aMano = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Anulada' } });
     assert.equal(aMano.estado, 422, 'su estado no se cambia desde ventas');
 
-    // Volver a pasar por "Aprobada" no duplica nada: completarla deja la misma venta completada
-    // (antes se recibe la compra al proveedor: sin eso no se completa)
+    // Al recibir la compra (la cotización es de solo productos), se completa sola
     for (const c of deLaCotizacion) {
       // Se recibe cuando la entrega está completada
       for (const estadoEntrega of ['En camino', 'Entregado']) {
@@ -143,10 +142,8 @@ describe('Pago de contado de una cotización', () => {
       const r = await e.api(`/compras/${c.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Recibida' } });
       assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     }
-    for (const estado of ['En proceso', 'Completada']) {
-      const r = await e.api(`/cotizaciones/${t.numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado } });
-      assert.equal(r.estado, 200, `${estado}: ${JSON.stringify(r.cuerpo)}`);
-    }
+    const yaCompletada = await e.api(`/cotizaciones/${t.numero}`, { token: t.admin });
+    assert.equal(yaCompletada.cuerpo.datos.estado, 'Completada', 'solo productos: al recibir la compra se completa sola');
     const completada = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
     assert.equal(completada.cuerpo.datos.estado, 'Completada');
 

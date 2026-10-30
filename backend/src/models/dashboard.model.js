@@ -22,7 +22,7 @@ export async function ventasDelMes() {
 export async function pedidos() {
   const { rows } = await query(`
     SELECT
-      COUNT(*) FILTER (WHERE estado IN ('Pendiente', 'Aprobada', 'En proceso'))::int AS activos,
+      COUNT(*) FILTER (WHERE estado IN ('Pendiente', 'En proceso'))::int AS activos,
       COUNT(*) FILTER (WHERE estado = 'En proceso')::int AS en_proceso,
       COUNT(*) FILTER (WHERE date_trunc('month', fecha) = date_trunc('month', CURRENT_DATE))::int AS nuevos_mes,
       COUNT(*) FILTER (

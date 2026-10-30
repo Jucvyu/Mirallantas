@@ -10,7 +10,7 @@ import * as serviciosModel from '../models/servicios.model.js';
 import { pesos, SERVICIO_POR_DEFECTO, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
-import { aprobarSiPagada } from './documentosAutomaticos.js';
+import { aprobarSiPagada, completarSiListo } from './documentosAutomaticos.js';
 
 /**
  * Controlador de solicitudes de servicio de reencauche (personal interno).
@@ -184,6 +184,11 @@ export async function actualizar(req, res) {
         throw new HttpError(422, 'Primero revisa la carcasa (debe quedar Apta, con su observación y la garantía).');
       }
       await solicitudesModel.actualizar(db, actual.id, [['estado', estado]]);
+      // Terminado el reencauche, su cotización se completa sola si ya no falta nada
+      if (estado === 'Completado') {
+        const cotizacion = await cotizacionesModel.deSolicitudServicio(db, actual.id);
+        if (cotizacion) await completarSiListo(db, cotizacion.id);
+      }
     }
   });
 

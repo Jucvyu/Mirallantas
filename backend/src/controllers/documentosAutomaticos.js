@@ -62,15 +62,34 @@ export async function sincronizarVenta(db, cotizacionId) {
 /**
  * Con todo su pago aprobado (la consignación de contado o la cuota inicial
  * del crédito, y los reencauches que se cobran aparte), la cotización pasa
- * sola de "Pendiente" a "Aprobada": queda su venta y se le compra al
- * proveedor. Devuelve true si la aprobó.
+ * sola de "Pendiente" a "En proceso": queda su venta y se le compra al
+ * proveedor. Devuelve true si avanzó.
  */
 export async function aprobarSiPagada(db, cotizacionId) {
   const { estado, metodoPago, estadoPago } = await cotizacionesModel.estadoDePago(db, cotizacionId);
   if (estado !== 'Pendiente' || !metodoPago || estadoPago !== 'Aprobado') return false;
-  await cotizacionesModel.actualizar(db, cotizacionId, [['estado', 'Aprobada']]);
+  await cotizacionesModel.actualizar(db, cotizacionId, [['estado', 'En proceso']]);
   await registrarVentaPagada(db, cotizacionId);
   await generarCompras(db, cotizacionId);
+  await sincronizarVenta(db, cotizacionId);
+  return true;
+}
+
+/**
+ * Cierra sola la cotización "En proceso" cuando ya no le falta nada: su orden
+ * de compra está "Recibida" (si tiene productos) y sus reencauches están
+ * "Completado" (si tiene servicios). Así, una cotización de solo productos se
+ * completa al recibir la compra; una con reencauche espera también a que este
+ * termine. Se llama al recibir una compra y al completar un reencauche.
+ */
+export async function completarSiListo(db, cotizacionId) {
+  if (!cotizacionId) return false;
+  const cotizacion = await cotizacionesModel.fila(db, cotizacionId);
+  if (cotizacion.estado !== 'En proceso') return false;
+  const { compras, servicios } = await cotizacionesModel.pendientesParaCompletar(db, cotizacionId);
+  if (compras.length || servicios.length) return false;
+  await cotizacionesModel.actualizar(db, cotizacionId, [['estado', 'Completada']]);
+  await completarVenta(db, cotizacionId);
   await sincronizarVenta(db, cotizacionId);
   return true;
 }

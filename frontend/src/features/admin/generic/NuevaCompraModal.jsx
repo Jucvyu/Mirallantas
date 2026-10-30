@@ -23,7 +23,7 @@ import ProductoAdicionalModal from './ProductoAdicionalModal';
  * llanta (las que solo tienen reencauche no se le compran a nadie). La API
  * vuelve a comprobar el estado al guardar.
  */
-const esAbastecible = (c) => (c.estado === 'Aprobada' || c.estado === 'En proceso') && c.lineasProducto > 0;
+const esAbastecible = (c) => c.estado === 'En proceso' && c.lineasProducto > 0;
 
 /** En Compras solo cuenta lo de las llantas: el reencauche no se suma. */
 const totalDeProductos = (c) => c.totalSoloProductos;

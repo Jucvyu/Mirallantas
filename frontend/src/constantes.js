@@ -80,10 +80,11 @@ export const SERVICIO_POR_DEFECTO = 'Reencauche';
 
 export const estadosActivo = ['Activo', 'Inactivo'];
 
-export const estadosCotizacion = ['Pendiente', 'Aprobada', 'En proceso', 'Completada', 'Rechazada'];
+export const estadosCotizacion = ['Pendiente', 'En proceso', 'Completada', 'Rechazada'];
 export const FLUJO_ESTADOS_COTIZACION = {
-  Pendiente: ['Aprobada', 'Rechazada'],
-  Aprobada: ['En proceso'],
+  // Al confirmarse el pago pasa sola a "En proceso"; al terminar compra y
+  // reencauche se completa sola.
+  Pendiente: ['En proceso', 'Rechazada'],
   'En proceso': ['Completada'],
   Completada: [],
   Rechazada: [],

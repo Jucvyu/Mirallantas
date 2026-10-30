@@ -4,6 +4,7 @@ import * as comprasModel from '../models/compras.model.js';
 import { validarTransicion } from '../reglas.js';
 import { enviarDocumento, enviarDocumentos } from '../views/documentos.view.js';
 import * as productosModel from '../models/productos.model.js';
+import { completarSiListo } from './documentosAutomaticos.js';
 import { exigirActivo } from './estados.js';
 
 /**
@@ -24,7 +25,7 @@ import { exigirActivo } from './estados.js';
  * ya usaba el frontend. Pendiente de confirmar: el prompt maestro propone
  * dejar solo "Aprobada" (y vigente).
  */
-const ESTADOS_ABASTECIBLES = ['Aprobada', 'En proceso'];
+const ESTADOS_ABASTECIBLES = ['En proceso'];
 
 /** Compra completa (cabecera + líneas). */
 async function leerCompleta(numero) {
@@ -148,6 +149,9 @@ export async function actualizar(req, res) {
         await productosModel.actualizarPrecioCompra(db, linea.productoId, linea.precioUnitario);
       }
     }
+    // Con la compra recibida, la cotización se completa sola si ya no le falta
+    // nada (solo productos → Completada; con reencauche → espera a que termine)
+    if (estado === 'Recibida' && actual.cotizacionId) await completarSiListo(db, actual.cotizacionId);
   });
 
   enviarDocumento(res, await leerCompleta(req.params.numero));

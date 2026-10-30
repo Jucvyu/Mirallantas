@@ -94,7 +94,7 @@ async function aprobarDeCotizacion(db, solicitud) {
 /** No aprobar la solicitud de una cotización: la cotización se rechaza. */
 async function rechazarDeCotizacion(db, solicitud, motivo) {
   const cotizacion = await cotizacionesModel.fila(db, solicitud.cotizacion_id);
-  if (['Pendiente', 'Aprobada'].includes(cotizacion.estado)) {
+  if (['Pendiente', 'En proceso'].includes(cotizacion.estado)) {
     await cotizacionesModel.actualizar(db, cotizacion.id, [
       ['estado', 'Rechazada'],
       ['motivo_cancelacion', `Crédito no aprobado: ${motivo}`],

@@ -425,7 +425,7 @@ export async function aceptar(req, res) {
  * A crédito, la cotización se aprueba desde su solicitud de crédito; aquí
  * solo se deja pasar ese intento para responder con el aviso de dónde hacerlo.
  */
-const esAprobacionDeCredito = (actual, cambios) => actual.metodoPago === 'Crédito' && cambios.estado === 'Aprobada';
+const esAprobacionDeCredito = (actual, cambios) => actual.metodoPago === 'Crédito' && cambios.estado === 'En proceso';
 
 /** PATCH /cotizaciones/:numero — estado, entrega y datos de despacho. */
 export async function actualizar(req, res) {
@@ -506,10 +506,10 @@ export async function actualizar(req, res) {
 
     // ---- A crédito: se aprueba aprobando su solicitud de crédito
     const solicitud = await solicitudesCreditoModel.deCotizacion(db, actual.id);
-    if (cambiaEstado && cambios.estado === 'Aprobada' && solicitud?.estado === 'Pendiente de cuota inicial') {
+    if (cambiaEstado && cambios.estado === 'En proceso' && solicitud?.estado === 'Pendiente de cuota inicial') {
       throw new HttpError(422, 'El crédito está aprobado, pero falta confirmar el pago de la cuota inicial.');
     }
-    if (cambiaEstado && cambios.estado === 'Aprobada' && solicitud && solicitud.estado !== 'Aprobada') {
+    if (cambiaEstado && cambios.estado === 'En proceso' && solicitud && solicitud.estado !== 'Aprobada') {
       throw new HttpError(422, `Es a crédito: apruébala desde "Solicitudes de crédito" (${solicitud.numero}).`);
     }
 
@@ -528,9 +528,9 @@ export async function actualizar(req, res) {
     // ---- Guardar lo demás (proveedor, despacho, motivo, estados)
     await cotizacionesModel.actualizar(db, actual.id, aPares(cambios, cotizacionesModel.COLUMNAS));
 
-    // ---- Aprobada (ya pagó): queda su venta y se le compra al proveedor.
+    // ---- En proceso (ya pagó): queda su venta y se le compra al proveedor.
     // Completada: su venta también se completa.
-    if (cambiaEstado && cambios.estado === 'Aprobada') {
+    if (cambiaEstado && cambios.estado === 'En proceso') {
       await registrarVentaPagada(db, actual.id);
       await generarCompras(db, actual.id);
     }

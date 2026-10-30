@@ -74,7 +74,7 @@ describe('Solicitud de cotización desde el portal', () => {
     assert.equal(aceptarla.estado, 422);
     assert.match(aceptarla.cuerpo.error, /confirmando los precios/);
 
-    const avanzar = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
+    const avanzar = await e.api(`/cotizaciones/${t.cotizacionLuis}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'En proceso' } });
     assert.equal(avanzar.estado, 422);
     assert.match(avanzar.cuerpo.error, /emite la cotización formal/);
 
@@ -222,7 +222,7 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     const r = await e.api(`/cotizaciones/${t.cotizacionLuis}`, {
       metodo: 'PATCH',
       token: t.admin,
-      cuerpo: { estado: 'Aprobada' },
+      cuerpo: { estado: 'En proceso' },
     });
     assert.equal(r.estado, 422);
     assert.match(r.cuerpo.error, /Solicitudes de crédito/);
@@ -245,7 +245,7 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.equal((await e.api(`/solicitudes-credito/${t.solicitudLuis}`, { token: t.maria })).estado, 404);
   });
 
-  test('al aprobarla se abre el crédito; al confirmar la cuota queda como abono y la cotización Aprobada', async () => {
+  test('al aprobarla se abre el crédito; al confirmar la cuota queda como abono y la cotización En proceso', async () => {
     const r = await e.api(`/solicitudes-credito/${t.solicitudLuis}`, {
       metodo: 'PATCH',
       token: t.admin,
@@ -289,7 +289,8 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.equal(cuota.cuerpo.datos.pagos[0].monto, 195857);
     const confirmada = await e.api(`/cotizaciones/${t.cotizacionLuis}/pago`, { metodo: 'POST', token: t.admin, cuerpo: { estado: 'Aprobado' } });
     assert.equal(confirmada.estado, 200, JSON.stringify(confirmada.cuerpo));
-    assert.equal(confirmada.cuerpo.datos.estado, 'Aprobada');
+    // Al confirmar la cuota inicial, la cotización pasa sola a "En proceso"
+    assert.equal(confirmada.cuerpo.datos.estado, 'En proceso');
 
     const detalle = await e.api(`/creditos/${t.credito}`, { token: t.admin });
     assert.ok(detalle.cuerpo.datos.abonos.some((a) => a.monto === 195857 && a.estado === 'Confirmado'));
@@ -534,9 +535,10 @@ describe('Compras', () => {
       extra: { clienteId: 1 },
     });
     await aceptar(e, t.admin, numero, { metodoPago: 'Contado', pago: { medioPago: 'Efectivo' } }, { desdePortal: false });
+    // Al confirmar el pago, la cotización pasa sola a "En proceso"
     await e.api(`/cotizaciones/${numero}/pago`, { metodo: 'POST', token: t.admin, cuerpo: { estado: 'Aprobado' } });
-    const aprobada = await e.api(`/cotizaciones/${numero}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Aprobada' } });
-    assert.equal(aprobada.estado, 200, JSON.stringify(aprobada.cuerpo));
+    const enProceso = await e.api(`/cotizaciones/${numero}`, { token: t.admin });
+    assert.equal(enProceso.cuerpo.datos.estado, 'En proceso');
 
     const r = await e.api('/compras', {
       metodo: 'POST',
