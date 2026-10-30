@@ -104,6 +104,28 @@ export async function crearDesdeCotizacion(db, c, estado = 'Completada') {
   return rows[0].id;
 }
 
+/**
+ * A crédito, la venta vale lo efectivamente pagado: fija su total en la suma
+ * de los abonos CONFIRMADOS del crédito de esa cotización (la cuota inicial y
+ * los abonos posteriores). Se llama al crear la venta y cada vez que un abono
+ * se confirma o se rechaza. Para las de contado no cambia nada (no tienen
+ * abonos). Solo afecta ventas ligadas a una cotización a crédito.
+ */
+export async function recalcularTotalCredito(db, ventaId) {
+  // Solo toca la venta si tiene un crédito ligado (es una venta a crédito);
+  // una venta de contado no tiene crédito y conserva su total.
+  await db.query(
+    `UPDATE venta v
+        SET total = COALESCE((
+              SELECT SUM(a.monto) FROM abono a
+               WHERE a.credito_id = cr.id AND a.estado = 'Confirmado'
+            ), 0)
+       FROM credito cr
+      WHERE cr.venta_id = v.id AND v.id = $1`,
+    [ventaId],
+  );
+}
+
 /** Actualiza las columnas indicadas: pares [['columna', valor], …]. */
 export function actualizar(db, id, pares) {
   return actualizarCampos(db, 'venta', id, pares);

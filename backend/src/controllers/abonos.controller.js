@@ -3,6 +3,7 @@ import { claveIdempotencia } from '../middleware/idempotencia.js';
 import { HttpError } from '../errores.js';
 import * as abonosModel from '../models/abonos.model.js';
 import * as creditosModel from '../models/creditos.model.js';
+import * as ventasModel from '../models/ventas.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import { pesos, validarTransicion, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
@@ -68,6 +69,8 @@ export async function registrarEnFactura(req, res) {
       estado: 'Confirmado',
     });
     await creditosModel.descontarSaldo(db, factura.credito_id, datos.monto);
+    // La venta a crédito refleja lo confirmado: sube con este abono
+    await ventasModel.recalcularTotalCredito(db, factura.venta_id);
     await notificaciones.crear(
       {
         clienteId: factura.cliente_id,
@@ -122,11 +125,18 @@ export async function actualizar(req, res) {
         }
         await creditosModel.descontarSaldo(db, abono.credito_id, abono.monto);
       }
+      // Rechazar uno que ya estaba confirmado (se confirmó por error): el
+      // dinero se devuelve al saldo
+      if (abono.estado === 'Confirmado' && cambios.estado === 'Rechazado') {
+        await creditosModel.devolverSaldo(db, abono.credito_id, abono.monto);
+      }
       const motivo = cambios.estado === 'Rechazado' ? cambios.motivo || 'El comprobante no se pudo validar.' : null;
       await abonosModel.actualizar(db, abono.id, [
         ['estado', cambios.estado],
         ['motivo_rechazo', motivo],
       ]);
+      // La venta a crédito vale lo confirmado: se recalcula tras el cambio
+      if (abono.venta_id) await ventasModel.recalcularTotalCredito(db, abono.venta_id);
       await notificaciones.crear(
         cambios.estado === 'Confirmado'
           ? {

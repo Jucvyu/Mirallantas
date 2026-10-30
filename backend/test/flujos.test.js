@@ -357,7 +357,9 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     assert.match(cotizacion.cuerpo.datos.venta, /^VEN-/);
 
     const venta = await e.api(`/ventas/${cotizacion.cuerpo.datos.venta}`, { token: t.admin });
-    assert.equal(venta.cuerpo.datos.total, 652856);
+    // A crédito, la venta vale lo abonado (hasta ahora solo la cuota inicial),
+    // no el total de la cotización
+    assert.equal(venta.cuerpo.datos.total, 195857);
     assert.equal(venta.cuerpo.datos.detalle.length, 2);
 
     const credito = await e.api(`/creditos/${t.credito}`, { token: t.admin });
@@ -396,9 +398,14 @@ describe('Cotización a crédito → solicitud → crédito → venta → abono'
     const credito = await e.api(`/creditos/${t.credito}`, { token: t.admin });
     assert.equal(credito.cuerpo.datos.saldoPendiente, 652856 - 195857 - 50000);
 
-    // Un abono confirmado no vuelve a cambiar de estado
-    const otraVez = await e.api(`/abonos/${t.abono}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Rechazado' } });
-    assert.equal(otraVez.estado, 422);
+    // La venta a crédito refleja lo confirmado: cuota inicial + este abono
+    const conVenta = await e.api(`/creditos/${t.credito}`, { token: t.admin });
+    const venta = await e.api(`/ventas/${conVenta.cuerpo.datos.venta}`, { token: t.admin });
+    assert.equal(venta.cuerpo.datos.total, 195857 + 50000);
+
+    // Un abono confirmado solo puede pasar a Rechazado, nunca volver a Pendiente
+    const invalida = await e.api(`/abonos/${t.abono}`, { metodo: 'PATCH', token: t.admin, cuerpo: { estado: 'Pendiente' } });
+    assert.equal(invalida.estado, 422);
   });
 
   test('con el crédito abierto no puede solicitar otro', async () => {

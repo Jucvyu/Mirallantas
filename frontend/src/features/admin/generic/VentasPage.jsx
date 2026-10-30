@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Ban, Eye, Receipt } from 'lucide-react';
+import { Eye, Receipt } from 'lucide-react';
 import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { columnaCliente } from '../../../components/base/celdaCliente';
-import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import { CUOTA_INICIAL_PORCENTAJE, cuotaMinimaDe, metodosPago } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { clientesSeleccionablesService, proveedoresService, tercerosService, ventasService } from '../../../services';
@@ -139,8 +138,6 @@ function seccionesFormulario({ clientes, proveedores, terceros }) {
 export default function VentasPage() {
   const [comprobanteDe, setComprobanteDe] = useState(null);
   const [detalleDe, setDetalleDe] = useState(null);
-  // Venta que se va a anular, a la espera de la confirmación
-  const [anulando, setAnulando] = useState(null);
 
   const clientes = useRecurso(clientesSeleccionablesService);
   const proveedores = useRecurso(proveedoresService);
@@ -179,7 +176,7 @@ export default function VentasPage() {
           { key: 'metodoPago', label: 'Pago', options: metodosPago },
           { key: 'cliente', label: 'Cliente' },
         ]}
-        rowActions={(row, { update }) => (
+        rowActions={(row) => (
           <>
             <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
             <BotonAccion accion="descargarPdf"
@@ -189,14 +186,6 @@ export default function VentasPage() {
               deshabilitado={row.estado !== 'Completada'}
               motivo="La venta todavía no está completada"
               onClick={() => setComprobanteDe(row)}
-            />
-            <BotonAccion accion="anular"
-              icono={Ban}
-              etiqueta="Anular la venta"
-              tono="peligro"
-              deshabilitado={row.estado === 'Anulada' || Boolean(row.cotizacion)}
-              motivo={row.cotizacion ? `Sigue a la cotización ${row.cotizacion}: cancélala allí` : 'La venta ya está anulada'}
-              onClick={() => setAnulando({ row, update })}
             />
           </>
         )}
@@ -218,16 +207,6 @@ export default function VentasPage() {
         />
       )}
 
-      {anulando && (
-        <ConfirmDialog
-          title="¿Anular la venta?"
-          message="La venta queda registrada como anulada y deja de contar para los reportes."
-          confirmLabel="Anular venta"
-          record={{ title: anulando.row.id, subtitle: `${anulando.row.cliente} · ${anulando.row.total}` }}
-          onConfirm={() => anulando.update({ estado: 'Anulada' })}
-          onClose={() => setAnulando(null)}
-        />
-      )}
     </div>
   );
 }

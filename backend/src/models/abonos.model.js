@@ -59,7 +59,8 @@ export async function buscarPorNumero(numero) {
  */
 export async function bloquearConCredito(db, numero) {
   const { rows } = await db.query(
-    `SELECT a.id, a.numero, a.estado, a.monto, a.credito_id, cr.saldo_pendiente, cr.cliente_id
+    `SELECT a.id, a.numero, a.estado, a.monto, a.credito_id, cr.saldo_pendiente, cr.cliente_id,
+            cr.cotizacion_id, cr.venta_id
        FROM abono a JOIN credito cr ON cr.id = a.credito_id
       WHERE a.numero = $1
       FOR UPDATE OF a, cr`,
@@ -122,7 +123,7 @@ export async function facturasConSaldo({ clienteId } = {}) {
  */
 export async function facturaBloqueada(db, numeroVenta) {
   const { rows } = await db.query(
-    `SELECT v.id AS venta_id, v.numero, v.estado, cr.id AS credito_id, cr.numero AS credito,
+    `SELECT v.id AS venta_id, v.numero, v.estado, v.cotizacion_id, cr.id AS credito_id, cr.numero AS credito,
             cr.activo, cr.iniciado, cr.saldo_pendiente, cr.cliente_id
        FROM venta v
        JOIN credito cr ON cr.venta_id = v.id

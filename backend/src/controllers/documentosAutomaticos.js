@@ -37,6 +37,8 @@ export async function registrarVentaPagada(db, cotizacionId) {
   const ventaId = await ventasModel.crearDesdeCotizacion(db, cotizacion, 'Pendiente');
   // Si la cotización se financió, su crédito queda ligado a la venta
   await creditosModel.ligarVenta(db, cotizacionId, ventaId);
+  // A crédito la venta vale lo abonado (la cuota inicial), no el total
+  await ventasModel.recalcularTotalCredito(db, ventaId);
 }
 
 /** Estado de la venta según el de su cotización. */
@@ -112,6 +114,8 @@ export async function completarVenta(db, cotizacionId) {
   }
   const ventaId = await ventasModel.crearDesdeCotizacion(db, cotizacion, 'Completada');
   await creditosModel.ligarVenta(db, cotizacionId, ventaId);
+  // A crédito la venta vale lo abonado hasta ahora, no el total
+  await ventasModel.recalcularTotalCredito(db, ventaId);
 }
 
 /**

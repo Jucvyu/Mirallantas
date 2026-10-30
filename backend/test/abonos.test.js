@@ -141,6 +141,45 @@ describe('Abono sobre una factura', () => {
     assert.equal(total.estado, 201);
     assert.equal(await saldoDe(FACTURA), 0);
   });
+
+  test('rechazar un abono confirmado por error devuelve el saldo y baja la venta', async () => {
+    // Reabre el crédito de la factura con un saldo conocido
+    await e.db.query(
+      'UPDATE credito SET saldo_pendiente = 300000 FROM venta v WHERE v.id = credito.venta_id AND v.numero = $1',
+      [FACTURA],
+    );
+    const totalVenta = async () => (await e.api(`/ventas/${FACTURA}`, { token: t.admin })).cuerpo.datos.total;
+    // Invariante: la venta a crédito vale la suma de sus abonos confirmados
+    const sumaConfirmados = async () =>
+      Number(
+        (
+          await e.db.query(
+            `SELECT COALESCE(SUM(a.monto), 0)::int AS n FROM abono a
+               JOIN credito cr ON cr.id = a.credito_id JOIN venta v ON v.id = cr.venta_id
+              WHERE v.numero = $1 AND a.estado = 'Confirmado'`,
+            [FACTURA],
+          )
+        ).rows[0].n,
+      );
+
+    // Un abono del asesor queda confirmado: baja el saldo y la venta = confirmados
+    const creado = await abonar({ factura: FACTURA, monto: 100000, medioPago: 'Efectivo' });
+    assert.equal(creado.estado, 201);
+    assert.equal(await saldoDe(FACTURA), 200000);
+    const trasConfirmar = await totalVenta();
+    assert.equal(trasConfirmar, await sumaConfirmados(), 'la venta vale lo confirmado');
+
+    // Se confirmó por error: al rechazarlo se devuelve el saldo y baja la venta
+    const rechazo = await e.api(`/abonos/${creado.cuerpo.datos.numero}`, {
+      metodo: 'PATCH',
+      token: t.admin,
+      cuerpo: { estado: 'Rechazado', motivo: 'Se confirmó por error' },
+    });
+    assert.equal(rechazo.estado, 200);
+    assert.equal(await saldoDe(FACTURA), 300000, 'el saldo se devuelve');
+    assert.equal(await totalVenta(), trasConfirmar - 100000, 'la venta baja en el monto del abono rechazado');
+    assert.equal(await totalVenta(), await sumaConfirmados(), 'la venta sigue valiendo lo confirmado');
+  });
 });
 
 describe('Aceptación en el local: solo efectivo o transferencia', () => {

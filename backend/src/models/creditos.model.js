@@ -157,6 +157,14 @@ export async function descontarSaldo(db, creditoId, monto) {
   await db.query('UPDATE credito SET saldo_pendiente = saldo_pendiente - $1 WHERE id = $2', [monto, creditoId]);
 }
 
+/** Devuelve saldo a un crédito (al rechazar un abono que estaba confirmado). */
+export async function devolverSaldo(db, creditoId, monto) {
+  await db.query(
+    'UPDATE credito SET saldo_pendiente = LEAST(monto_total, saldo_pendiente + $1) WHERE id = $2',
+    [monto, creditoId],
+  );
+}
+
 /** Liga el crédito de una cotización a la venta que se generó de ella. */
 export async function ligarVenta(db, cotizacionId, ventaId) {
   await db.query('UPDATE credito SET venta_id = $1 WHERE cotizacion_id = $2 AND venta_id IS NULL', [ventaId, cotizacionId]);

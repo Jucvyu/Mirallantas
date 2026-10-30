@@ -98,7 +98,9 @@ export const FLUJOS = {
   },
   abono: {
     Pendiente: ['Confirmado', 'Rechazado'],
-    Confirmado: [],
+    // Un abono confirmado por error se puede rechazar: se devuelve el saldo
+    // y se resta de la venta a crédito
+    Confirmado: ['Rechazado'],
     Rechazado: [],
   },
   solicitudCredito: {
