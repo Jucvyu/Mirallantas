@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BadgeCheck, CalendarClock, TriangleAlert, Wrench } from 'lucide-react';
+import { BadgeCheck, CalendarClock, Plus, TriangleAlert, Trash2, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AvisoError from '../../../components/base/AvisoError';
 import Modal from '../../../components/base/Modal';
@@ -23,11 +23,11 @@ const fecha = (iso) => fechaISO(iso);
 /**
  * "Confirmar precios y emitir" (Pedidos-Cotización).
  *
- * Por cada llanta de la solicitud el asesor registra el proveedor con el
- * que verificó el precio, el precio de compra (lo que cobra el proveedor) y
- * el de venta (se propone solo: compra + 20 %, y se puede cambiar), y marca
- * que lo verificó hoy. Con todo listo, la API emite la cotización formal con
- * vigencia de 8 días calendario.
+ * Por cada llanta el asesor registra el precio de VENTA (uno solo) y, para la
+ * compra, uno o varios proveedores: con uno basta el proveedor y su precio de
+ * compra; con varios se reparte la cantidad (cada proveedor su cantidad y su
+ * precio de compra) y las cantidades deben sumar la de la llanta. En la orden
+ * de compra, cada proveedor será una línea.
  */
 export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, onClose }) {
   const { documento, cargando, error } = useDetalle({ ...inicial, detalle: undefined }, cotizacionesService);
@@ -45,23 +45,29 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     [documento.detalle],
   );
 
-  // Valores de cada línea: lo que escribió el asesor o, si se re-emite, lo
-  // que ya tenía. Sin valores predeterminados (ni el último costo ni el
-  // precio de lista): el asesor escribe la compra que le confirmó el
-  // proveedor y la venta se propone con la ganancia sugerida.
+  /** Un proveedor del reparto, listo para el formulario. */
+  const proveedorFila = (proveedorId = '', cantidad = 1, costo = 0) => ({
+    proveedorId,
+    cantidad,
+    compra: formatoMiles(String(costo || '')),
+  });
+
+  // Valores de cada línea: lo que escribió el asesor o, si se re-emite, lo que
+  // ya tenía (incluido el reparto entre proveedores). Sin valores
+  // predeterminados de catálogo: el asesor escribe la compra que le confirmó
+  // cada proveedor; la venta se propone con la ganancia sugerida.
   const filas = useMemo(
     () =>
       Object.fromEntries(
         llantas.map((l) => {
-          const compra = l.costoProveedor || 0;
-          const venta = l.precioUnitarioValor || '';
+          const reparto = l.proveedoresLinea?.length
+            ? l.proveedoresLinea.map((p) => proveedorFila(p.proveedorId, p.cantidad, p.costo))
+            : [proveedorFila(l.proveedorLineaId ?? inicial.proveedorId ?? '', l.cantidad, l.costoProveedor)];
           return [
             l.lineaId,
             {
-              proveedorId: l.proveedorLineaId ?? inicial.proveedorId ?? '',
-              // Un valor en 0 (sin costo ni precio de lista) se deja vacío
-              compra: formatoMiles(String(compra || '')),
-              precio: formatoMiles(String(venta)),
+              proveedores: reparto,
+              precio: formatoMiles(String(l.precioUnitarioValor || '')),
               verificado: false,
               ...ediciones[l.lineaId],
             },
@@ -73,30 +79,70 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
 
   const cambiar = (id, cambios) => setEdiciones((e) => ({ ...e, [id]: { ...e[id], ...cambios } }));
 
+  /** Reemplaza el reparto de proveedores de una llanta. */
+  const cambiarReparto = (id, proveedoresNuevos) => cambiar(id, { proveedores: proveedoresNuevos });
+
+  /** Cambia un campo de un proveedor del reparto. */
+  const cambiarProveedor = (id, idx, cambios) => {
+    const actuales = filas[id].proveedores;
+    cambiarReparto(id, actuales.map((p, i) => (i === idx ? { ...p, ...cambios } : p)));
+  };
+
+  const agregarProveedor = (id) => cambiarReparto(id, [...filas[id].proveedores, proveedorFila()]);
+  const quitarProveedor = (id, idx) => cambiarReparto(id, filas[id].proveedores.filter((_, i) => i !== idx));
+
   /**
-   * Al escribir el precio de compra, el de venta se recalcula con la ganancia
-   * sugerida, salvo que el asesor ya lo haya cambiado a mano.
+   * Al escribir un precio de compra, la venta se recalcula con la ganancia
+   * sugerida sobre el costo más alto, salvo que el asesor la haya cambiado.
    */
-  const cambiarCompra = (id, texto) => {
-    const compra = formatoMiles(texto);
-    const editado = ediciones[id]?.ventaEditada;
-    cambiar(id, editado ? { compra } : { compra, precio: aNumero(compra) ? formatoMiles(String(ventaSugerida(aNumero(compra)))) : '' });
+  const cambiarCompra = (id, idx, texto) => {
+    const proveedoresNuevos = filas[id].proveedores.map((p, i) =>
+      i === idx ? { ...p, compra: formatoMiles(texto) } : p,
+    );
+    const maxCompra = Math.max(0, ...proveedoresNuevos.map((p) => aNumero(p.compra)));
+    const cambios = { proveedores: proveedoresNuevos };
+    if (!ediciones[id]?.ventaEditada) cambios.precio = maxCompra ? formatoMiles(String(ventaSugerida(maxCompra))) : '';
+    cambiar(id, cambios);
   };
 
   /** Errores de una línea (se muestran después del primer intento). */
   const erroresDe = (l) => {
     const f = filas[l.lineaId] ?? {};
+    const reparto = f.proveedores ?? [];
     const precio = aNumero(f.precio);
-    const e = {};
-    if (!f.proveedorId) e.proveedor = 'Elige el proveedor';
-    if (aNumero(f.compra) <= 0) e.compra = 'Escribe el precio que te da el proveedor';
+    const maxCompra = Math.max(0, ...reparto.map((p) => aNumero(p.compra)));
+    const sumaCantidades = reparto.reduce((s, p) => s + (Number(p.cantidad) || 0), 0);
+    const e = { proveedores: reparto.map(() => ({})) };
+    reparto.forEach((p, i) => {
+      if (!p.proveedorId) e.proveedores[i].proveedor = 'Elige el proveedor';
+      if (aNumero(p.compra) <= 0) e.proveedores[i].compra = 'Escribe el precio de compra';
+      if (reparto.length > 1 && !(Number(p.cantidad) > 0)) e.proveedores[i].cantidad = 'Cantidad';
+    });
+    // Un mismo proveedor no se repite en el reparto
+    const ids = reparto.map((p) => p.proveedorId).filter(Boolean);
+    if (new Set(ids).size !== ids.length) e.repartoDuplicado = 'No repitas el mismo proveedor en el reparto.';
+    if (reparto.length > 1 && sumaCantidades !== l.cantidad) {
+      e.reparto = `Las cantidades por proveedor (${sumaCantidades}) deben sumar ${l.cantidad}.`;
+    }
     if (precio <= 0) e.precio = 'Escribe el precio de venta';
-    else if (precio < aNumero(f.compra)) e.precio = 'El precio de venta no puede ser menor que el de compra';
-    if (!f.verificado) e.verificado = 'Confirma que verificaste el precio con el proveedor';
+    else if (precio < maxCompra) e.precio = 'El precio de venta no puede ser menor que el de compra';
+    if (!f.verificado) e.verificado = 'Confirma que verificaste los precios con el proveedor';
     return e;
   };
 
-  const hayErrores = llantas.some((l) => Object.keys(erroresDe(l)).length > 0);
+  /** ¿La línea tiene algún error? */
+  const lineaInvalida = (l) => {
+    const e = erroresDe(l);
+    return (
+      e.reparto ||
+      e.repartoDuplicado ||
+      e.precio ||
+      e.verificado ||
+      e.proveedores.some((p) => p.proveedor || p.compra || p.cantidad)
+    );
+  };
+
+  const hayErrores = llantas.some((l) => lineaInvalida(l));
   const subtotal = llantas.reduce((s, l) => s + aNumero(filas[l.lineaId]?.precio) * l.cantidad, 0);
 
   const emitir = (cerrar) => {
@@ -105,12 +151,23 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
     enviar(async () => {
       await cotizacionesService.emitir(
         documento.id,
-        llantas.map((l) => ({
-          id: l.lineaId,
-          proveedorId: filas[l.lineaId].proveedorId,
-          costoProveedor: aNumero(filas[l.lineaId].compra),
-          precioUnitario: aNumero(filas[l.lineaId].precio),
-        })),
+        llantas.map((l) => {
+          const f = filas[l.lineaId];
+          const base = { id: l.lineaId, precioUnitario: aNumero(f.precio) };
+          // Un solo proveedor: se envían los campos sueltos (como siempre)
+          if (f.proveedores.length === 1) {
+            return { ...base, proveedorId: f.proveedores[0].proveedorId, costoProveedor: aNumero(f.proveedores[0].compra) };
+          }
+          // Varios: el reparto, cada uno con su cantidad y su precio de compra
+          return {
+            ...base,
+            proveedores: f.proveedores.map((p) => ({
+              proveedorId: p.proveedorId,
+              cantidad: Number(p.cantidad),
+              costo: aNumero(p.compra),
+            })),
+          };
+        }),
       );
       await onEmitida?.();
     }, cerrar);
@@ -174,7 +231,9 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
         <ul className="space-y-3">
           {llantas.map((l) => {
             const f = filas[l.lineaId] ?? {};
-            const e = intento ? erroresDe(l) : {};
+            const reparto = f.proveedores ?? [];
+            const e = intento ? erroresDe(l) : { proveedores: reparto.map(() => ({})) };
+            const varios = reparto.length > 1;
             return (
               <li key={l.lineaId} className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -185,59 +244,103 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                 </div>
                 {l.costoConfirmadoEn && (
                   <p className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-                    Verificado antes el {fecha(l.costoConfirmadoEn)} con {l.proveedorLinea}: vuelve a verificarlo.
+                    Verificado antes el {fecha(l.costoConfirmadoEn)}: vuelve a verificarlo.
                   </p>
                 )}
 
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <span className={LABEL}>Proveedor</span>
-                    <SearchSelect
-                      value={f.proveedorId}
-                      options={opciones}
-                      onChange={(id) => cambiar(l.lineaId, { proveedorId: id })}
-                      placeholderBusqueda="Razón social o NIT"
-                      error={Boolean(e.proveedor)}
-                    />
-                    {e.proveedor && <p className="mt-1 text-xs text-red-500">{e.proveedor}</p>}
-                  </div>
-                  <div>
-                    <label className={LABEL} htmlFor={`compra-${l.lineaId}`}>
-                      Precio de compra (c/u)
-                    </label>
-                    <input
-                      id={`compra-${l.lineaId}`}
-                      inputMode="numeric"
-                      value={f.compra ?? ''}
-                      onChange={(ev) => cambiarCompra(l.lineaId, ev.target.value)}
-                      className={`${INPUT} ${e.compra ? BORDER_ERR : BORDER_OK}`}
-                    />
-                    {e.compra ? (
-                      <p className="mt-1 text-xs text-red-500">{e.compra}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">Lo que cobra el proveedor</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className={LABEL} htmlFor={`precio-${l.lineaId}`}>
-                      Precio de venta (c/u)
-                    </label>
-                    <input
-                      id={`precio-${l.lineaId}`}
-                      inputMode="numeric"
-                      value={f.precio ?? ''}
-                      onChange={(ev) => cambiar(l.lineaId, { precio: formatoMiles(ev.target.value), ventaEditada: true })}
-                      className={`${INPUT} ${e.precio ? BORDER_ERR : BORDER_OK}`}
-                    />
-                    {e.precio ? (
-                      <p className="mt-1 text-xs text-red-500">{e.precio}</p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        {filas[l.lineaId]?.ventaEditada ? 'Editado a mano' : `Compra + ${GANANCIA_SUGERIDA * 100} %`} · Subtotal:{' '}
-                        {formatCOP(aNumero(f.precio) * l.cantidad)}
-                      </p>
-                    )}
-                  </div>
+                {/* ---- Proveedor(es) para la compra ---- */}
+                <div className="mt-3 space-y-2">
+                  {reparto.map((p, i) => {
+                    const ep = e.proveedores?.[i] ?? {};
+                    return (
+                      <div
+                        key={i}
+                        className={`grid grid-cols-1 gap-3 ${varios ? 'sm:grid-cols-[1fr,5rem,1fr,auto]' : 'sm:grid-cols-2'}`}
+                      >
+                        <div>
+                          {i === 0 && <span className={LABEL}>Proveedor</span>}
+                          <SearchSelect
+                            value={p.proveedorId}
+                            options={opciones}
+                            onChange={(id) => cambiarProveedor(l.lineaId, i, { proveedorId: id })}
+                            placeholderBusqueda="Razón social o NIT"
+                            error={Boolean(ep.proveedor)}
+                          />
+                          {ep.proveedor && <p className="mt-1 text-xs text-red-500">{ep.proveedor}</p>}
+                        </div>
+
+                        {varios && (
+                          <div>
+                            {i === 0 && <span className={LABEL}>Cantidad</span>}
+                            <input
+                              inputMode="numeric"
+                              value={p.cantidad}
+                              onChange={(ev) =>
+                                cambiarProveedor(l.lineaId, i, { cantidad: Number(String(ev.target.value).replace(/\D/g, '')) || '' })
+                              }
+                              className={`${INPUT} ${ep.cantidad ? BORDER_ERR : BORDER_OK} text-center`}
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          {i === 0 && <span className={LABEL}>Precio de compra (c/u)</span>}
+                          <input
+                            inputMode="numeric"
+                            value={p.compra ?? ''}
+                            onChange={(ev) => cambiarCompra(l.lineaId, i, ev.target.value)}
+                            className={`${INPUT} ${ep.compra ? BORDER_ERR : BORDER_OK}`}
+                          />
+                          {ep.compra && <p className="mt-1 text-xs text-red-500">{ep.compra}</p>}
+                        </div>
+
+                        {varios && (
+                          <div className={i === 0 ? 'flex items-end' : ''}>
+                            <button
+                              type="button"
+                              onClick={() => quitarProveedor(l.lineaId, i)}
+                              aria-label="Quitar este proveedor"
+                              className="flex h-[42px] w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-red-500/10 hover:text-red-500 dark:border-white/10"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => agregarProveedor(l.lineaId)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                  >
+                    <Plus size={14} /> Agregar otro proveedor
+                  </button>
+                  {e.reparto && <p className="text-xs font-medium text-red-500">{e.reparto}</p>}
+                  {e.repartoDuplicado && <p className="text-xs font-medium text-red-500">{e.repartoDuplicado}</p>}
+                </div>
+
+                {/* ---- Precio de venta (uno solo) ---- */}
+                <div className="mt-3 max-w-xs">
+                  <label className={LABEL} htmlFor={`precio-${l.lineaId}`}>
+                    Precio de venta (c/u)
+                  </label>
+                  <input
+                    id={`precio-${l.lineaId}`}
+                    inputMode="numeric"
+                    value={f.precio ?? ''}
+                    onChange={(ev) => cambiar(l.lineaId, { precio: formatoMiles(ev.target.value), ventaEditada: true })}
+                    className={`${INPUT} ${e.precio ? BORDER_ERR : BORDER_OK}`}
+                  />
+                  {e.precio ? (
+                    <p className="mt-1 text-xs text-red-500">{e.precio}</p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {f.ventaEditada ? 'Editado a mano' : `Compra + ${GANANCIA_SUGERIDA * 100} %`} · Subtotal:{' '}
+                      {formatCOP(aNumero(f.precio) * l.cantidad)}
+                    </p>
+                  )}
                 </div>
 
                 <label className="mt-3 flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
@@ -247,7 +350,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
                     onChange={(ev) => cambiar(l.lineaId, { verificado: ev.target.checked })}
                     className="mt-0.5 h-4 w-4 accent-amber-500"
                   />
-                  Verifiqué hoy el precio de esta llanta con el proveedor.
+                  Verifiqué hoy el precio de esta llanta con {varios ? 'los proveedores' : 'el proveedor'}.
                 </label>
                 {e.verificado && <p className="mt-1 text-xs text-red-500">{e.verificado}</p>}
               </li>

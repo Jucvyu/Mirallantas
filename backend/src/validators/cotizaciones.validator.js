@@ -8,7 +8,6 @@ import {
   medioPago,
   metodoPago,
   objetoEstricto,
-  pesos,
   pesosPositivos,
   texto,
   textoExplicado,
