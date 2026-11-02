@@ -1,191 +1,162 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { Environment, Lightformer, MeshTransmissionMaterial } from '@react-three/drei';
-import { CanvasTexture, FileLoader, MathUtils, SRGBColorSpace } from 'three';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Environment, Lightformer } from '@react-three/drei';
+import { MathUtils } from 'three';
 import { TEMAS } from './colores';
-import { geometriaManuscrita, leerFuenteSVG } from './manuscrita';
 
-// Fuente manuscrita de trazo único (EMS Allure, derivada de Allura; licencia OFL en la misma carpeta).
-const FUENTE = '/fonts/EMSAllure.svg';
+/** Radio exterior de la llanta (caucho) y ancho de la banda. */
+const RADIO = 1.05;
+const TUBO = 0.45;
+const ANCHO = 0.64;
 
-/** Grosor del tubo, en em (proporción de la altura de la letra). */
-const RADIO_TUBO = 0.05;
-
-/** En móviles se baja la resolución del vidrio y de los tubos para mantener la fluidez. */
+/** En móviles se bajan los segmentos y los tacos de la banda para la fluidez. */
 const CALIDAD = {
-  alta: { dpr: [1, 1.5], samples: 10, resolution: 512, backside: true, radial: 12, densidad: 80 },
-  baja: { dpr: [1, 1.25], samples: 5, resolution: 256, backside: false, radial: 8, densidad: 60 },
+  alta: { dpr: [1, 1.5], tubular: 80, radial: 22, tacos: 48, samples: true },
+  baja: { dpr: [1, 1.25], tubular: 48, radial: 12, tacos: 26, samples: false },
 };
 
-/**
- * Textura que el vidrio refracta. El canvas es transparente (se ve el fondo
- * real de la página), así que esta textura solo imita ese fondo con los
- * tonos del tema para que el esmerilado tenga algo que difuminar.
- */
-function useTexturaFondo(t) {
-  const textura = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = t.base;
-    ctx.fillRect(0, 0, 1024, 512);
-
-    // Mancha radial; `achatado` > 1 la estira a lo ancho.
-    const halo = (x, y, radio, color, alfa, achatado = 1) => {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(achatado, 1);
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, radio);
-      g.addColorStop(0, color);
-      g.addColorStop(1, `${color}00`); // el mismo color sin opacidad: 'transparent' oscurece el borde
-      ctx.globalAlpha = alfa;
-      ctx.fillStyle = g;
-      ctx.fillRect(-radio, -radio, radio * 2, radio * 2);
-      ctx.restore();
-    };
-    halo(120, 40, 520, t.mancha, 0.9, 1.4); // luz azul arriba a la izquierda, como .ml-ambiente
-    halo(900, 90, 240, t.amarillo, 0.22); // toque amarillo de marca
-    halo(260, 200, 150, t.luz, 0.45, 2.2);
-    halo(720, 320, 180, t.luz, 0.35, 2.4);
-    halo(500, 480, 240, t.mancha, 0.6, 3);
-
-    const tex = new CanvasTexture(canvas);
-    tex.colorSpace = SRGBColorSpace;
-    return tex;
-  }, [t]);
-
-  useEffect(() => () => textura.dispose(), [textura]);
-  return textura;
-}
-
-/** Delta máximo por cuadro: al volver de otra pestaña o de fuera de pantalla no hay salto. */
+/** Delta máximo por cuadro: al volver de otra pestaña no hay salto. */
 const DELTA_MAX = 1 / 30;
 
-/** Ángulo máximo del vaivén (radianes, ≈28°): siempre se ve el frente de la palabra. */
-const AMPLITUD = 0.5;
+/** Un taco de la banda de rodadura (una pequeña saliente de caucho). */
+function tacosDeBanda(cantidad) {
+  const radio = RADIO + TUBO - 0.06;
+  return Array.from({ length: cantidad }, (_, i) => {
+    const angulo = (i / cantidad) * Math.PI * 2;
+    return {
+      key: i,
+      position: [Math.cos(angulo) * radio, Math.sin(angulo) * radio, 0],
+      rotation: [0, 0, angulo],
+    };
+  });
+}
 
-/** El texto en tubos de vidrio. Gira en useFrame (sin setState) y se inclina un poco con el mouse. */
-function Texto({ texto, velocidad, animar, calidad, oscuro, onLista }) {
-  const grupo = useRef(null);
-  const giro = useRef(0); // velocidad actual: arranca en 0 y alcanza `velocidad` en ~1 s
-  const fase = useRef(0); // posición en el vaivén
+/** 5 pernos del rin, repartidos alrededor del centro. */
+const PERNOS = Array.from({ length: 5 }, (_, i) => {
+  const a = (i / 5) * Math.PI * 2;
+  return { key: i, position: [Math.cos(a) * 0.3, Math.sin(a) * 0.3, ANCHO / 2 + 0.02] };
+});
+
+/**
+ * Llanta en 3D: cuerpo de caucho (toro) con su banda de rodadura y un rin
+ * metálico con pernos. Gira despacio sobre su eje, en una vista de 3/4, y se
+ * inclina un poco con el mouse. El giro arranca en 0 y acelera en ~1 s.
+ */
+function Llanta({ velocidad, animar, calidad, oscuro, onLista }) {
+  const marco = useRef(null); // sostiene la inclinación (vista de 3/4 + mouse)
+  const rueda = useRef(null); // gira sobre su eje
+  const giro = useRef(0);
   const viewport = useThree((s) => s.viewport);
   const q = CALIDAD[calidad];
   const t = oscuro ? TEMAS.oscuro : TEMAS.claro;
-  const fondo = useTexturaFondo(t);
 
-  // La fuente se descarga una vez (useLoader la guarda en caché y suspende mientras llega).
-  const svg = useLoader(FileLoader, FUENTE);
-  const fuente = useMemo(() => leerFuenteSVG(svg), [svg]);
-  const geometria = useMemo(
-    () => geometriaManuscrita(fuente, texto, { radio: RADIO_TUBO, radial: q.radial, densidad: q.densidad }),
-    [fuente, texto, q],
-  );
-  useEffect(() => () => geometria.dispose(), [geometria]);
+  const tacos = useMemo(() => tacosDeBanda(q.tacos), [q.tacos]);
 
-  // Encaja la palabra: 62 % del ancho o 45 % del alto, lo que limite primero.
-  const caja = geometria.boundingBox;
-  const ancho = caja.max.x - caja.min.x;
-  const alto = caja.max.y - caja.min.y;
-  const escala = Math.min((viewport.width * 0.62) / ancho, (viewport.height * 0.45) / alto);
+  // Encaja la llanta (diámetro ≈ 3.2) en el ancho o el alto disponible.
+  const escala = Math.min((viewport.width * 0.62) / 3.2, (viewport.height * 0.7) / 3.2);
 
-  // La malla ya existe (la fuente cargó y la geometría está hecha): el
-  // contenedor puede hacer su entrada.
   useEffect(() => {
     onLista?.();
   }, [onLista]);
 
   useFrame((state, delta) => {
-    const g = grupo.current;
-    if (!g || !animar) return;
+    if (!animar) return;
     const dt = Math.min(delta, DELTA_MAX);
-    // Vaivén de ±AMPLITUD alrededor del frente (no un giro completo): la cara
-    // trasera de la palabra se ve en espejo, así que nunca se muestra.
     giro.current = MathUtils.damp(giro.current, velocidad, 3, dt);
-    fase.current += dt * giro.current;
-    g.rotation.y = Math.sin(fase.current) * AMPLITUD;
-    g.rotation.x = MathUtils.damp(g.rotation.x, -state.pointer.y * 0.15, 4, dt);
+    if (rueda.current) rueda.current.rotation.z -= dt * giro.current;
+    if (marco.current) {
+      marco.current.rotation.x = MathUtils.damp(marco.current.rotation.x, -0.5 - state.pointer.y * 0.15, 4, dt);
+      marco.current.rotation.y = MathUtils.damp(marco.current.rotation.y, -0.45 + state.pointer.x * 0.15, 4, dt);
+    }
   });
 
+  // Caucho: oscuro y mate; en tema claro un poco más claro para que resalte.
+  const caucho = oscuro ? '#23262d' : '#2c3039';
+  const rin = { color: '#c9ced8', metalness: 0.95, roughness: 0.28 };
+
   return (
-    <group ref={grupo} scale={escala} rotation={[0, -0.2, 0]}>
-      <mesh geometry={geometria}>
-        <MeshTransmissionMaterial
-          background={fondo}
-          samples={q.samples}
-          resolution={q.resolution}
-          backside={q.backside}
-          backsideThickness={0.1}
-          // Vidrio esmerilado: la rugosidad difumina lo que se ve a través.
-          transmission={t.transmision}
-          roughness={0.3}
-          thickness={0.5}
-          ior={1.4}
-          chromaticAberration={0.03}
-          anisotropicBlur={0.2}
-          distortion={0.05}
-          distortionScale={0.3}
-          temporalDistortion={0}
-          clearcoat={1}
-          clearcoatRoughness={0.1}
-          attenuationDistance={t.distanciaTinte}
-          attenuationColor={t.tinte}
-          envMapIntensity={2.4}
-          color={t.vidrio}
-        />
-      </mesh>
+    <group ref={marco} scale={escala} rotation={[-0.5, -0.45, 0]}>
+      <group ref={rueda}>
+        {/* Cuerpo de caucho */}
+        <mesh castShadow>
+          <torusGeometry args={[RADIO, TUBO, q.radial, q.tubular]} />
+          <meshStandardMaterial color={caucho} roughness={0.75} metalness={0.05} />
+        </mesh>
+
+        {/* Banda de rodadura: tacos alrededor del exterior */}
+        {tacos.map((taco) => (
+          <mesh key={taco.key} position={taco.position} rotation={taco.rotation}>
+            <boxGeometry args={[0.16, 0.14, ANCHO + 0.04]} />
+            <meshStandardMaterial color={caucho} roughness={0.85} metalness={0.05} />
+          </mesh>
+        ))}
+
+        {/* Rin metálico que llena el centro */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.66, 0.66, ANCHO, 40]} />
+          <meshStandardMaterial {...rin} />
+        </mesh>
+
+        {/* Cara del rin, con su acento de marca */}
+        <mesh position={[0, 0, ANCHO / 2]}>
+          <circleGeometry args={[0.66, 40]} />
+          <meshStandardMaterial color={t.amarillo} metalness={0.9} roughness={0.35} />
+        </mesh>
+
+        {/* Centro (buje) y pernos */}
+        <mesh position={[0, 0, ANCHO / 2 + 0.01]}>
+          <circleGeometry args={[0.2, 24]} />
+          <meshStandardMaterial {...rin} />
+        </mesh>
+        {PERNOS.map((p) => (
+          <mesh key={p.key} position={p.position} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.045, 0.045, 0.06, 10]} />
+            <meshStandardMaterial {...rin} />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 }
 
 /**
- * Escena WebGL de MarcaCristal. Se carga con React.lazy: todo three.js
- * queda en este chunk. Al desmontarse, @react-three/fiber libera el
- * renderer y los buffers; la textura del fondo se libera en useTexturaFondo.
+ * Escena WebGL de MarcaCristal: una llanta en 3D. Se carga con React.lazy
+ * (todo three.js queda en este chunk). Al desmontarse, @react-three/fiber
+ * libera el renderer y los buffers.
  */
-export default function EscenaCristal({ texto, velocidad, activa, animar, calidad, oscuro, onLista }) {
+export default function EscenaCristal({ velocidad, activa, animar, calidad, oscuro, onLista }) {
   const q = CALIDAD[calidad];
-  // Fuera de pantalla no se dibuja; sin animación solo se dibuja cuando algo cambia.
+  // Fuera de pantalla no se dibuja; sin animación solo cuando algo cambia.
   const frameloop = !activa ? 'never' : animar ? 'always' : 'demand';
 
   return (
     <Canvas
       dpr={q.dpr}
       frameloop={frameloop}
-      // Cámara lejana y lente estrecha: al girar, el extremo cercano de la palabra no se agiganta.
       camera={{ position: [0, 0, 24], fov: 15 }}
-      // alpha: el canvas no pinta fondo, se ve el de la página.
-      gl={{ alpha: true, antialias: calidad === 'alta', powerPreference: 'high-performance' }}
+      gl={{ alpha: true, antialias: q.samples, powerPreference: 'high-performance' }}
       style={{ touchAction: 'pan-y' }}
       aria-hidden="true"
     >
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[4, 6, 8]} intensity={1.2} />
-      <Texto
-        texto={texto}
-        velocidad={velocidad}
-        animar={animar}
-        calidad={calidad}
-        oscuro={oscuro}
-        onLista={onLista}
-      />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[4, 6, 8]} intensity={1.4} />
+      <directionalLight position={[-6, -2, 4]} intensity={0.5} />
+      <Llanta velocidad={velocidad} animar={animar} calidad={calidad} oscuro={oscuro} onLista={onLista} />
 
-      {/* Luces "de estudio" locales (sin descargar HDR): reflejos especulares en el vidrio */}
+      {/* Luces "de estudio" locales (sin descargar HDR): reflejos en el rin */}
       <Environment resolution={256}>
         <group rotation={[-Math.PI / 3, 0, 1]}>
-          <Lightformer form="circle" intensity={8} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={2} />
-          <Lightformer form="circle" intensity={4} rotation-y={Math.PI / 2} position={[-5, 1, -1]} scale={2} />
-          <Lightformer form="rect" intensity={8} rotation-y={Math.PI / 2} position={[-8, -1, -1]} scale={[10, 2, 1]} />
-          <Lightformer form="rect" intensity={8} rotation-y={-Math.PI / 2} position={[8, 0, 0]} scale={[10, 2, 1]} />
-          <Lightformer form="rect" intensity={4} position={[0, 0, 12]} scale={[14, 1.5, 1]} />
+          <Lightformer form="circle" intensity={7} rotation-x={Math.PI / 2} position={[0, 5, -9]} scale={2} />
+          <Lightformer form="rect" intensity={6} rotation-y={Math.PI / 2} position={[-8, -1, -1]} scale={[10, 2, 1]} />
+          <Lightformer form="rect" intensity={6} rotation-y={-Math.PI / 2} position={[8, 0, 0]} scale={[10, 2, 1]} />
+          <Lightformer form="rect" intensity={3} position={[0, 0, 12]} scale={[14, 1.5, 1]} />
           <Lightformer
             form="ring"
             color={TEMAS.oscuro.amarillo}
             intensity={3}
             rotation-y={-Math.PI / 2}
             position={[10, 1, 0]}
-            scale={6}
+            scale={5}
           />
         </group>
       </Environment>

@@ -41,37 +41,54 @@ class LimiteError extends Component {
   }
 }
 
-/** Versión sin WebGL: el texto en cursiva sobre vidrio pastel (sigue el tema). */
-function TextoRespaldo({ texto, compacto }) {
+/** Versión sin WebGL: una llanta dibujada en SVG sobre vidrio pastel (sigue el tema). */
+function LlantaRespaldo({ compacto }) {
+  const lado = compacto ? 150 : 230;
+  // Tacos de la banda de rodadura, repartidos alrededor del borde
+  const tacos = Array.from({ length: 28 }, (_, i) => (i / 28) * 360);
   return (
     <div className="flex h-full items-center justify-center px-4">
-      <LiquidGlass
-        as="span"
-        variante="pastel"
-        inclinacion={4}
-        className={`px-6 py-3 font-display font-extrabold italic tracking-[0.08em] text-brand-blue dark:text-white ${
-          compacto ? 'text-2xl sm:text-4xl' : 'text-3xl sm:text-6xl lg:text-7xl'
-        }`}
-      >
-        {texto}
+      <LiquidGlass as="span" variante="pastel" inclinacion={4} className="rounded-full p-5">
+        <svg width={lado} height={lado} viewBox="0 0 100 100" className="text-brand-blue dark:text-white" aria-hidden="true">
+          {/* Caucho */}
+          <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="9" opacity="0.9" />
+          {/* Banda de rodadura */}
+          {tacos.map((a) => (
+            <rect
+              key={a}
+              x="48.3"
+              y="1.5"
+              width="3.4"
+              height="6"
+              rx="0.8"
+              fill="currentColor"
+              transform={`rotate(${a} 50 50)`}
+            />
+          ))}
+          {/* Rin */}
+          <circle cx="50" cy="50" r="22" fill="none" stroke="#F4C400" strokeWidth="6" />
+          <circle cx="50" cy="50" r="7" fill="#F4C400" />
+          {/* Pernos */}
+          {[0, 72, 144, 216, 288].map((a) => (
+            <circle key={a} cx="50" cy="36" r="1.8" fill="#F4C400" transform={`rotate(${a} 50 50)`} />
+          ))}
+        </svg>
       </LiquidGlass>
     </div>
   );
 }
 
 /**
- * "Mirallantas" manuscrita en tubos de cristal esmerilado, con un vaivén
- * suave alrededor del frente (siempre se lee al derecho).
- *
- * Se usa en la landing pública y en el inicio del panel admin.
- * - `texto`: lo que se escribe en 3D.
+ * Una llanta en 3D girando despacio sobre su eje (vista de 3/4), como
+ * elemento de marca del landing.
  * - `velocidad`: radianes por segundo del giro (0.6 ≈ una vuelta cada 10 s).
- * - `compacto`: altura menor para el dashboard.
+ * - `compacto`: altura menor.
  *
  * El render se pausa cuando la sección sale de pantalla; con
- * `prefers-reduced-motion` el texto queda quieto; sin WebGL se ve el respaldo en CSS.
+ * `prefers-reduced-motion` la llanta queda quieta; sin WebGL se ve una
+ * llanta en SVG.
  */
-export default function MarcaCristal({ texto = 'Mirallantas', velocidad = 0.6, compacto = false }) {
+export default function MarcaCristal({ velocidad = 0.6, compacto = false }) {
   const ref = useRef(null);
   const [cerca, setCerca] = useState(false); // ya estuvo cerca de la pantalla: monta la escena
   const [visible, setVisible] = useState(false); // está en pantalla ahora: anima
@@ -96,12 +113,12 @@ export default function MarcaCristal({ texto = 'Mirallantas', velocidad = 0.6, c
     return () => observador.disconnect();
   }, []);
 
-  const respaldo = <TextoRespaldo texto={texto} compacto={compacto} />;
+  const respaldo = <LlantaRespaldo compacto={compacto} />;
   // Sin fondo propio: el canvas es transparente y se ve el fondo de la página.
   const contenedor = compacto ? 'h-[200px] sm:h-[240px]' : 'h-[300px] sm:h-[400px] lg:h-[460px]';
 
   return (
-    <section ref={ref} aria-label={texto} className={`relative overflow-hidden ${contenedor}`}>
+    <section ref={ref} aria-label="Llanta" className={`relative overflow-hidden ${contenedor}`}>
       {!webgl ? (
         respaldo
       ) : (
@@ -121,7 +138,6 @@ export default function MarcaCristal({ texto = 'Mirallantas', velocidad = 0.6, c
             >
               <Suspense fallback={null}>
                 <EscenaCristal
-                  texto={texto}
                   velocidad={velocidad}
                   activa={visible}
                   animar={!sinMovimiento}

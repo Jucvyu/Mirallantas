@@ -3,9 +3,9 @@ import MarcaCristal from '../../components/base/MarcaCristal';
 import Revelar from './Revelar';
 
 /**
- * Texto 3D "Mirallantas" en su propia sección, a dos columnas: la palabra de
- * vidrio (carga diferida dentro de MarcaCristal, con respaldo estático) y un
- * texto breve de la empresa.
+ * Una llanta en 3D en su propia sección, a dos columnas: la llanta (carga
+ * diferida dentro de MarcaCristal, con respaldo en SVG) y un texto breve de
+ * la empresa.
  */
 export default function SeccionMarca() {
   return (
