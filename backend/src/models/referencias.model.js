@@ -8,7 +8,7 @@ export async function listar() {
   const [tipos, metodos, medios] = await Promise.all([
     query('SELECT codigo, nombre FROM tipo_documento ORDER BY orden, codigo'),
     query('SELECT nombre FROM metodo_pago ORDER BY orden, nombre'),
-    query('SELECT nombre FROM medio_pago ORDER BY orden, nombre'),
+    query('SELECT nombre FROM medio_pago WHERE activo ORDER BY orden, nombre'),
   ]);
   return {
     tiposDocumento: tipos.rows,
