@@ -270,7 +270,7 @@ export default function NuevaCompraModal({ compra, onSubmit, onClose }) {
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-brand-navy-900">
+                <thead className="bg-slate-50/80 dark:bg-white/[0.03]">
                   <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
                     <th className="px-4 py-2.5">Producto</th>
                     <th className="px-4 py-2.5 text-center">Cantidad</th>
@@ -352,8 +352,8 @@ export default function NuevaCompraModal({ compra, onSubmit, onClose }) {
 
           {errores.lineas && <p className="mt-2 text-xs font-medium text-red-500">{errores.lineas}</p>}
 
-          <div className="mt-3 flex items-center justify-between rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-3">
-            <span className="text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Total de la compra</span>
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.05] to-transparent px-5 py-3">
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Total de la compra</span>
             <span className="text-xl font-bold text-slate-900 dark:text-white">{pesos(total)}</span>
           </div>
         </section>

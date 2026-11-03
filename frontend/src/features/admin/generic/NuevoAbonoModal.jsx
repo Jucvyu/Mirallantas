@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SearchSelect from '../../../components/base/SearchSelect';
+import SelectCampo from '../../../components/base/SelectCampo';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { abonosService, clientesSeleccionablesService, nuevaClaveIdempotencia } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
@@ -316,28 +317,16 @@ export default function NuevoAbonoModal({ creditoFijo = null, onSubmit, onClose 
               <label htmlFor="ab-metodo" className={LABEL}>
                 Método de pago <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <select
-                  id="ab-metodo"
-                  value={metodo}
-                  onChange={(e) => {
-                    setMetodo(e.target.value);
-                    tocar('metodo');
-                  }}
-                  className={`${CAMPO} ${errores.metodo ? BORDE_ERR : BORDE_OK} cursor-pointer appearance-none pr-10`}
-                >
-                  <option value="">Seleccionar...</option>
-                  {mediosPago.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-              </div>
+              <SelectCampo
+                id="ab-metodo"
+                value={metodo}
+                options={mediosPago}
+                error={Boolean(errores.metodo)}
+                onChange={(m) => {
+                  setMetodo(m);
+                  tocar('metodo');
+                }}
+              />
               {errores.metodo && <p className="mt-1 text-xs font-medium text-red-500">{errores.metodo}</p>}
             </div>
           </div>

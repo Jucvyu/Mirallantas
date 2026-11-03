@@ -28,15 +28,15 @@ export const CUOTA_INICIAL_CREDITO = CUOTA_INICIAL_PORCENTAJE / 100;
 export const VIGENCIA_COTIZACION_DIAS = 8;
 
 /**
- * Medios con los que paga un cliente desde el portal. En el local el asesor
- * puede registrar además los demás medios de la tabla metodo_pago.
+ * Métodos de pago que se aceptan, tanto en el portal como en el local (los
+ * demás de la tabla metodo_pago están inactivos y solo quedan en pagos antiguos).
  */
 export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
 
-/** Lanza 422 si un cliente del portal intenta pagar con otro medio. */
-export function exigirMedioDelCliente(medio) {
+/** Lanza 422 si se intenta pagar con otro método. */
+export function exigirMedioAceptado(medio) {
   if (medio && !MEDIOS_PAGO_CLIENTE.includes(medio)) {
-    throw new HttpError(422, `Desde el portal se paga con ${MEDIOS_PAGO_CLIENTE.join(' o ').toLowerCase()}.`);
+    throw new HttpError(422, `Los pagos se reciben por ${MEDIOS_PAGO_CLIENTE.join(' o ').toLowerCase()}.`);
   }
 }
 

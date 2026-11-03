@@ -106,6 +106,7 @@ function textoParaExportar(row, col) {
  *   editModal:   ({ row, onSubmit, onClose }) => nodo, formulario de "Editar" a medida
  *   motivoNoEditable: texto del botón Editar deshabilitado (o (row) => texto)
  *   rowActions: (row, { update }) => nodo, botones extra en cada fila
+ *   accionesFinales: igual, pero después de Editar (p. ej. anular: lo destructivo va al final)
  *   formValidate: (values) => ({ campo: 'mensaje' }) reglas entre campos
  *   exportable, canView / canEdit / canDelete, entityGender, titleKey
  *   (canEdit y canDelete también aceptan una función (row) => boolean para
@@ -144,6 +145,7 @@ export default function DataTable({
   editModal,
   motivoNoEditable = 'Este registro ya no se puede editar',
   rowActions,
+  accionesFinales,
   statusFlow,
   formValidate,
   exportable = true,
@@ -228,6 +230,14 @@ export default function DataTable({
     }
   };
 
+  /** Encabezado del detalle y de la edición de una fila. */
+  const resumenDe = (row) => ({
+    titulo: row[titleKey] ?? row.id,
+    estado: statusKey ? row[statusKey] : null,
+  });
+  /** Subtítulo: el número visible del registro (un id interno no le dice nada al usuario). */
+  const subtituloDe = (row, alternativo = null) => (typeof row.id === 'string' ? row.id : alternativo);
+
   /** Función `update(patch)` que reciben las celdas y acciones a medida. */
   const updateDe = (row) => (patch) => ejecutar(() => onRowUpdate?.(row, patch));
   // (sin privilegio de editar, la API rechaza el cambio y se muestra su mensaje)
@@ -270,7 +280,7 @@ export default function DataTable({
   /**
    * Botones de una fila, siempre en una sola línea y en este orden: ver
    * detalle primero, luego desplegar y las acciones a medida, después
-   * editar, y por último eliminar (la acción destructiva va siempre al
+   * editar, y por último anular y eliminar (lo destructivo va siempre al
    * final). Todas las filas muestran los mismos iconos; los que no aplican
    * a la fila quedan deshabilitados.
    */
@@ -297,6 +307,7 @@ export default function DataTable({
           onClick={() => setDialog({ mode: 'edit', row })}
         />
       )}
+      {accionesFinales?.(row, { update: updateDe(row) })}
       {muestraEliminar && (
         <BotonAccion
           icono={Trash2}
@@ -558,9 +569,10 @@ export default function DataTable({
         <FormModal
           mode="edit"
           title={`Editar ${entityName}`}
-          subtitle={String(dialog.row.id)}
+          subtitle={subtituloDe(dialog.row, 'Cambia los datos y guarda.')}
           sections={sections}
           initialValues={dialog.row}
+          resumen={resumenDe(dialog.row)}
           validate={formValidate}
           onSubmit={(values) => onEdit(dialog.row, values)}
           onClose={() => setDialog(null)}
@@ -571,13 +583,10 @@ export default function DataTable({
         <FormModal
           mode="view"
           title={`Detalle ${femenino ? 'de la' : 'del'} ${entityName}`}
-          subtitle={String(dialog.row.id)}
+          subtitle={subtituloDe(dialog.row)}
           sections={sections}
           initialValues={dialog.row}
-          resumen={{
-            titulo: dialog.row[titleKey] ?? dialog.row.id,
-            estado: statusKey ? dialog.row[statusKey] : null,
-          }}
+          resumen={resumenDe(dialog.row)}
           onClose={() => setDialog(null)}
         />
       )}

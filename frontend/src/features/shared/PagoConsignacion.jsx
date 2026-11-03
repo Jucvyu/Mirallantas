@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, ImagePlus, X } from 'lucide-react';
 import Badge from '../../components/base/Badge';
-import { BORDER_ERR, BORDER_OK, INPUT, LABEL } from '../../components/base/formStyles';
+import SelectCampo from '../../components/base/SelectCampo';
+import { LABEL } from '../../components/base/formStyles';
 import { mediosPago } from '../../constantes';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
 import DatosTransferencia from './DatosTransferencia';
@@ -50,22 +51,13 @@ export function CamposPago({ pago, onCambio, errores = {}, medios = mediosPago, 
         <label className={LABEL} htmlFor="pago-medio">
           {etiqueta} <span className="text-red-500">*</span>
         </label>
-        <div className="relative">
-          <select
-            id="pago-medio"
-            value={pago.medioPago ?? ''}
-            onChange={(e) => onCambio({ ...pago, medioPago: e.target.value })}
-            className={`${INPUT} ${errores.medioPago ? BORDER_ERR : BORDER_OK} cursor-pointer appearance-none pr-10`}
-          >
-            <option value="">Seleccionar...</option>
-            {medios.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        </div>
+        <SelectCampo
+          id="pago-medio"
+          value={pago.medioPago ?? ''}
+          options={medios}
+          error={Boolean(errores.medioPago)}
+          onChange={(medioPago) => onCambio({ ...pago, medioPago })}
+        />
         {errores.medioPago && <p className="mt-1 text-xs font-medium text-red-500">{errores.medioPago}</p>}
       </div>
 

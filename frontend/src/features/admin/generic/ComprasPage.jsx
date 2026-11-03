@@ -82,7 +82,7 @@ export default function ComprasPage() {
         ]}
         createModal={({ onSubmit, onClose }) => <NuevaCompraModal onSubmit={onSubmit} onClose={onClose} />}
         canDelete={false}
-        rowActions={(row, { update }) => (
+        accionesFinales={(row, { update }) => (
           // Una compra recibida no se toca; una pendiente se puede anular
           <BotonAccion accion="anular"
             icono={Ban}

@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
-import { Check, ChevronDown, ImagePlus, Pipette, TriangleAlert, X } from 'lucide-react';
+import { Check, ImagePlus, Lock, Pipette, TriangleAlert, X } from 'lucide-react';
+import Badge from '../Badge';
 import RecorteCircular from '../RecorteCircular';
 import MatrizPrivilegios from './MatrizPrivilegios';
 import SearchSelect from '../SearchSelect';
+import SelectCampo from '../SelectCampo';
 import { useReferencias } from '../../../hooks/useReferencias';
 import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
@@ -61,6 +63,9 @@ function toList(value) {
 /** Valores que guarda el campo de tipo interruptor. */
 const ENCENDIDO = 'Sí';
 const APAGADO = 'No';
+
+/** Tipos que ya se ven bien sin editar: no se muestran como un texto de solo lectura. */
+const TIPOS_CON_VISTA_PROPIA = ['image', 'avatar', 'switch', 'color', 'checkboxes', 'privilegios'];
 
 /** A partir de cuántas opciones el selector incorpora barra de búsqueda. */
 const MINIMO_PARA_BUSCAR = 15;
@@ -142,6 +147,27 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
 
   const esCatalogo = type === 'select' || type === 'checkboxes' || type === 'privilegios' || (type === 'buscador' && !field.permitirNuevo);
   const catalogoVacio = esCatalogo && !readOnly && options.length === 0;
+
+  // Dato que no se puede cambiar en este formulario: se lee como texto y no
+  // se disfraza de campo editable
+  if (mode !== 'view' && field.soloLectura && !TIPOS_CON_VISTA_PROPIA.includes(type)) {
+    const texto = options.find((o) => o?.valor === value)?.etiqueta ?? value;
+    return (
+      <div className={field.span === 2 ? 'sm:col-span-2' : ''}>
+        <p className={LABEL}>{label}</p>
+        <p
+          title="Este dato no se puede cambiar aquí"
+          className="flex min-h-[42px] items-center justify-between gap-2 rounded-[14px] bg-slate-100/70 px-4 py-2 text-sm font-medium text-slate-600 dark:bg-white/[0.04] dark:text-slate-300"
+        >
+          <span className="min-w-0 whitespace-pre-line break-words">
+            {key === 'estado' && texto ? <Badge>{texto}</Badge> : texto || '—'}
+          </span>
+          <Lock size={13} className="shrink-0 text-slate-400 dark:text-slate-500" />
+        </p>
+        {hint && <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className={field.span === 2 ? 'sm:col-span-2' : ''}>
@@ -402,27 +428,14 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             placeholderBusqueda={field.placeholderBusqueda}
           />
         ) : (
-          <div className="relative">
-            <select
-              id={id}
-              value={value ?? ''}
-              onChange={(e) => onChange(key, e.target.value)}
-              onBlur={() => onBlur?.(key)}
-              aria-invalid={Boolean(error)}
-              className={`${INPUT} ${border} cursor-pointer appearance-none pr-10`}
-            >
-              <option value="">Seleccionar...</option>
-              {options.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={16}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-          </div>
+          <SelectCampo
+            id={id}
+            value={value ?? ''}
+            options={options}
+            onChange={(opcion) => onChange(key, opcion)}
+            onBlur={() => onBlur?.(key)}
+            error={Boolean(error)}
+          />
         )
       ) : (
         <div className="relative">

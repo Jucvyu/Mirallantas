@@ -5,7 +5,7 @@ import * as abonosModel from '../models/abonos.model.js';
 import * as creditosModel from '../models/creditos.model.js';
 import * as ventasModel from '../models/ventas.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
-import { pesos, validarTransicion, exigirAbonoMinimo } from '../reglas.js';
+import { exigirMedioAceptado, pesos, validarTransicion, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
 import { enviarPdfAbono } from '../views/pdf.view.js';
 import * as empresaModel from '../models/empresa.model.js';
@@ -39,6 +39,7 @@ export async function facturas(req, res) {
  */
 export async function registrarEnFactura(req, res) {
   const datos = req.validado.body;
+  exigirMedioAceptado(datos.medioPago);
   if (datos.medioPago === 'Transferencia' && !datos.comprobante) {
     throw new HttpError(422, 'Adjunta el comprobante de la transferencia.');
   }
@@ -98,6 +99,7 @@ export async function listar(req, res) {
 /** PATCH /abonos/:numero — confirmar, rechazar o corregir uno pendiente. */
 export async function actualizar(req, res) {
   const cambios = req.validado.body;
+  exigirMedioAceptado(cambios.medioPago);
 
   await enTransaccion(async (db) => {
     const abono = await abonosModel.bloquearConCredito(db, req.params.numero);

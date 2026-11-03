@@ -793,3 +793,5 @@ botón "Productos" descrito arriba, sin duplicar el listado en el formulario.
 - **Una sola tabla** (`metodo_pago`, migración 0034): la columna `tipo` separa `forma` (Contado, Crédito) de `medio` (Efectivo, Transferencia…). `GET /referencias` sigue entregando las dos listas; el campo `medioPago` de la API también se conserva.
 - **Abono confirmado = venta** (migración 0035): la venta a crédito vale la suma de sus abonos confirmados y el tablero cuenta cada abono en el mes en que se pagó.
 - **Detalles**: los modales usan `components/base/Detalle` y el modo "ver" del `FormModal` muestra texto, no campos (`VistaDetalle`).
+- **Métodos aceptados**: solo Efectivo y Transferencia (0036 desactiva "Otro"; "Tarjeta" ya lo estaba). La API rechaza los demás también desde el local; los pagos antiguos se conservan.
+- **Formularios**: `SelectCampo` reemplaza al `<select>` nativo. Al editar, `FormModal` muestra qué registro se cambia, los datos fijos como texto y solo deja guardar si hubo cambios. `accionesFinales` de `DataTable` pone lo destructivo después de Editar.

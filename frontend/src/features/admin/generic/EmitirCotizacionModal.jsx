@@ -358,7 +358,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
           })}
         </ul>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.05] to-transparent px-5 py-3">
           <span className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
             <CalendarClock size={15} className="text-amber-500" /> Vigencia: {VIGENCIA_COTIZACION_DIAS} días calendario desde
             hoy (la fecha la fija el servidor).

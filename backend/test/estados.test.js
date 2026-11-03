@@ -34,7 +34,7 @@ describe('Listas del sistema en la base de datos', () => {
     assert.equal(r.cuerpo.tiposDocumento[0].nombre, 'Cédula de ciudadanía');
     assert.deepEqual(r.cuerpo.metodosPago, ['Contado', 'Crédito']);
     // "Tarjeta" quedó inactiva (0033): ya no se ofrece en los formularios
-    assert.deepEqual(r.cuerpo.mediosPago, ['Efectivo', 'Transferencia', 'Otro']);
+    assert.deepEqual(r.cuerpo.mediosPago, ['Efectivo', 'Transferencia']);
   });
 
   test('los tipos de vehículo base vienen cargados', async () => {

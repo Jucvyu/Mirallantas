@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { aceptar, cotizacionEmitida } from './comercial.js';
+import { aceptar, cotizacionEmitida, PNG } from './comercial.js';
 import { levantarEntorno } from './entorno.js';
 
 /**
@@ -162,14 +162,22 @@ describe('Una sola tabla de métodos de pago', () => {
 
     const listas = (await e.api('/referencias')).cuerpo;
     assert.deepEqual(listas.metodosPago, ['Contado', 'Crédito']);
-    assert.ok(listas.mediosPago.includes('Efectivo') && listas.mediosPago.includes('Transferencia'));
-    assert.ok(!listas.mediosPago.includes('Tarjeta'), 'un método inactivo no se ofrece');
+    
+    assert.deepEqual(listas.mediosPago, ['Efectivo', 'Transferencia'], 'Tarjeta y Otro están inactivos: no se ofrecen');
+  });
+
+  test('un abono no se registra con métodos retirados, ni desde el local', async () => {
+    const [factura] = (await e.api('/abonos/facturas', { token: t.admin })).cuerpo.datos;
+    for (const medioPago of ['Otro', 'Tarjeta']) {
+      const r = await post('/abonos', { factura: factura.numero, monto: factura.saldoPendiente, medioPago, comprobante: PNG });
+      assert.equal(r.estado, 422, medioPago);
+    }
   });
 
   test('un abono no se paga con "Contado"', async () => {
     const [factura] = (await e.api('/abonos/facturas', { token: t.admin })).cuerpo.datos;
     const r = await post('/abonos', { factura: factura.numero, monto: factura.saldoPendiente, medioPago: 'Contado' });
     assert.equal(r.estado, 422);
-    assert.match(r.cuerpo.error, /método de pago/);
+    assert.match(r.cuerpo.error, /efectivo o transferencia/);
   });
 });

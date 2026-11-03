@@ -34,8 +34,7 @@ export const CAMPO = `${INPUT} ${BORDER_OK}`;
 export const LABEL = 'mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200';
 
 /** Título de un bloque de campos dentro del formulario. */
-export const SECTION =
-  'text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500';
+export const SECTION = 'text-sm font-semibold text-slate-800 dark:text-slate-100';
 
 /** Devuelve la caja con el contorno que corresponda al estado del campo. */
 export function campo(error) {

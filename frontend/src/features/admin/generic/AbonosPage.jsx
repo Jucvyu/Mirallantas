@@ -73,7 +73,8 @@ export default function AbonosPage() {
         statusOptions={estadosAbono}
         filters={[
           { key: 'estado', label: 'Estado', options: estadosAbono },
-          { key: 'metodoPago', label: 'Pago', options: mediosPago },
+          // Sin lista fija: así también se filtran los abonos antiguos con métodos ya retirados
+          { key: 'metodoPago', label: 'Pago' },
           { key: 'cliente', label: 'Cliente' },
         ]}
         createModal={({ onSubmit, onClose }) => <NuevoAbonoModal onSubmit={onSubmit} onClose={onClose} />}

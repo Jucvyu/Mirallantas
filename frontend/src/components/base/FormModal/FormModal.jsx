@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Eye, Pencil, Plus } from 'lucide-react';
 import AvisoError from '../AvisoError';
+import { DetalleResumen } from '../Detalle';
 import Modal from '../Modal';
 import { errorDeCampo } from '../../../utils/validaciones';
 import Field from './Field';
@@ -11,6 +12,15 @@ function formatMoney(raw) {
   const digits = String(raw ?? '').replace(/\D/g, '');
   if (!digits) return '';
   return `$ ${Number(digits).toLocaleString('es-CO')}`;
+}
+
+/** ¿Los dos juegos de valores dicen lo mismo? (vacío y sin definir cuentan igual) */
+function mismosValores(a, b) {
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].every((clave) => {
+    const x = a[clave] ?? '';
+    const y = b[clave] ?? '';
+    return x === y || (typeof x === 'object' && JSON.stringify(x) === JSON.stringify(y));
+  });
 }
 
 const MODE_META = {
@@ -25,7 +35,8 @@ const MODE_META = {
  *
  * sections: [{ title, fields: [ ...ver Field.jsx ] }]
  * mode: 'create' | 'edit' | 'view' (en "view" los datos se leen como texto,
- *   ver VistaDetalle; `resumen` = { titulo, estado } encabeza ese detalle)
+ *   ver VistaDetalle). `resumen` = { titulo, estado } encabeza el detalle y la
+ *   edición, para saber qué registro se está viendo o cambiando
  * validate: (values) => ({ campo: 'mensaje' }) para las reglas que miran
  *   varios campos a la vez, como la cuota inicial frente al total
  *
@@ -143,6 +154,9 @@ export default function FormModal({
     }
   };
 
+  // Al crear siempre se puede guardar; al editar, solo si algo cambió
+  const hayCambios = mode !== 'edit' || !mismosValores(values, initialValues);
+
   const footer =
     mode === 'view'
       ? (close) => (
@@ -156,6 +170,13 @@ export default function FormModal({
         )
       : (close) => (
           <>
+            {/* Al editar se avisa si hay algo por guardar */}
+            {mode === 'edit' && (
+              <span className={`mr-auto flex items-center gap-1.5 text-xs font-medium ${hayCambios ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                {hayCambios && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+                {hayCambios ? 'Cambios sin guardar' : 'Sin cambios'}
+              </span>
+            )}
             <button
               type="button"
               onClick={close}
@@ -165,9 +186,9 @@ export default function FormModal({
             </button>
             <button
               type="button"
-              disabled={guardando}
+              disabled={guardando || !hayCambios}
               onClick={(e) => handleSubmit(e, close)}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Check size={16} /> {guardando ? 'Guardando…' : (submitLabel ?? meta.submit)}
             </button>
@@ -186,33 +207,46 @@ export default function FormModal({
       {mode === 'view' ? (
         <VistaDetalle sections={sections} values={values} resumen={resumen} />
       ) : (
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+      <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
         <AvisoError mensaje={errorGeneral} />
-        {sections.map((section) => (
-          <fieldset key={section.title ?? 'default'}>
-            {section.title && (
-              <legend className="mb-4 flex w-full items-center gap-3">
-                <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                  {section.title}
-                </span>
-                <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-              </legend>
-            )}
-            <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-              {section.fields.map((field) => (
-                <Field
-                  key={field.key}
-                  field={field}
-                  value={values[field.key]}
-                  error={errors[field.key]}
-                  onChange={handleChange}
-                  onBlur={tocar}
-                  mode={mode === 'view' ? 'view' : 'edit'}
-                />
-              ))}
-            </div>
-          </fieldset>
-        ))}
+        {/* Al editar, primero se ve qué registro se está cambiando */}
+        {mode === 'edit' && resumen?.titulo && (
+          <DetalleResumen
+            icono={String(resumen.titulo).trim().charAt(0).toUpperCase()}
+            valor={resumen.titulo}
+            estado={resumen.estado}
+          />
+        )}
+        {sections.map((section) => {
+          // El estado ya se ve en el resumen: si no se edita, no se repite
+          const campos = section.fields.filter(
+            (f) => !(mode === 'edit' && resumen?.estado && f.key === 'estado' && f.soloLectura),
+          );
+          if (campos.length === 0) return null;
+          return (
+            <fieldset
+              key={section.title ?? 'default'}
+              className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/[0.07] dark:bg-white/[0.02] sm:p-5"
+            >
+              {section.title && (
+                <h4 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-100">{section.title}</h4>
+              )}
+              <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                {campos.map((field) => (
+                  <Field
+                    key={field.key}
+                    field={field}
+                    value={values[field.key]}
+                    error={errors[field.key]}
+                    onChange={handleChange}
+                    onBlur={tocar}
+                    mode="edit"
+                  />
+                ))}
+              </div>
+            </fieldset>
+          );
+        })}
       </form>
       )}
     </Modal>

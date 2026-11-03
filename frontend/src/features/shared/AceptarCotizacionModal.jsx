@@ -138,7 +138,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
           </div>
         )}
 
-        <dl className="space-y-1.5 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4 text-sm">
+        <dl className="space-y-1.5 rounded-xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.05] to-transparent px-5 py-4 text-sm">
           <div className="flex justify-between text-slate-600 dark:text-slate-300">
             <dt>Valor de la cotización</dt>
             <dd className="font-semibold">{formatCOP(subtotal)}</dd>

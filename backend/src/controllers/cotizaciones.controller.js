@@ -16,7 +16,7 @@ import * as solicitudesCreditoModel from '../models/solicitudesCredito.model.js'
 import * as solicitudesModel from '../models/solicitudesServicio.model.js';
 import {
   calcularTotales,
-  exigirMedioDelCliente,
+  exigirMedioAceptado,
   pesos,
   PLAZOS_CREDITO,
   SERVICIO_POR_DEFECTO,
@@ -74,7 +74,7 @@ async function leerCompleta(req, numero, db) {
  * no están habilitados en este flujo.
  */
 function exigirMedioDelPortal(medio) {
-  exigirMedioDelCliente(medio);
+  exigirMedioAceptado(medio);
 }
 
 /** Pago de contado: con qué medio y, salvo en efectivo, con su consignación. */

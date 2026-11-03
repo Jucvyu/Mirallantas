@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { nuevaClaveIdempotencia } from '../../services';
 import { leerImagen, TIPOS_IMAGEN } from '../../utils/imagenes';
-import { Check, ChevronDown, ImagePlus, Wallet, X } from 'lucide-react';
+import { Check, ImagePlus, Wallet, X } from 'lucide-react';
+import SelectCampo from '../../components/base/SelectCampo';
 import AvisoError from '../../components/base/AvisoError';
 import Badge from '../../components/base/Badge';
 import Modal from '../../components/base/Modal';
@@ -200,28 +201,16 @@ export default function RegistrarAbonoModal({ creditoId, reintento = null, onSub
               <label htmlFor="ab-metodo" className={LABEL}>
                 Método de pago <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <select
-                  id="ab-metodo"
-                  value={metodo}
-                  onChange={(e) => {
-                    setMetodo(e.target.value);
-                    if (e.target.value === 'Efectivo') setSoporte('');
-                  }}
-                  className={`${INPUT} ${errors.metodo ? BORDER_ERR : BORDER_OK} appearance-none pr-9`}
-                >
-                  <option value="">Seleccionar...</option>
-                  {MEDIOS_PAGO_CLIENTE.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-              </div>
+              <SelectCampo
+                id="ab-metodo"
+                value={metodo}
+                options={MEDIOS_PAGO_CLIENTE}
+                error={Boolean(errors.metodo)}
+                onChange={(m) => {
+                  setMetodo(m);
+                  if (m === 'Efectivo') setSoporte('');
+                }}
+              />
               {errors.metodo && <p className="mt-1 text-xs font-medium text-red-500">{errors.metodo}</p>}
             </div>
           </div>

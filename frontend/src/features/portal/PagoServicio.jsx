@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { CheckCircle2, Clock, HandCoins, ImagePlus, TriangleAlert, X } from 'lucide-react';
 import AvisoError from '../../components/base/AvisoError';
 import Modal from '../../components/base/Modal';
-import { BORDER_ERR, BORDER_OK, INPUT } from '../../components/base/formStyles';
+import SelectCampo from '../../components/base/SelectCampo';
+import { BORDER_ERR } from '../../components/base/formStyles';
 import { MEDIOS_PAGO_CLIENTE } from '../../constantes';
 import { useEnvio } from '../../hooks/useEnvio';
 import { portalService } from '../../services';
@@ -84,26 +85,17 @@ function PagarServicioModal({ servicio, onPagado, onClose }) {
     >
       <div className="space-y-4">
         <AvisoError mensaje={errorEnvio} />
-        <section className="flex items-center justify-between rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4">
+        <section className="flex items-center justify-between rounded-xl border border-amber-400/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.05] to-transparent px-5 py-4">
           <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Valor del servicio</span>
           <span className="text-2xl font-bold text-slate-900 dark:text-white">{servicio.precioTexto}</span>
         </section>
 
-        <label className="block">
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Método de pago</span>
-          <select
-            value={medio}
-            onChange={(e) => setMedio(e.target.value)}
-            className={`${INPUT} ${BORDER_OK} mt-1.5 cursor-pointer`}
-          >
-            <option value="">Seleccionar...</option>
-            {MEDIOS_PAGO_CLIENTE.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div>
+          <label htmlFor="pago-servicio-metodo" className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Método de pago
+          </label>
+          <SelectCampo id="pago-servicio-metodo" value={medio} options={MEDIOS_PAGO_CLIENTE} onChange={setMedio} />
+        </div>
 
         {medio === 'Efectivo' && (
           <p className="text-xs text-slate-500 dark:text-slate-400">
