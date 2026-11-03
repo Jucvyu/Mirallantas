@@ -48,7 +48,7 @@ const deLista = (mensaje) => z.string({ error: mensaje }).trim().min(1, mensaje)
 
 export const tipoDocumento = deLista('Selecciona el tipo de documento.');
 export const metodoPago = deLista('Selecciona el método de pago.');
-export const medioPago = deLista('Selecciona el medio de pago.');
+export const medioPago = deLista('Selecciona el método de pago.');
 
 export const numeroDocumento = z
   .string()

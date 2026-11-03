@@ -3,6 +3,7 @@ import { Check, ChevronDown, ImagePlus, Pipette, TriangleAlert, X } from 'lucide
 import RecorteCircular from '../RecorteCircular';
 import MatrizPrivilegios from './MatrizPrivilegios';
 import SearchSelect from '../SearchSelect';
+import { useReferencias } from '../../../hooks/useReferencias';
 import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
 import { maximoDe } from '../../../utils/validaciones';
@@ -84,6 +85,8 @@ const PALETA = [
 ];
 
 export default function Field({ field, value, error, onChange, onBlur, mode = 'edit' }) {
+  // Las listas del sistema pueden llegar con el formulario ya abierto
+  useReferencias();
   const { key, label, type = 'text', required, placeholder, options = [], hint } = field;
   const readOnly = mode === 'view' || Boolean(field.soloLectura);
   const border = error ? BORDER_ERR : BORDER_OK;

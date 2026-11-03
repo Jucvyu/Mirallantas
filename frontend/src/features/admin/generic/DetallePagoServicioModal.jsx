@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Check, HandCoins, ImageOff, X } from 'lucide-react';
+import { Check, HandCoins, ReceiptText, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
-import Badge from '../../../components/base/Badge';
+import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useEnvio } from '../../../hooks/useEnvio';
@@ -100,13 +100,12 @@ export default function DetallePagoServicioModal({ solicitud, onResuelto, onClos
       <div className="space-y-5">
         <AvisoError mensaje={errorEnvio} />
 
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Valor del servicio</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{solicitud.precio || 'Sin asignar'}</p>
-          </div>
-          <Badge tone={TONO_PAGO[solicitud.pagoEstado]}>{solicitud.pagoEstado}</Badge>
-        </section>
+        <DetalleResumen
+          etiqueta="Valor del servicio"
+          valor={solicitud.precio || 'Sin asignar'}
+          estado={solicitud.pagoEstado}
+          tonoEstado={TONO_PAGO[solicitud.pagoEstado]}
+        />
 
         {solicitud.pagoEstado === 'Sin precio' && (
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -114,45 +113,24 @@ export default function DetallePagoServicioModal({ solicitud, onResuelto, onClos
           </p>
         )}
 
-        <section className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Cotización', valor: solicitud.cotizacion || '—' },
-            { label: 'Servicio', valor: `${solicitud.servicio} · ${solicitud.cantidad} llantas` },
-            { label: 'Medio de pago', valor: solicitud.pagoMedio || '—' },
-            { label: 'Fecha del pago', valor: solicitud.pagoFecha || '—' },
-          ].map(({ label, valor }) => (
-            <div key={label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-              <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{valor}</p>
-            </div>
-          ))}
-        </section>
+        <DetalleDatos
+          datos={[
+            { etiqueta: 'Cotización', valor: solicitud.cotizacion },
+            { etiqueta: 'Servicio', valor: `${solicitud.servicio} · ${solicitud.cantidad} llantas` },
+            { etiqueta: 'Método de pago', valor: solicitud.pagoMedio },
+            { etiqueta: 'Fecha del pago', valor: solicitud.pagoFecha },
+          ]}
+        />
 
-        {solicitud.pagoMotivo && (
-          <p className="rounded-xl border border-red-400/40 bg-red-500/5 px-4 py-3 text-xs font-medium text-red-600 dark:text-red-400">
-            Rechazado: {solicitud.pagoMotivo}
-          </p>
-        )}
+        {solicitud.pagoMotivo && <DetalleAviso tono="peligro">Rechazado: {solicitud.pagoMotivo}</DetalleAviso>}
 
-        <section>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Comprobante
-          </p>
-          {solicitud.pagoComprobante ? (
-            <a href={solicitud.pagoComprobante} target="_blank" rel="noreferrer" title="Abrir el comprobante completo">
-              <img
-                src={solicitud.pagoComprobante}
-                alt={`Comprobante del pago de ${solicitud.id}`}
-                className="max-h-80 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain dark:border-white/10 dark:bg-white/5"
-              />
-            </a>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400 dark:border-white/10">
-              <ImageOff size={22} strokeWidth={1.5} />
-              {solicitud.pagoMedio === 'Efectivo' ? 'Pago en efectivo: sin comprobante.' : 'El cliente aún no ha subido el pago.'}
-            </div>
-          )}
-        </section>
+        <DetalleSeccion titulo="Comprobante" icono={<ReceiptText size={15} />}>
+          <DetalleImagen
+            src={solicitud.pagoComprobante}
+            alt={`Comprobante del pago de ${solicitud.id}`}
+            vacio={solicitud.pagoMedio === 'Efectivo' ? 'Pago en efectivo: sin comprobante.' : 'El cliente aún no ha subido el pago.'}
+          />
+        </DetalleSeccion>
 
         {rechazando && (
           <label className="block">

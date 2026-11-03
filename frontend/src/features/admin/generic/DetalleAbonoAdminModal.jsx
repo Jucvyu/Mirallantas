@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Check, ImageOff, Wallet, X } from 'lucide-react';
+import { Check, ReceiptText, Wallet, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
-import Badge from '../../../components/base/Badge';
+import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useEnvio } from '../../../hooks/useEnvio';
@@ -16,7 +16,8 @@ import { usePrivilegio } from '../../../hooks/usePrivilegio';
  * recortar, porque es la prueba que se revisa. Si el abono sigue
  * pendiente, desde aquí mismo se confirma o se rechaza:
  *
- *   Confirmar → baja el saldo del crédito y sube el saldo usable del cliente.
+ *   Confirmar → baja el saldo del crédito, sube el saldo usable del cliente
+ *               y el monto cuenta como venta.
  *   Rechazar  → el abono queda registrado sin cambiar el saldo; el motivo
  *               le llega al cliente, que vuelve a subir el abono.
  */
@@ -27,6 +28,8 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
   // Confirmar o rechazar solo con el privilegio del rol (nivel 3)
   const puede = usePrivilegio();
   const pendiente = abono.estado === 'Pendiente' && puede('confirmarAbono');
+  // Confirmado por error: también se rechaza desde aquí (el dinero vuelve al saldo y sale de la venta)
+  const puedeRevertir = abono.estado === 'Confirmado' && puede('confirmarAbono');
 
   const resolver = (estado, cerrar) =>
     enviar(async () => {
@@ -35,7 +38,7 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
     }, cerrar);
 
   const pie = (cerrar) =>
-    pendiente && rechazando ? (
+    (pendiente || puedeRevertir) && rechazando ? (
       <>
         <button
           type="button"
@@ -73,13 +76,24 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
         </button>
       </>
     ) : (
-      <button
-        type="button"
-        onClick={cerrar}
-        className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
-      >
-        Cerrar
-      </button>
+      <>
+        {puedeRevertir && (
+          <button
+            type="button"
+            onClick={() => setRechazando(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:border-red-500/40 dark:text-red-400 dark:hover:bg-red-500/10"
+          >
+            <X size={15} /> Rechazar (confirmado por error)
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={cerrar}
+          className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
+        >
+          Cerrar
+        </button>
+      </>
     );
 
   return (
@@ -94,60 +108,33 @@ export default function DetalleAbonoAdminModal({ abono, onResuelto, onClose }) {
       <div className="space-y-5">
         <AvisoError mensaje={errorEnvio} />
 
-        {/* ---- Monto y estado ---- */}
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Monto abonado</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{abono.monto}</p>
-          </div>
-          <Badge>{abono.estado}</Badge>
-        </section>
+        <DetalleResumen etiqueta="Monto abonado" valor={abono.monto} estado={abono.estado} />
 
-        {/* ---- Datos del pago ---- */}
-        <section className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Crédito', valor: abono.credito },
-            { label: 'Cliente', valor: abono.cliente },
-            { label: 'Fecha', valor: abono.fecha },
-            { label: 'Medio de pago', valor: abono.metodoPago },
-          ].map(({ label, valor }) => (
-            <div key={label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-              <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{valor || '—'}</p>
-            </div>
-          ))}
-        </section>
+        <DetalleDatos
+          datos={[
+            { etiqueta: 'Crédito', valor: abono.credito },
+            { etiqueta: 'Factura', valor: abono.factura },
+            { etiqueta: 'Cliente', valor: abono.cliente },
+            { etiqueta: 'Fecha', valor: abono.fecha },
+            { etiqueta: 'Método de pago', valor: abono.metodoPago },
+          ]}
+        />
 
-        {abono.motivoRechazo && (
-          <p className="rounded-xl border border-red-400/40 bg-red-500/5 px-4 py-3 text-xs font-medium text-red-600 dark:text-red-400">
-            Rechazado: {abono.motivoRechazo}
-          </p>
-        )}
+        {abono.motivoRechazo && <DetalleAviso tono="peligro">Rechazado: {abono.motivoRechazo}</DetalleAviso>}
 
-        {/* ---- Consignación ---- */}
-        <section>
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Consignación
-          </p>
-          {abono.comprobante ? (
-            <a href={abono.comprobante} target="_blank" rel="noreferrer" title="Abrir la consignación completa">
-              <img
-                src={abono.comprobante}
-                alt={`Consignación del abono ${abono.id}`}
-                className="max-h-80 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain dark:border-white/10 dark:bg-white/5"
-              />
-            </a>
-          ) : (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-slate-200 py-8 text-center text-xs text-slate-400 dark:border-white/10">
-              <ImageOff size={22} strokeWidth={1.5} />
-              {abono.metodoPago === 'Transferencia'
+        <DetalleSeccion titulo="Consignación" icono={<ReceiptText size={15} />}>
+          <DetalleImagen
+            src={abono.comprobante}
+            alt={`Consignación del abono ${abono.id}`}
+            vacio={
+              abono.metodoPago === 'Transferencia'
                 ? 'Sin consignación adjunta.'
-                : `Pago en ${String(abono.metodoPago ?? '').toLowerCase()}: no requiere consignación.`}
-            </div>
-          )}
-        </section>
+                : `Pago en ${String(abono.metodoPago ?? '').toLowerCase()}: no requiere consignación.`
+            }
+          />
+        </DetalleSeccion>
         {/* ---- Motivo del rechazo ---- */}
-        {pendiente && rechazando && (
+        {(pendiente || puedeRevertir) && rechazando && (
           <label className="block">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Motivo del rechazo</span>
             <textarea

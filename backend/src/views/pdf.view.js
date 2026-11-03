@@ -349,7 +349,7 @@ export function enviarPdfAbono(res, { empresa, abono }) {
   if (abono.numeroDocumento) fila('Documento cliente', `${abono.tipoDocumento ?? ''} ${abono.numeroDocumento}`.trim());
   fila('Crédito', abono.credito);
   if (abono.factura) fila('Factura', abono.factura);
-  fila('Medio de pago', abono.medioPago);
+  fila('Método de pago', abono.medioPago);
 
   separador();
   fila('MONTO ABONADO', pesos(abono.monto), { negrita: true, tam: 10 });

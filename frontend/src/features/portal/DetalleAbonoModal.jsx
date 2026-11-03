@@ -1,5 +1,5 @@
-import { ImageOff, Receipt } from 'lucide-react';
-import Badge from '../../components/base/Badge';
+import { Receipt, ReceiptText } from 'lucide-react';
+import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../components/base/Detalle';
 import Modal from '../../components/base/Modal';
 
 /**
@@ -30,64 +30,36 @@ export default function DetalleAbonoModal({ abono, onClose }) {
     >
       <div className="space-y-5">
         {/* ---- Monto y estado, lo primero que se busca ---- */}
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-amber-400 bg-amber-400/10 px-5 py-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Monto abonado
-            </p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{abono.monto}</p>
-          </div>
-          <Badge>{abono.estado}</Badge>
-        </section>
+        <DetalleResumen etiqueta="Monto abonado" valor={abono.monto} estado={abono.estado} />
 
         {/* ---- Rechazado: por qué, y qué hacer ---- */}
         {abono.estado === 'Rechazado' && (
-          <p className="rounded-xl border border-red-400/40 bg-red-500/5 px-4 py-3 text-xs font-medium text-red-600 dark:text-red-400">
-            Motivo: {abono.motivoRechazo || 'el comprobante no se pudo validar.'} Vuelve a subir el abono desde la
-            tarjeta del crédito.
-          </p>
+          <DetalleAviso tono="peligro">
+            Motivo: {abono.motivoRechazo || 'el comprobante no se pudo validar.'} Vuelve a subir el abono desde la tarjeta
+            del crédito.
+          </DetalleAviso>
         )}
-
-        <dl className="space-y-3 text-sm">
-          {[
-            ['Crédito', abono.credito],
-            ['Fecha del pago', abono.fecha],
-            ['Método de pago', abono.metodoPago],
-          ].map(([etiqueta, valor]) => (
-            <div key={etiqueta} className="flex items-center justify-between gap-3">
-              <dt className="text-slate-500 dark:text-slate-400">{etiqueta}</dt>
-              <dd className="font-semibold text-slate-800 dark:text-slate-100">{valor || '—'}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {/* ---- Comprobante ---- */}
-        <figure>
-          <figcaption className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-            Comprobante de pago
-          </figcaption>
-          {abono.comprobante ? (
-            <img
-              src={abono.comprobante}
-              alt={`Comprobante del abono ${abono.id}`}
-              className="max-h-72 w-full rounded-xl border border-slate-200 bg-slate-50 object-contain dark:border-white/10 dark:bg-white/5"
-            />
-          ) : (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 text-slate-400 dark:border-white/10 dark:text-slate-500">
-              <ImageOff size={22} strokeWidth={1.5} />
-              <span className="text-xs font-medium">
-                Este pago se hizo en el local, sin comprobante adjunto.
-              </span>
-            </div>
-          )}
-        </figure>
-
         {abono.estado === 'Pendiente' && (
-          <p className="rounded-xl border border-amber-400/40 bg-amber-400/5 px-4 py-3 text-xs font-medium text-amber-600 dark:text-amber-400">
-            Un asesor está validando la consignación. Al confirmarla, el saldo de tu crédito se
-            actualiza.
-          </p>
+          <DetalleAviso>
+            Un asesor está validando la consignación. Al confirmarla, el saldo de tu crédito se actualiza.
+          </DetalleAviso>
         )}
+
+        <DetalleDatos
+          datos={[
+            { etiqueta: 'Crédito', valor: abono.credito },
+            { etiqueta: 'Fecha del pago', valor: abono.fecha },
+            { etiqueta: 'Método de pago', valor: abono.metodoPago },
+          ]}
+        />
+
+        <DetalleSeccion titulo="Comprobante de pago" icono={<ReceiptText size={15} />}>
+          <DetalleImagen
+            src={abono.comprobante}
+            alt={`Comprobante del abono ${abono.id}`}
+            vacio="Este pago se hizo en el local, sin comprobante adjunto."
+          />
+        </DetalleSeccion>
       </div>
     </Modal>
   );

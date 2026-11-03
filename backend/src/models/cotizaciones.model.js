@@ -34,6 +34,9 @@ const COTIZACION = {
     cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
     c.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     (SELECT v.numero FROM venta v WHERE v.cotizacion_id = c.id) AS venta,
+    -- A crédito, la cuota inicial solo se paga con la solicitud aprobada
+    (SELECT s.estado FROM solicitud_credito s WHERE s.cotizacion_id = c.id) AS "estadoSolicitudCredito",
+    (SELECT s.numero FROM solicitud_credito s WHERE s.cotizacion_id = c.id) AS "solicitudCredito",
     -- Pago de contado: estado de la consignación más reciente (null = no tiene)
     ${SUBCONSULTA_ESTADO} AS "pagoEstado",
     ${SUBCONSULTA_ESTADO_PAGO} AS "estadoPago",

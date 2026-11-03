@@ -113,8 +113,8 @@ export function CamposPago({ pago, onCambio, errores = {}, medios = mediosPago, 
 
 /** Estilo de cada consignación según su estado. */
 const ESTILO = {
-  'En revisión': 'border-2 border-amber-400 bg-amber-400/10',
-  Rechazado: 'border-2 border-red-400/70 opacity-60',
+  'En revisión': 'border border-amber-400/50 bg-amber-400/[0.08]',
+  Rechazado: 'border border-red-400/40 bg-red-500/[0.05] opacity-70',
   Aprobado: 'border border-slate-200 dark:border-white/10',
 };
 
@@ -148,7 +148,7 @@ export function TarjetaPago({ pago }) {
 }
 
 /**
- * Pago de contado dentro del detalle de una cotización: la consignación más
+ * Pago (de contado o cuota inicial) en el detalle de una cotización: la consignación más
  * reciente y, si hubo más de un intento, el botón "Desplegar historial de
  * pagos" con las anteriores. Con un solo pago aprobado, solo se ve ese.
  */
@@ -159,9 +159,7 @@ export function HistorialPagos({ pagos = [] }) {
 
   return (
     <section>
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-        Pago de contado
-      </p>
+      <h4 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-100">Pago</h4>
       <TarjetaPago pago={ultimo} />
       {anteriores.length > 0 && (
         <>

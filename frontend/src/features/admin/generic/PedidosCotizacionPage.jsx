@@ -14,6 +14,7 @@ import {
   ESTADOS_PAGO,
   ETAPAS_COTIZACION,
   metodosPago,
+  SOLICITUD_CREDITO_APROBADA,
 } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { cotizacionesService, proveedoresService, ventasService } from '../../../services';
@@ -245,9 +246,14 @@ export default function PedidosCotizacionPage() {
               icono={HandCoins}
               etiqueta="Ver pago y consignaciones"
               tono={row.pagoEstado === 'En revisión' ? 'destacado' : 'acento'}
-              // A crédito aceptado se abre también para registrar la cuota inicial
-              deshabilitado={!row.pagoEstado && !(row.metodoPago === 'Crédito' && row.etapa === 'Aceptada')}
-              motivo="Todavía no hay pagos registrados"
+              // A crédito se abre también para registrar la cuota inicial, pero
+              // solo con la solicitud de crédito aprobada
+              deshabilitado={!row.pagoEstado && !(row.metodoPago === 'Crédito' && SOLICITUD_CREDITO_APROBADA.includes(row.estadoSolicitudCredito))}
+              motivo={
+                row.metodoPago === 'Crédito'
+                  ? 'La cuota inicial se paga cuando la solicitud de crédito esté aprobada'
+                  : 'Todavía no hay pagos registrados'
+              }
               onClick={() => setPagosDe(row)}
             />
             {/* El comprobante solo se emite con la cotización cerrada */}

@@ -90,7 +90,7 @@ function PagarServicioModal({ servicio, onPagado, onClose }) {
         </section>
 
         <label className="block">
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Medio de pago</span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Método de pago</span>
           <select
             value={medio}
             onChange={(e) => setMedio(e.target.value)}

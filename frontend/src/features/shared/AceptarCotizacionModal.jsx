@@ -49,7 +49,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
 
   // Errores (se muestran después del primer intento). A crédito no se paga nada aquí.
   const errores = {};
-  if (!esCredito && !pago.medioPago) errores.medioPago = 'Elige el medio de pago';
+  if (!esCredito && !pago.medioPago) errores.medioPago = 'Elige el método de pago';
   else if (!esCredito && pideComprobante(pago.medioPago) && !pago.comprobante) errores.comprobante = 'Sube el comprobante del pago';
   const visibles = intento ? errores : {};
 
@@ -134,7 +134,7 @@ export default function AceptarCotizacionModal({ cotizacion, desdePortal = false
         {/* De contado se paga ya; a crédito, la cuota se paga después de aprobar */}
         {!esCredito && (
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-4">
-            <CamposPago pago={pago} onCambio={setPago} errores={visibles} medios={medios} etiqueta="Medio de pago" />
+            <CamposPago pago={pago} onCambio={setPago} errores={visibles} medios={medios} etiqueta="Método de pago" />
           </div>
         )}
 

@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Receipt, Wallet } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
+import { DetalleDatos, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
 import Modal from '../../../components/base/Modal';
+import { CREDITO_SIN_INICIAR } from '../../../constantes';
+import { usePrivilegio } from '../../../hooks/usePrivilegio';
 import { abonosService, creditosService } from '../../../services';
+import { formatCOP } from '../../../utils/formato';
 import ComprobanteAbonoModal from '../../shared/ComprobanteAbonoModal';
 import NuevoAbonoModal from './NuevoAbonoModal';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
@@ -54,11 +58,13 @@ export default function HistorialAbonosModal({ credito: inicial, onClose }) {
 
   const historial = credito.abonos ?? [];
   const pagado = Number(credito.saldoValor) <= 0;
+  const abonado = credito.montoTotalValor != null ? formatCOP(credito.montoTotalValor - credito.saldoValor) : '';
+  const puede = usePrivilegio();
 
   return (
     <>
       <Modal
-        title="Abonos del crédito"
+        title="Detalle del crédito"
         subtitle={`${credito.id} · ${credito.cliente}`}
         icon={<Wallet size={17} />}
         size="lg"
@@ -72,45 +78,45 @@ export default function HistorialAbonosModal({ credito: inicial, onClose }) {
             >
               Cerrar
             </button>
-            {/* Un crédito pagado al 100 % ya no recibe abonos */}
-            <button
-              type="button"
-              onClick={() => setRegistrando(true)}
-              disabled={pagado}
-              title={pagado ? 'El crédito ya está pagado' : undefined}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Plus size={16} /> {pagado ? 'Crédito pagado' : 'Subir abono'}
-            </button>
+            {/* Un crédito pagado al 100 % o sin empezar no recibe abonos */}
+            {puede('registrarAbono') && (
+              <button
+                type="button"
+                onClick={() => setRegistrando(true)}
+                disabled={pagado || !credito.iniciado}
+                title={pagado ? 'El crédito ya está pagado' : !credito.iniciado ? 'Empieza cuando se pague la cuota inicial' : undefined}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={16} /> {pagado ? 'Crédito pagado' : 'Subir abono'}
+              </button>
+            )}
           </>
         )}
       >
-        <div className="space-y-6">
+        <div className="space-y-5">
           <AvisoError mensaje={error} />
 
           {/* ---- Estado del crédito ---- */}
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              ['Monto total', credito.montoTotal],
-              ['Saldo pendiente', credito.saldoPendiente],
-              ['Plazo', `${credito.plazoDias} días`],
-              ['Vence', credito.fechaLimite],
-            ].map(([etiqueta, valor]) => (
-              <div key={etiqueta} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  {etiqueta}
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{valor}</p>
-              </div>
-            ))}
-          </section>
+          <DetalleResumen
+            etiqueta="Saldo pendiente"
+            valor={credito.saldoPendiente ?? '—'}
+            nota={credito.montoTotal ? `De ${credito.montoTotal} · ${credito.iniciado ? 'en curso' : CREDITO_SIN_INICIAR}` : null}
+            estado={credito.estado}
+          />
+          <DetalleDatos
+            columnas={4}
+            datos={[
+              { etiqueta: 'Cotización', valor: credito.cotizacion },
+              { etiqueta: 'Venta', valor: credito.venta },
+              { etiqueta: 'Plazo', valor: credito.plazoDias ? `${credito.plazoDias} días` : '' },
+              { etiqueta: 'Abonado', valor: abonado },
+              { etiqueta: 'Apertura', valor: credito.fechaApertura },
+              { etiqueta: 'Vence', valor: credito.iniciado ? credito.fechaLimite : '' },
+            ]}
+          />
 
           {/* ---- Historial ---- */}
-          <section>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-              Historial de abonos
-            </p>
-
+          <DetalleSeccion titulo="Historial de abonos" icono={<Receipt size={15} />}>
             {historial.length === 0 && cargando ? (
               <SkeletonLineas lineas={4} className="rounded-xl border border-slate-200 p-4 dark:border-white/10" />
             ) : historial.length === 0 ? (
@@ -147,7 +153,7 @@ export default function HistorialAbonosModal({ credito: inicial, onClose }) {
                 ))}
               </ul>
             )}
-          </section>
+          </DetalleSeccion>
         </div>
       </Modal>
 

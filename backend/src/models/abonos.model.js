@@ -11,7 +11,7 @@ import { actualizarCampos, consultarListado } from './listado.model.js';
  */
 
 const SELECT_ABONO = `
-  a.id, a.numero, a.fecha, a.monto, a.medio_pago AS "medioPago",
+  a.id, a.numero, a.fecha, a.monto, a.metodo_pago AS "medioPago",
   a.comprobante_url AS "comprobanteUrl", a.estado, a.motivo_rechazo AS "motivoRechazo",
   cr.numero AS credito, v.numero AS factura, cl.nombre_completo AS cliente,
   cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
@@ -31,7 +31,7 @@ export function listar(parametros) {
       select: SELECT_ABONO,
       desde: DESDE,
       buscarEn: ['a.numero', 'cr.numero', 'cl.nombre_completo'],
-      filtros: { estado: 'a.estado', medioPago: 'a.medio_pago', credito: 'cr.numero' },
+      filtros: { estado: 'a.estado', medioPago: 'a.metodo_pago', credito: 'cr.numero' },
       columnaCliente: 'cr.cliente_id',
       orden: 'a.fecha DESC, a.id DESC',
     },
@@ -72,7 +72,7 @@ export async function bloquearConCredito(db, numero) {
 /** Registra un abono pendiente con su número (ABO-AAAA-NNN) y lo devuelve. */
 export async function crear(db, { creditoId, monto, medioPago, comprobante, claveIdempotencia, estado = 'Pendiente' }) {
   const { rows } = await db.query(
-    `INSERT INTO abono (numero, credito_id, monto, medio_pago, comprobante_url, clave_idempotencia, estado)
+    `INSERT INTO abono (numero, credito_id, monto, metodo_pago, comprobante_url, clave_idempotencia, estado)
      VALUES (siguiente_numero('ABO'), $1, $2, $3, $4, $5, $6)
      RETURNING numero`,
     [creditoId, monto, medioPago, comprobante ?? null, claveIdempotencia ?? null, estado],

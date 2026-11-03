@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Check, HandCoins, X } from 'lucide-react';
+import { Check, HandCoins, Lock, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
+import { DetalleAviso } from '../../../components/base/Detalle';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { cotizacionesService } from '../../../services';
-import { MEDIOS_PAGO_CLIENTE } from '../../../constantes';
+import { MEDIOS_PAGO_CLIENTE, SOLICITUD_CREDITO_APROBADA } from '../../../constantes';
 import { CamposPago, pideComprobante, TarjetaPago } from '../../shared/PagoConsignacion';
 import { SkeletonLineas } from '../../../components/base/Skeleton';
 import { MAX_TEXTO } from '../../../utils/validaciones';
@@ -31,8 +32,10 @@ export default function PagosCotizacionModal({ cotizacion: inicial, onResuelto, 
   const { enviando, errorEnvio, enviar } = useEnvio();
   const pagos = cotizacion.pagos ?? [];
   const porRevisar = pagos[0]?.estado === 'En revisión';
-  // Crédito sin cuota pagada (o con la última rechazada): se puede registrar en el local
-  const puedeRegistrarCuota = cotizacion.metodoPago === 'Crédito' && (pagos.length === 0 || pagos[0]?.estado === 'Rechazado');
+  const esCredito = cotizacion.metodoPago === 'Crédito';
+  const solicitudAprobada = SOLICITUD_CREDITO_APROBADA.includes(cotizacion.estadoSolicitudCredito);
+  // Crédito aprobado sin cuota pagada (o con la última rechazada): se puede registrar en el local
+  const puedeRegistrarCuota = esCredito && solicitudAprobada && (pagos.length === 0 || pagos[0]?.estado === 'Rechazado');
   const [cuota, setCuota] = useState({ medioPago: '', comprobante: '' });
   const cuotaLista = cuota.medioPago && (!pideComprobante(cuota.medioPago) || cuota.comprobante);
   const registrarCuota = () =>
@@ -126,14 +129,20 @@ export default function PagosCotizacionModal({ cotizacion: inicial, onResuelto, 
       <div className="space-y-3">
         <AvisoError mensaje={error || errorEnvio} />
         {cargando && <SkeletonLineas lineas={3} />}
-        {!cargando && pagos.length === 0 && !puedeRegistrarCuota && (
+        {!cargando && esCredito && !solicitudAprobada && (
+          <DetalleAviso icono={<Lock size={15} />}>
+            La cuota inicial se paga cuando el crédito esté aprobado.
+            {cotizacion.solicitudCredito && ` La solicitud ${cotizacion.solicitudCredito} está "${cotizacion.estadoSolicitudCredito}": revísala en Solicitudes de crédito.`}
+          </DetalleAviso>
+        )}
+        {!cargando && pagos.length === 0 && !puedeRegistrarCuota && !esCredito && (
           <p className="text-sm text-slate-400">Esta cotización no tiene consignaciones registradas.</p>
         )}
         {!cargando && puedeRegistrarCuota && !porRevisar && (
           <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-4">
             <p className="mb-3 text-xs text-slate-600 dark:text-slate-300">
               Cuota inicial del crédito: <strong>{cotizacion.cuotaInicial}</strong>. Regístrala si el cliente la paga en el
-              local (el crédito debe estar aprobado).
+              local.
             </p>
             <CamposPago pago={cuota} onCambio={setCuota} medios={MEDIOS_PAGO_CLIENTE} />
           </div>

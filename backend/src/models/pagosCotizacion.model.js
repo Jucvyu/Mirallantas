@@ -7,13 +7,13 @@ import { POOL } from './listado.model.js';
  * la más reciente es la que cuenta; las rechazadas quedan como historial.
  */
 
-const SELECT = `id, monto, medio_pago AS "medioPago", comprobante, estado, motivo,
+const SELECT = `id, monto, metodo_pago AS "medioPago", comprobante, estado, motivo,
   creado_en AS fecha, revisado_en AS "revisadoEn"`;
 
 /** Registra una consignación "En revisión". */
 export async function crear(db, { cotizacionId, monto, medioPago, comprobante }) {
   await db.query(
-    'INSERT INTO pago_cotizacion (cotizacion_id, monto, medio_pago, comprobante) VALUES ($1, $2, $3, $4)',
+    'INSERT INTO pago_cotizacion (cotizacion_id, monto, metodo_pago, comprobante) VALUES ($1, $2, $3, $4)',
     [cotizacionId, monto, medioPago, comprobante ?? null],
   );
 }
@@ -30,7 +30,7 @@ export async function deCotizacion(cotizacionId, db = POOL) {
 /** Historiales de todas las cotizaciones de un cliente (portal). */
 export async function deCliente(clienteId) {
   const { rows } = await query(
-    `SELECT p.cotizacion_id AS "cotizacionId", p.id, p.monto, p.medio_pago AS "medioPago", p.comprobante,
+    `SELECT p.cotizacion_id AS "cotizacionId", p.id, p.monto, p.metodo_pago AS "medioPago", p.comprobante,
             p.estado, p.motivo, p.creado_en AS fecha, p.revisado_en AS "revisadoEn"
        FROM pago_cotizacion p JOIN cotizacion c ON c.id = p.cotizacion_id
       WHERE c.cliente_id = $1
@@ -43,7 +43,7 @@ export async function deCliente(clienteId) {
 /** El pago más reciente, bloqueado hasta terminar la transacción (o null). */
 export async function ultimoBloqueado(db, cotizacionId) {
   const { rows } = await db.query(
-    `SELECT id, estado, monto, medio_pago AS "medioPago", comprobante FROM pago_cotizacion WHERE cotizacion_id = $1
+    `SELECT id, estado, monto, metodo_pago AS "medioPago", comprobante FROM pago_cotizacion WHERE cotizacion_id = $1
       ORDER BY creado_en DESC, id DESC LIMIT 1 FOR UPDATE`,
     [cotizacionId],
   );

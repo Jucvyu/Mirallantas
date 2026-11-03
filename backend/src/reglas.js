@@ -29,7 +29,7 @@ export const VIGENCIA_COTIZACION_DIAS = 8;
 
 /**
  * Medios con los que paga un cliente desde el portal. En el local el asesor
- * puede registrar además los demás medios de la tabla medio_pago.
+ * puede registrar además los demás medios de la tabla metodo_pago.
  */
 export const MEDIOS_PAGO_CLIENTE = ['Efectivo', 'Transferencia'];
 
@@ -56,8 +56,8 @@ export function exigirAbonoMinimo(monto, saldo) {
 /** Servicio que se asume cuando el cliente pide un reencauche. */
 export const SERVICIO_POR_DEFECTO = 'Reencauche';
 
-// Los métodos de pago (Contado, Crédito), los medios de pago y los tipos de
-// documento viven en la base de datos (tablas metodo_pago, medio_pago y
+// Los métodos de pago (Contado, Crédito, Efectivo, Transferencia…) y los tipos de
+// documento viven en la base de datos (tablas metodo_pago y
 // tipo_documento). Las reglas de aquí usan sus nombres: 'Crédito', 'Efectivo'…
 export const ESTADOS_EVIDENCIA = ['Pendiente de revisión', 'Apta', 'No apta'];
 

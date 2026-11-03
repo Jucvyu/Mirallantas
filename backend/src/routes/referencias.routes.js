@@ -4,7 +4,7 @@ import * as controlador from '../controllers/referencias.controller.js';
 /**
  * Rutas de las listas del sistema (/api/referencias).
  *
- *   GET /   tipos de documento, métodos de pago y medios de pago
+ *   GET /   tipos de documento y métodos de pago
  */
 export const rutasReferencias = Router();
 

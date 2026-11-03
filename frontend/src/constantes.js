@@ -13,9 +13,9 @@
 // =========================================================================
 
 // -------------------------------------------------------------------------
-// Listas que viven en la base de datos (tablas tipo_documento, metodo_pago
-// y medio_pago). Empiezan vacías y se llenan al abrir la app con
-// GET /api/referencias (ver services/referencias.service.js y main.jsx).
+// Listas que viven en la base de datos (tablas tipo_documento y metodo_pago).
+// Empiezan vacías y se llenan al abrir la app con GET /api/referencias (ver
+// services/referencias.service.js y main.jsx).
 // Se llenan "en el mismo arreglo", así que cualquier formulario que las
 // importe ve los datos de la base.
 // -------------------------------------------------------------------------
@@ -23,11 +23,14 @@
 /** Códigos de documento: CC, CE, NIT, Pasaporte… */
 export const tiposDocumento = [];
 
-/** Forma en que se pacta el pago de una venta: Contado o Crédito. */
+/** Métodos con los que se pacta una venta (tipo "forma"): Contado o Crédito. */
 export const metodosPago = [];
 
-/** Medio concreto con el que se paga un abono o la cuota inicial. */
+/** Métodos con los que se paga un abono o la cuota inicial (tipo "medio"). */
 export const mediosPago = [];
+
+/** Estados de la solicitud de crédito con los que ya se puede pagar la cuota inicial. */
+export const SOLICITUD_CREDITO_APROBADA = ['Pendiente de cuota inicial', 'Aprobada'];
 
 /** Abono mínimo de un crédito (el último pago, por el saldo exacto, puede ser menor). */
 export const ABONO_MINIMO = 20000;
@@ -133,11 +136,6 @@ export const FLUJO_ESTADOS_SERVICIO = {
 export const estadosEvidenciaCarcasa = ['Pendiente de revisión', 'Apta', 'No apta'];
 
 export const estadosAbono = ['Pendiente', 'Confirmado', 'Rechazado'];
-export const FLUJO_ESTADOS_ABONO = {
-  Pendiente: ['Confirmado', 'Rechazado'],
-  Confirmado: [],
-  Rechazado: [],
-};
 
 // El estado no se cambia a mano: aprobar la solicitud la deja "Pendiente de
 // cuota inicial" (si la lleva) y pasa sola a "Aprobada" al confirmarse ese pago

@@ -24,6 +24,7 @@ import ExportarModal from '../ExportarModal';
 import { textoDeNodo } from '../../../utils/exportar';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useReferencias } from '../../../hooks/useReferencias';
 import { permisoDeRuta } from '../../../permisos';
 
 const PAGE_SIZE = 8;
@@ -154,6 +155,8 @@ export default function DataTable({
   expandir,
   entityGender,
 }) {
+  // Las opciones de los filtros pueden venir de las listas del sistema
+  useReferencias();
   const femenino = entityGender ? entityGender === 'f' : esFemenino(entityName);
   const nuevo = femenino ? 'Nueva' : 'Nuevo';
   const rows = data;
@@ -567,10 +570,14 @@ export default function DataTable({
       {dialog?.mode === 'view' && (
         <FormModal
           mode="view"
-          title={`Detalle de ${femenino ? 'la' : 'el'} ${entityName}`}
+          title={`Detalle ${femenino ? 'de la' : 'del'} ${entityName}`}
           subtitle={String(dialog.row.id)}
           sections={sections}
           initialValues={dialog.row}
+          resumen={{
+            titulo: dialog.row[titleKey] ?? dialog.row.id,
+            estado: statusKey ? dialog.row[statusKey] : null,
+          }}
           onClose={() => setDialog(null)}
         />
       )}

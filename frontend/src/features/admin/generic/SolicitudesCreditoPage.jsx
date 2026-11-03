@@ -11,7 +11,7 @@ import { clientesSeleccionablesService, solicitudesCreditoService } from '../../
 import DetalleSolicitudCreditoModal from './DetalleSolicitudCreditoModal';
 
 // Solicitudes de crédito. Cada cotización-pedido a crédito crea la suya
-// (Pendiente). El administrador revisa el detalle ("Ver detalle") y la
+// (Pendiente). El administrador revisa "Ver detalle y consignación" y la
 // aprueba o no: al aprobarla, la API abre el crédito en la cartera del
 // cliente y la solicitud queda "Pendiente de cuota inicial" hasta que se
 // confirma ese pago (entonces pasa sola a "Aprobada"); al no aprobarla, la
@@ -32,17 +32,10 @@ function seccionesFormulario(opciones) {
     {
       title: 'Datos de la solicitud',
       fields: [
-        // Al crear se eligen; después solo se consultan
         // Buscador por nombre o documento: guarda el id real del cliente
-        { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opciones, placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente', only: 'create' },
-        { key: 'cliente', label: 'Cliente', only: 'view' },
-        { key: 'monto', label: 'Monto solicitado (COP)', type: 'money', required: true, placeholder: '800.000', only: 'create' },
-        { key: 'monto', label: 'Monto solicitado (COP)', only: 'view' },
-        { key: 'plazoDias', label: 'Plazo (días)', type: 'select', required: true, options: PLAZOS_CREDITO.map(String), only: 'create' },
-        { key: 'plazoDias', label: 'Plazo (días)', only: 'view' },
-        { key: 'fecha', label: 'Fecha', only: 'view' },
-        { key: 'estado', label: 'Estado', only: 'view' },
-        { key: 'motivo', label: 'Motivo del rechazo', type: 'textarea', span: 2, only: 'view' },
+        { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opciones, placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente' },
+        { key: 'monto', label: 'Monto solicitado (COP)', type: 'money', required: true, placeholder: '800.000' },
+        { key: 'plazoDias', label: 'Plazo (días)', type: 'select', required: true, options: PLAZOS_CREDITO.map(String) },
       ],
     },
   ];
@@ -51,7 +44,7 @@ function seccionesFormulario(opciones) {
 export default function SolicitudesCreditoPage() {
   const clientes = useRecurso(clientesSeleccionablesService);
   const solicitudes = useRecurso(solicitudesCreditoService);
-  // Solicitud abierta en "Ver detalle"
+  // Solicitud abierta en "Ver detalle y consignación"
   const [detalleDe, setDetalleDe] = useState(null);
 
   return (
@@ -65,7 +58,8 @@ export default function SolicitudesCreditoPage() {
         error={solicitudes.error}
         onRecargar={solicitudes.recargar}
         onCreate={(valores) => solicitudes.crear(valores, { clientes: clientes.filas })}
-        // Nada se edita a mano: se aprueba o rechaza desde "Ver detalle"
+        // Nada se edita a mano: se aprueba o rechaza desde "Ver detalle y consignación"
+        canView={false}
         canEdit={false}
         onDelete={solicitudes.eliminar}
         statusKey="estado"
@@ -79,7 +73,14 @@ export default function SolicitudesCreditoPage() {
           { key: 'cliente', label: 'Cliente' },
         ]}
         rowActions={(row) => (
-          <BotonAccion accion="verDetalle" icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
+          // Pendiente de revisión: el botón resalta para que no se pase por alto
+          <BotonAccion
+            accion="verDetalle"
+            icono={FileText}
+            etiqueta={row.estado === 'Pendiente' ? 'Ver detalle y consignación · Pendiente de revisión' : 'Ver detalle y consignación'}
+            tono={row.estado === 'Pendiente' ? 'destacado' : 'acento'}
+            onClick={() => setDetalleDe(row)}
+          />
         )}
       />
 

@@ -40,29 +40,6 @@ const columns = [
   { key: 'estado', label: 'Estado' },
 ];
 
-// Solo para consultar el detalle: un crédito no se edita a mano
-const formSections = [
-  {
-    title: 'Origen del crédito',
-    fields: [
-      { key: 'cliente', label: 'Cliente' },
-      { key: 'cotizacion', label: 'Cotización financiada' },
-      { key: 'venta', label: 'Venta' },
-      { key: 'montoTotal', label: 'Monto total (COP)' },
-      { key: 'saldoPendiente', label: 'Saldo pendiente (COP)' },
-    ],
-  },
-  {
-    title: 'Plazo',
-    fields: [
-      { key: 'plazoDias', label: 'Plazo (días)' },
-      { key: 'fechaApertura', label: 'Fecha de apertura' },
-      { key: 'fechaLimite', label: 'Fecha límite' },
-      { key: 'estado', label: 'Estado' },
-    ],
-  },
-];
-
 export default function CreditosPage() {
   // Crédito cuyo historial de abonos se está consultando
   const [abonosDe, setAbonosDe] = useState(null);
@@ -79,9 +56,10 @@ export default function CreditosPage() {
         error={creditos.error}
         onRecargar={creditos.recargar}
         onStatusChange={(fila, estado) => creditos.ejecutar(() => creditosService.cambiarEstado(fila, estado))}
-        formSections={formSections}
         entityName="crédito"
         titleKey="cliente"
+        // El detalle es el del botón de abonos: datos del crédito e historial
+        canView={false}
         canEdit={false}
         canDelete={false}
         statusKey="estado"
@@ -92,12 +70,10 @@ export default function CreditosPage() {
           { key: 'cliente', label: 'Cliente' },
         ]}
         rowActions={(row) => (
-          <BotonAccion accion="registrarAbono"
+          <BotonAccion accion="verDetalle"
             icono={Wallet}
-            etiqueta="Subir abonos y ver el historial"
+            etiqueta="Ver detalle, historial y subir abonos"
             tono="destacado"
-            deshabilitado={!row.iniciado}
-            motivo="Empieza cuando se pague la cuota inicial"
             onClick={() => setAbonosDe(row)}
           />
         )}

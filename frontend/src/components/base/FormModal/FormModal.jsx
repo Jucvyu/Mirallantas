@@ -4,6 +4,7 @@ import AvisoError from '../AvisoError';
 import Modal from '../Modal';
 import { errorDeCampo } from '../../../utils/validaciones';
 import Field from './Field';
+import VistaDetalle from './VistaDetalle';
 
 /** Deja los importes con el mismo formato que usa el resto de las tablas. */
 function formatMoney(raw) {
@@ -23,7 +24,8 @@ const MODE_META = {
  * "Detalle" con la misma definición de campos.
  *
  * sections: [{ title, fields: [ ...ver Field.jsx ] }]
- * mode: 'create' | 'edit' | 'view'
+ * mode: 'create' | 'edit' | 'view' (en "view" los datos se leen como texto,
+ *   ver VistaDetalle; `resumen` = { titulo, estado } encabeza ese detalle)
  * validate: (values) => ({ campo: 'mensaje' }) para las reglas que miran
  *   varios campos a la vez, como la cuota inicial frente al total
  *
@@ -46,6 +48,7 @@ export default function FormModal({
   validate,
   onSubmit,
   onClose,
+  resumen,
 }) {
   const [values, setValues] = useState(initialValues);
   // Campos que el usuario ya tocó: solo esos muestran sus avisos
@@ -180,6 +183,9 @@ export default function FormModal({
       onClose={onClose}
       footer={footer}
     >
+      {mode === 'view' ? (
+        <VistaDetalle sections={sections} values={values} resumen={resumen} />
+      ) : (
       <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
         <AvisoError mensaje={errorGeneral} />
         {sections.map((section) => (
@@ -208,6 +214,7 @@ export default function FormModal({
           </fieldset>
         ))}
       </form>
+      )}
     </Modal>
   );
 }

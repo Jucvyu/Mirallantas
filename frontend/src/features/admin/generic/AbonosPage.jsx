@@ -4,17 +4,17 @@ import BotonAccion from '../../../components/base/BotonAccion';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { columnaCliente } from '../../../components/base/celdaCliente';
-import { estadosAbono, FLUJO_ESTADOS_ABONO, mediosPago } from '../../../constantes';
+import { estadosAbono, mediosPago } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { abonosService } from '../../../services';
 import ComprobanteAbonoModal from '../../shared/ComprobanteAbonoModal';
 import DetalleAbonoAdminModal from './DetalleAbonoAdminModal';
 import NuevoAbonoModal from './NuevoAbonoModal';
 
-// Tabla `abono`. El asesor revisa la consignación ("Ver detalle") y pasa el
-// abono a "Confirmado": en ese momento la API descuenta el monto del saldo
-// del crédito y sube el saldo usable del cliente. Un abono no se elimina
-// nunca del sistema.
+// Tabla `abono`. El estado no se cambia desde la tabla: el asesor revisa la
+// consignación en "Ver detalle y consignación" y desde ahí lo confirma o lo
+// rechaza. Al confirmarlo, la API descuenta el monto del saldo del crédito y
+// lo suma a la venta. Un abono no se elimina nunca del sistema.
 const columns = [
   { key: 'id', label: 'Nº Abono' },
   { key: 'credito', label: 'Crédito' },
@@ -26,7 +26,7 @@ const columns = [
 ];
 
 // El alta se hace desde `NuevoAbonoModal`; este esquema cubre la edición
-// (solo de abonos pendientes) y el detalle.
+// (solo de abonos pendientes).
 const formSections = [
   {
     title: 'Crédito asociado',
@@ -39,18 +39,9 @@ const formSections = [
     title: 'Pago',
     fields: [
       { key: 'monto', label: 'Monto (COP)', type: 'money', required: true, placeholder: '2.000.000' },
-      { key: 'fecha', label: 'Fecha del abono', only: ['edit', 'view'], soloLectura: true },
+      { key: 'fecha', label: 'Fecha del abono', soloLectura: true },
       { key: 'metodoPago', label: 'Método de pago', type: 'select', required: true, options: mediosPago },
-      { key: 'estado', label: 'Estado', type: 'select', options: estadosAbono, only: ['edit', 'view'] },
-      {
-        key: 'comprobante',
-        label: 'Comprobante de pago',
-        type: 'image',
-        span: 2,
-        only: 'view',
-        placeholder: 'Pantallazo de la consignación',
-        hint: 'Debe validarse antes de confirmar el abono.',
-      },
+      { key: 'estado', label: 'Estado', soloLectura: true },
     ],
   },
 ];
@@ -74,24 +65,32 @@ export default function AbonosPage() {
         onRecargar={abonos.recargar}
         onCreate={abonos.crear}
         onEdit={abonos.editar}
-        onStatusChange={(fila, estado) => abonos.ejecutar(() => abonosService.cambiarEstado(fila, estado))}
         statusKey="estado"
         newLabel="Nuevo abono"
         formSections={formSections}
         entityName="abono"
         titleKey="credito"
         statusOptions={estadosAbono}
-        statusFlow={FLUJO_ESTADOS_ABONO}
         filters={[
           { key: 'estado', label: 'Estado', options: estadosAbono },
           { key: 'metodoPago', label: 'Pago', options: mediosPago },
           { key: 'cliente', label: 'Cliente' },
         ]}
         createModal={({ onSubmit, onClose }) => <NuevoAbonoModal onSubmit={onSubmit} onClose={onClose} />}
+        canView={false}
         canDelete={false}
+        canEdit={(row) => row.estado === 'Pendiente'}
+        motivoNoEditable="Solo se corrige un abono pendiente"
         rowActions={(row) => (
           <>
-            <BotonAccion accion="verDetalle" icono={FileText} etiqueta="Ver detalle y consignación" tono="acento" onClick={() => setDetalleDe(row)} />
+            {/* Pendiente de revisión: el botón resalta para que no se pase por alto */}
+            <BotonAccion
+              accion="verDetalle"
+              icono={FileText}
+              etiqueta={row.estado === 'Pendiente' ? 'Ver detalle y consignación · Pendiente de revisión' : 'Ver detalle y consignación'}
+              tono={row.estado === 'Pendiente' ? 'destacado' : 'acento'}
+              onClick={() => setDetalleDe(row)}
+            />
             {/* El comprobante solo se emite con el abono ya validado */}
             <BotonAccion accion="descargarPdf"
               icono={Receipt}

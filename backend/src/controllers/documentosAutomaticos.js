@@ -25,15 +25,16 @@ import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 /**
  * El cliente pagó (consignación de contado aprobada, o crédito aprobado con
  * su cuota inicial): queda registrada la venta, todavía "Pendiente" hasta
- * que el pedido se complete. Si alguna línea aún no tiene precio (un
- * reencauche que se cobra aparte), la venta se genera al completarla.
+ * que el pedido se complete. De contado, si alguna línea aún no tiene precio
+ * (un reencauche que se cobra aparte), la venta se genera al completarla; a
+ * crédito nace de una vez, porque cada abono confirmado ya cuenta como venta.
  */
 export async function registrarVentaPagada(db, cotizacionId) {
   const cotizacion = await cotizacionesModel.fila(db, cotizacionId);
   // Solo servicios (que se cobran aparte): no hay venta de productos que registrar
   if (cotizacion.total <= 0) return;
   if (await ventasModel.deCotizacion(db, cotizacionId)) return;
-  if (await cotizacionesModel.tieneLineasSinPrecio(db, cotizacionId)) return;
+  if (cotizacion.metodo_pago !== 'Crédito' && (await cotizacionesModel.tieneLineasSinPrecio(db, cotizacionId))) return;
   const ventaId = await ventasModel.crearDesdeCotizacion(db, cotizacion, 'Pendiente');
   // Si la cotización se financió, su crédito queda ligado a la venta
   await creditosModel.ligarVenta(db, cotizacionId, ventaId);
@@ -119,6 +120,20 @@ export async function abonarCuotaInicial(db, cotizacionId, pago) {
   ]);
 }
 
+/**
+ * Un abono cambió de estado: la venta del crédito vale lo confirmado. Si el
+ * crédito aún no tiene venta (nació de una cotización que seguía sin ella) se
+ * crea, para que ningún abono confirmado se quede por fuera de las ventas.
+ */
+export async function reflejarAbonoEnVenta(db, { ventaId, cotizacionId }) {
+  let venta = ventaId;
+  if (!venta && cotizacionId) {
+    await registrarVentaPagada(db, cotizacionId);
+    venta = (await ventasModel.deCotizacion(db, cotizacionId))?.id;
+  }
+  if (venta) await ventasModel.recalcularTotalCredito(db, venta);
+}
+
 /** La cotización se completó: su venta queda "Completada" (y se crea si faltaba). */
 export async function completarVenta(db, cotizacionId) {
   const cotizacion = await cotizacionesModel.fila(db, cotizacionId);
@@ -126,6 +141,8 @@ export async function completarVenta(db, cotizacionId) {
   const venta = await ventasModel.deCotizacion(db, cotizacionId);
   if (venta) {
     if (venta.estado === 'Pendiente') await ventasModel.actualizar(db, venta.id, [['estado', 'Completada']]);
+    // Pudo nacer antes de que un reencauche tuviera precio
+    await ventasModel.copiarLineas(db, venta.id, cotizacionId);
     return;
   }
   if (await cotizacionesModel.tieneLineasSinPrecio(db, cotizacionId)) {

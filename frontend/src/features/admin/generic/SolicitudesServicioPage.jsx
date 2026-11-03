@@ -4,7 +4,7 @@ import DataTable from '../../../components/base/DataTable';
 import { columnaCliente } from '../../../components/base/celdaCliente';
 import FormModal from '../../../components/base/FormModal';
 import PageHeader from '../../../components/base/PageHeader';
-import { estadosEvidenciaCarcasa, estadosServicio } from '../../../constantes';
+import { estadosServicio } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { opcionesClientes, opcionesEmpresas } from '../../../utils/opciones';
 import { clientesSeleccionablesService, solicitudesServicioService, tercerosService } from '../../../services';
@@ -85,6 +85,7 @@ function seccionesFormulario({ clientes, terceros }) {
         // Buscador por nombre o documento: guarda el id real del cliente
         { key: 'clienteId', label: 'Cliente', type: 'buscador', required: true, options: opcionesClientes(clientes), placeholderBusqueda: 'Nombre o número de documento', emptyLabel: 'cliente', only: 'create' },
         { key: 'cliente', label: 'Cliente', only: ['edit', 'view'], soloLectura: true },
+        // Al crear solo se pide la solicitud: lo demás se define en la revisión de la carcasa
         {
           key: 'terceroId',
           label: 'Reencauchadora',
@@ -94,8 +95,9 @@ function seccionesFormulario({ clientes, terceros }) {
           placeholderBusqueda: 'Razón social o NIT',
           emptyLabel: 'tercero',
           hint: 'Se asigna cuando la carcasa pasa la revisión.',
+          only: 'edit',
         },
-        { key: 'fecha', label: 'Fecha de recepción', type: 'date' },
+        { key: 'fecha', label: 'Fecha de recepción', type: 'date', only: 'edit' },
       ],
     },
     {
@@ -110,12 +112,11 @@ function seccionesFormulario({ clientes, terceros }) {
     {
       title: 'Condiciones',
       fields: [
-        // Al crear se elige; después se cambia con "Revisar la carcasa" (lleva su observación)
-        { key: 'estadoEvidencia', label: 'Estado de la evidencia', type: 'select', options: estadosEvidenciaCarcasa, only: 'create' },
-        { key: 'estadoEvidencia', label: 'Estado de la evidencia', only: ['edit', 'view'], soloLectura: true },
-        { key: 'tiempoEstimado', label: 'Tiempo estimado', placeholder: '9 días' },
+        // Se cambia con "Revisar la carcasa" (lleva su observación); nace pendiente de revisión
+        { key: 'estadoEvidencia', label: 'Estado de la evidencia', only: 'edit', soloLectura: true },
+        { key: 'tiempoEstimado', label: 'Tiempo estimado', placeholder: '9 días', only: 'edit' },
         // Sí / No: se resuelve mejor con un interruptor que con un desplegable
-        { key: 'garantia', label: '¿Incluye garantía?', type: 'switch' },
+        { key: 'garantia', label: '¿Incluye garantía?', type: 'switch', only: 'edit' },
       ],
     },
   ];

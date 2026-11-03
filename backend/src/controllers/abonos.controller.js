@@ -9,6 +9,7 @@ import { pesos, validarTransicion, exigirAbonoMinimo } from '../reglas.js';
 import { enviarDato, enviarLista } from '../views/respuesta.view.js';
 import { enviarPdfAbono } from '../views/pdf.view.js';
 import * as empresaModel from '../models/empresa.model.js';
+import { reflejarAbonoEnVenta } from './documentosAutomaticos.js';
 
 /**
  * Controlador de abonos (validación del asesor).
@@ -110,7 +111,7 @@ export async function actualizar(req, res) {
       await abonosModel.actualizar(db, abono.id, [['monto', cambios.monto]]);
       abono.monto = cambios.monto;
     }
-    if (cambios.medioPago) await abonosModel.actualizar(db, abono.id, [['medio_pago', cambios.medioPago]]);
+    if (cambios.medioPago) await abonosModel.actualizar(db, abono.id, [['metodo_pago', cambios.medioPago]]);
 
     // ---- Cambio de estado
     if (cambios.estado && cambios.estado !== abono.estado) {
@@ -136,7 +137,7 @@ export async function actualizar(req, res) {
         ['motivo_rechazo', motivo],
       ]);
       // La venta a crédito vale lo confirmado: se recalcula tras el cambio
-      if (abono.venta_id) await ventasModel.recalcularTotalCredito(db, abono.venta_id);
+      await reflejarAbonoEnVenta(db, { ventaId: abono.venta_id, cotizacionId: abono.cotizacion_id });
       await notificaciones.crear(
         cambios.estado === 'Confirmado'
           ? {

@@ -74,7 +74,7 @@ export async function creditos(clienteId) {
 /** Abonos de todos los créditos del cliente. */
 export async function abonos(clienteId) {
   const { rows } = await query(
-    `SELECT a.id, a.numero, a.fecha, a.monto, a.medio_pago AS "medioPago",
+    `SELECT a.id, a.numero, a.fecha, a.monto, a.metodo_pago AS "medioPago",
             a.comprobante_url AS "comprobanteUrl", a.estado, a.motivo_rechazo AS "motivoRechazo",
             cr.numero AS credito
        FROM abono a JOIN credito cr ON cr.id = a.credito_id

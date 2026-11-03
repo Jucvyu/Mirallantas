@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { Check, Eye, HandCoins, Package, ReceiptText, Wrench, X } from 'lucide-react';
+import { Check, Eye, HandCoins, Package, ReceiptText, X } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
-import Badge from '../../../components/base/Badge';
+import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleLineas, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
 import Modal from '../../../components/base/Modal';
 import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
 import { useDetalle } from '../../../hooks/useDetalle';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { cotizacionesService, solicitudesCreditoService } from '../../../services';
 import DetalleCotizacionModal from '../../shared/DetalleCotizacionModal';
-import { SkeletonLineas } from '../../../components/base/Skeleton';
 import { MAX_TEXTO } from '../../../utils/validaciones';
 import { usePrivilegio } from '../../../hooks/usePrivilegio';
 
@@ -109,117 +108,68 @@ export default function DetalleSolicitudCreditoModal({ solicitud: inicial, onRes
       onClose={onClose}
       footer={pie}
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         <AvisoError mensaje={error || errorEnvio} />
 
-        {/* ---- Resumen ---- */}
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { label: 'Cotización', valor: solicitud.cotizacion || 'Sin cotización' },
-            { label: 'Total del pedido', valor: solicitud.totalCotizacion || '—' },
-            { label: 'Monto a financiar', valor: solicitud.monto },
-            { label: 'Plazo', valor: `${solicitud.plazoDias} días` },
-          ].map(({ label, valor }) => (
-            <div key={label} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
-              <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-100">{valor}</p>
-            </div>
-          ))}
-        </section>
-        <p className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          Estado: <Badge>{solicitud.estado}</Badge>
-          {solicitud.motivo && <span className="text-red-500">· Motivo: {solicitud.motivo}</span>}
-        </p>
+        <DetalleResumen
+          etiqueta="Monto a financiar"
+          valor={solicitud.monto}
+          nota={`A ${solicitud.plazoDias} días · ${solicitud.fecha ?? ''}`}
+          estado={solicitud.estado}
+        />
+
+        {solicitud.motivo && <DetalleAviso tono="peligro">Motivo del rechazo: {solicitud.motivo}</DetalleAviso>}
+
+        <DetalleDatos
+          datos={[
+            { etiqueta: 'Cliente', valor: solicitud.cliente },
+            { etiqueta: 'Cotización', valor: solicitud.cotizacion || 'Sin cotización' },
+            { etiqueta: 'Total del pedido', valor: solicitud.totalCotizacion },
+          ]}
+        />
 
         {/* ---- Detalle de la cotización ---- */}
         {solicitud.cotizacion && (
-          <section>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                Detalle del pedido
-              </p>
+          <DetalleSeccion
+            titulo="Detalle del pedido"
+            icono={<Package size={15} />}
+            accion={
               <button
                 type="button"
                 onClick={() => setViendoCotizacion(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 px-2.5 py-1.5 text-xs font-bold text-amber-600 transition-colors hover:bg-amber-400/10 dark:text-amber-400"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/60 px-2.5 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-400/10 dark:text-amber-400"
               >
                 <Eye size={13} /> Ver cotización {solicitud.cotizacion}
               </button>
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-brand-navy-900">
-                  <tr className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                    <th className="px-4 py-2.5">Descripción</th>
-                    <th className="px-4 py-2.5 text-center">Cant.</th>
-                    <th className="px-4 py-2.5 text-right">Unitario</th>
-                    <th className="px-4 py-2.5 text-right">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lineas.map((l, i) => (
-                    <tr key={i} className="border-t border-slate-100 text-slate-600 dark:border-white/5 dark:text-slate-300">
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-2">
-                          {l.tipo === 'servicio' ? (
-                            <Wrench size={13} className="text-blue-500" />
-                          ) : (
-                            <Package size={13} className="text-amber-500" />
-                          )}
-                          <span className="font-semibold text-slate-800 dark:text-slate-100">{l.nombre}</span>
-                          <span className="text-xs text-slate-400">{l.medida}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">{l.cantidad}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right">{l.unitario}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right font-semibold">{l.subtotal}</td>
-                    </tr>
-                  ))}
-                  {lineas.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-400">
-                        {cargando ? <SkeletonLineas lineas={3} /> : 'Sin líneas registradas.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            }
+          >
+            <DetalleLineas lineas={lineas} cargando={cargando} />
+          </DetalleSeccion>
         )}
 
         {/* ---- Consignación de la cuota inicial ---- */}
         {solicitud.cotizacion && (
-          <section className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
-            <p className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
-              <ReceiptText size={15} className="text-amber-500" /> Cuota inicial pagada
-            </p>
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-              <dl className="space-y-1 text-sm">
-                <div className="flex gap-2">
-                  <dt className="text-slate-500 dark:text-slate-400">Valor:</dt>
-                  <dd className="font-semibold text-slate-800 dark:text-slate-100">{solicitud.cuotaInicial || '—'}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="text-slate-500 dark:text-slate-400">Medio de pago:</dt>
-                  <dd className="font-semibold text-slate-800 dark:text-slate-100">{solicitud.cuotaInicialMedio || '—'}</dd>
-                </div>
-              </dl>
-              {solicitud.comprobante ? (
-                <a href={solicitud.comprobante} target="_blank" rel="noreferrer" title="Abrir la consignación completa">
-                  <img
-                    src={solicitud.comprobante}
-                    alt="Consignación de la cuota inicial"
-                    className="max-h-64 w-full rounded-lg border border-slate-200 object-contain dark:border-white/10 sm:w-56"
-                  />
-                </a>
-              ) : (
-                <p className="text-xs text-slate-400">
-                  {solicitud.cuotaInicialMedio === 'Efectivo' ? 'Pago en efectivo: sin consignación.' : 'Sin consignación adjunta.'}
-                </p>
-              )}
+          <DetalleSeccion titulo="Cuota inicial" icono={<ReceiptText size={15} />}>
+            <div className="space-y-3">
+              <DetalleDatos
+                datos={[
+                  { etiqueta: 'Valor', valor: solicitud.cuotaInicial },
+                  { etiqueta: 'Método de pago', valor: solicitud.cuotaInicialMedio },
+                ]}
+              />
+              <DetalleImagen
+                src={solicitud.comprobante}
+                alt="Consignación de la cuota inicial"
+                vacio={
+                  solicitud.cuotaInicialMedio === 'Efectivo'
+                    ? 'Pago en efectivo: sin consignación.'
+                    : solicitud.cuotaInicialMedio
+                      ? 'Sin consignación adjunta.'
+                      : 'La cuota inicial todavía no se ha pagado.'
+                }
+              />
             </div>
-          </section>
+          </DetalleSeccion>
         )}
 
         {/* ---- Motivo para no aprobar ---- */}

@@ -35,6 +35,8 @@ function desdePostgres(error) {
       }
       return new HttpError(422, MENSAJES_LISTA[listaDe(error.constraint)] ?? 'Uno de los registros relacionados no existe.');
     case '23514': // check_violation
+      // Un método de pago de otro tipo (p. ej. "Contado" para pagar un abono)
+      if (/(_es_medio|_es_forma)$/.test(error.constraint ?? '')) return new HttpError(422, MENSAJES_LISTA.metodo_pago);
       return new HttpError(422, 'Algún valor no cumple una regla del negocio.');
     case '23502': // not_null_violation
       return new HttpError(422, `Falta el campo obligatorio "${error.column}".`);
@@ -56,10 +58,8 @@ function desdePostgres(error) {
 const MENSAJES_LISTA = {
   tipo_documento: 'El tipo de documento no es válido.',
   metodo_pago: 'El método de pago no es válido.',
-  medio_pago: 'El medio de pago no es válido.',
 };
-const listaDe = (restriccion = '') => Object.keys(MENSAJES_LISTA).find((lista) => restriccion.includes(lista)) ??
-  (restriccion.includes('cuota_inicial_medio') ? 'medio_pago' : null);
+const listaDe = (restriccion = '') => Object.keys(MENSAJES_LISTA).find((lista) => restriccion.includes(lista)) ?? null;
 
 /** Mensaje claro para cada restricción UNIQUE de la base de datos. */
 const MENSAJES_UNICOS = {

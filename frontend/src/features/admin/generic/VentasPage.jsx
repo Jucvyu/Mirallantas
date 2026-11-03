@@ -46,7 +46,8 @@ function soloAlCrear(campo) {
 
 // Tabla `venta`. La venta nace sola cuando la cotización llega a
 // "Completada" (con todas sus líneas), y también puede registrarse una
-// venta directa con su valor total. El estado y la entrega son del
+// venta directa con su valor total. A crédito, la venta vale lo cobrado: la
+// suma de los abonos confirmados. El estado y la entrega son del
 // pedido-cotización: aquí no se muestran (solo se marca la venta anulada).
 const columns = [
   // La fecha va debajo del número: así la tabla cabe sin desplazarse de lado
@@ -170,6 +171,8 @@ export default function VentasPage() {
         })}
         entityName="venta"
         titleKey="cliente"
+        // El detalle es "Ver detalle y productos"
+        canView={false}
         // Una venta no se borra: se anula, y queda en el historial
         canDelete={false}
         formValidate={validarCuotaInicial}
@@ -179,7 +182,7 @@ export default function VentasPage() {
         ]}
         rowActions={(row) => (
           <>
-            <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver productos y servicios" tono="acento" onClick={() => setDetalleDe(row)} />
+            <BotonAccion accion="verDetalle" icono={Eye} etiqueta="Ver detalle y productos" tono="acento" onClick={() => setDetalleDe(row)} />
             <BotonAccion accion="descargarPdf"
               icono={Receipt}
               etiqueta="Generar comprobante de venta"

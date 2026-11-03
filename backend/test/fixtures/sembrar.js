@@ -380,7 +380,7 @@ export async function sembrar(connectionString, { password }) {
         credito_id: idDe(creditos, a.credito, 'el crédito'),
         fecha: a.fecha,
         monto: pesos(a.monto),
-        medio_pago: a.metodoPago,
+        metodo_pago: a.metodoPago,
         comprobante_url: a.comprobante || null,
         estado: a.estado,
       });

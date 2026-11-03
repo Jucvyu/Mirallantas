@@ -6,6 +6,7 @@ import * as creditosModel from '../models/creditos.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import { POOL } from '../models/listado.model.js';
 import * as solicitudesModel from '../models/solicitudesCredito.model.js';
+import * as ventasModel from '../models/ventas.model.js';
 import { pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarSinContenido } from '../views/respuesta.view.js';
 import { exigirSinCreditoAbierto } from './creditos.controller.js';
@@ -121,11 +122,13 @@ export async function revisar(req, res) {
       if (solicitud.cotizacion_id) {
         cotizacion = await aprobarDeCotizacion(db, solicitud);
       } else {
-        await creditosModel.crear(db, {
+        const creditoNumero = await creditosModel.crear(db, {
           clienteId: solicitud.cliente_id,
           montoTotal: solicitud.monto,
           plazoDias: solicitud.plazo_dias,
         });
+        // Sin cotización no nacería venta: sus abonos también deben contar como ventas
+        await ventasModel.crearDeCredito(db, { creditoNumero, clienteId: solicitud.cliente_id });
       }
     }
     if (estado === 'Rechazada' && solicitud.cotizacion_id) await rechazarDeCotizacion(db, solicitud, motivo);

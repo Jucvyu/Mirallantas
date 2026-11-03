@@ -12,7 +12,7 @@
 // =========================================================================
 
 export { authService } from './auth.service';
-export { cargarReferencias } from './referencias.service';
+export { cargarReferencias, reintentarReferencias, suscribirReferencias, versionReferencias } from './referencias.service';
 export { empresaService } from './empresa.service';
 export { rolesService, permisosService, usuariosService } from './seguridad.service';
 export {

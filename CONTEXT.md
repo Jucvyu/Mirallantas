@@ -787,3 +787,9 @@ tocó.
 Se quitó la sección "Productos del catálogo" que estaba encima del detalle
 en "Nueva cotización-pedido": ahora los productos solo se agregan desde el
 botón "Productos" descrito arriba, sin duplicar el listado en el formulario.
+
+## Métodos de pago, abonos como ventas y detalles
+
+- **Una sola tabla** (`metodo_pago`, migración 0034): la columna `tipo` separa `forma` (Contado, Crédito) de `medio` (Efectivo, Transferencia…). `GET /referencias` sigue entregando las dos listas; el campo `medioPago` de la API también se conserva.
+- **Abono confirmado = venta** (migración 0035): la venta a crédito vale la suma de sus abonos confirmados y el tablero cuenta cada abono en el mes en que se pagó.
+- **Detalles**: los modales usan `components/base/Detalle` y el modo "ver" del `FormModal` muestra texto, no campos (`VistaDetalle`).

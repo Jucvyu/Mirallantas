@@ -96,13 +96,39 @@ export async function crearDesdeCotizacion(db, c, estado = 'Completada') {
      RETURNING id`,
     [c.cliente_id, c.id, c.proveedor_id, c.metodo_pago, c.interes, c.total, c.cuota_inicial, c.estado_entrega, estado],
   );
+  await copiarLineas(db, rows[0].id, c.id);
+  return rows[0].id;
+}
+
+/**
+ * Deja en la venta las líneas de su cotización que ya tienen precio. A crédito
+ * la venta puede nacer antes de que se le ponga precio a un reencauche: al
+ * completarse la cotización se vuelven a copiar para que queden todas.
+ */
+export async function copiarLineas(db, ventaId, cotizacionId) {
+  await db.query('DELETE FROM venta_detalle WHERE venta_id = $1', [ventaId]);
   await db.query(
     `INSERT INTO venta_detalle (venta_id, tipo, producto_id, servicio_id, descripcion, medida,
                                 cantidad, precio_unitario, subtotal)
      SELECT $1, tipo, producto_id, servicio_id, descripcion, medida, cantidad, precio_unitario, subtotal
-       FROM cotizacion_detalle WHERE cotizacion_id = $2`,
-    [rows[0].id, c.id],
+       FROM cotizacion_detalle WHERE cotizacion_id = $2 AND precio_unitario IS NOT NULL
+      ORDER BY id`,
+    [ventaId, cotizacionId],
   );
+}
+
+/**
+ * Venta de un crédito sin cotización (una solicitud suelta): sin líneas, vale
+ * lo que se vaya abonando. Queda ligada al crédito para recibir sus abonos.
+ */
+export async function crearDeCredito(db, { creditoNumero, clienteId }) {
+  const { rows } = await db.query(
+    `INSERT INTO venta (numero, cliente_id, metodo_pago, total, estado)
+     VALUES (siguiente_numero('VEN'), $1, 'Crédito', 0, 'Completada')
+     RETURNING id`,
+    [clienteId],
+  );
+  await db.query('UPDATE credito SET venta_id = $1 WHERE numero = $2', [rows[0].id, creditoNumero]);
   return rows[0].id;
 }
 

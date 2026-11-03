@@ -305,8 +305,8 @@ se conserva con su historial pero no se usa en registros nuevos; la API lo recha
 claro y los selectores del frontend solo muestran los activos. Los estados de documentos
 (cotización, venta, compra, entrega, servicio, abono, solicitud) siguen los flujos de `reglas.js`.
 
-Listas del sistema: tipos de documento, métodos de pago, medios de pago y tipos de vehículo viven en
-la base (tablas `tipo_documento`, `metodo_pago`, `medio_pago`, `tipo_vehiculo`, migración 0005). Los
+Listas del sistema: tipos de documento, métodos de pago y tipos de vehículo viven en
+la base (tablas `tipo_documento`, `metodo_pago`, `tipo_vehiculo`, migraciones 0005 y 0034). Los
 plazos de crédito (30/60/90) y su interés siguen en `reglas.js` porque son reglas de cálculo.
 
 Reglas del negocio: el frontend calcula una vista previa mientras el usuario escribe, pero la API
