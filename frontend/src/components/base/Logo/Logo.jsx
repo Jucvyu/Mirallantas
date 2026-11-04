@@ -1,4 +1,4 @@
-import logoOficial from '../../../assets/logo-mirallantas.png';
+import logoOficial from '/img/logo-mirallantas.png';
 
 /**
  * Logo oficial de Mirallantas (imagen con fondo amarillo) más el nombre.
