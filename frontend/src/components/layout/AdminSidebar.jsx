@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Logo from '../base/Logo';
 import Tooltip from '../base/Tooltip';
-import logoOficial from '../../assets/logo-mirallantas.png';
+import logoOficial from '/img/logo-mirallantas.png';
 import { useAuth } from '../../context/AuthContext';
 import { useAvisosPorModulo } from '../../hooks/useAvisosPorModulo';
 import { MODULOS_PORTAL, permisoDeRuta } from '../../permisos';
