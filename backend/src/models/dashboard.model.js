@@ -49,16 +49,23 @@ export async function pedidos() {
 }
 
 /**
- * Llantas reencauchadas en los últimos 7 meses. generate_series crea los 7
- * meses aunque alguno no tenga solicitudes.
+ * Llantas reencauchadas en los últimos 7 meses: las que la reencauchadora
+ * entregó (por banda) más las solicitudes del flujo anterior. generate_series
+ * crea los 7 meses aunque alguno no tenga reencauches.
  */
 export async function reencauchesPorMes() {
   const { rows } = await query(`
-    SELECT to_char(m.mes, 'YYYY-MM') AS mes, COALESCE(SUM(s.cantidad), 0)::int AS reencauches
+    WITH llantas AS (
+      SELECT date_trunc('month', pago_fecha) AS mes, 1 AS cantidad
+        FROM reencauche_llanta WHERE estado = 'Entregada'
+      UNION ALL
+      SELECT date_trunc('month', fecha), cantidad
+        FROM solicitud_servicio WHERE estado <> 'Cancelado'
+    )
+    SELECT to_char(m.mes, 'YYYY-MM') AS mes, COALESCE(SUM(l.cantidad), 0)::int AS reencauches
       FROM generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '6 months',
                            date_trunc('month', CURRENT_DATE), INTERVAL '1 month') AS m(mes)
-      LEFT JOIN solicitud_servicio s
-             ON date_trunc('month', s.fecha) = m.mes AND s.estado <> 'Cancelado'
+      LEFT JOIN llantas l ON l.mes = m.mes
      GROUP BY m.mes
      ORDER BY m.mes`);
   return rows;

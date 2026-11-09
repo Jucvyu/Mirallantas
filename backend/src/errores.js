@@ -74,6 +74,8 @@ const MENSAJES_UNICOS = {
   marca_nombre_key: 'Ya existe una marca con ese nombre.',
   tipo_vehiculo_nombre_key: 'Ya existe un tipo de vehículo con ese nombre.',
   servicio_nombre_key: 'Ya existe un servicio con ese nombre.',
+  banda_nombre_unico: 'Ya existe una banda con ese nombre.',
+  banda_codigo_unico: 'Ya existe una banda con ese código.',
   rol_nombre_key: 'Ya existe un rol con ese nombre.',
   abono_clave_idempotencia_key: 'Ese abono ya se registró.',
   cotizacion_clave_idempotencia_key: 'Esa cotización ya se registró.',

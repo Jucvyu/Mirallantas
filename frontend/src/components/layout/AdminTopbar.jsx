@@ -6,7 +6,7 @@ import NotificacionesMenu from './NotificacionesMenu';
 import PerfilMenu from './PerfilMenu';
 
 /** Módulos que generan avisos al personal (los mismos de la API). */
-const MODULOS_CON_AVISOS = ['Pedidos-Cotización', 'Solicitudes de servicio', 'Cartera', 'Abonos', 'Compras'];
+const MODULOS_CON_AVISOS = ['Pedidos-Cotización', 'Solicitudes de servicio', 'Cartera', 'Abonos', 'Compras', 'Reencauche'];
 
 export default function AdminTopbar({ title, profile, onOpenMenu, onEditarPerfil, onSeguridad }) {
   // cerrarSesion invalida el token en la API y lleva a la página de inicio

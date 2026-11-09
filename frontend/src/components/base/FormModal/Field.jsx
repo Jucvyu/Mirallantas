@@ -6,6 +6,7 @@ import MatrizPrivilegios from './MatrizPrivilegios';
 import SearchSelect from '../SearchSelect';
 import SelectCampo from '../SelectCampo';
 import { useReferencias } from '../../../hooks/useReferencias';
+import Etiquetas from './Etiquetas';
 import { hoyISO } from '../../../utils/formato';
 import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
 import { maximoDe } from '../../../utils/validaciones';
@@ -48,7 +49,11 @@ function toList(value) {
  *   soloLectura: el campo se ve pero no se puede cambiar (p. ej. el código
  *   de un producto, que no cambia una vez asignado)
  *   type: text | email | tel | number | password | date | money | textarea |
- *         select | buscador | checkboxes | image | avatar | color | switch
+ *         select | buscador | checkboxes | etiquetas | image | avatar | color | switch
+ *   date: por defecto no admite fechas posteriores a hoy; con `futura: true`
+ *   es al revés (de hoy en adelante), p. ej. para agendar una revisión
+ *   etiquetas: lista corta escrita a mano (medidas compatibles); con
+ *   `mayusculas: true` cada valor se guarda en mayúsculas
  *   buscador: selector con barra de búsqueda. `options` puede traer objetos
  *   { valor, etiqueta, detalle } (se guarda el valor, p. ej. el id real del
  *   cliente) y `permitirNuevo` deja escribir un valor que aún no existe.
@@ -126,7 +131,9 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     if (type === 'tel') return onChange(key, soloTelefono(bruto));
     // Documento: dígitos, letras (CE y pasaporte) y el guion del NIT
     if (type === 'documento') return onChange(key, bruto.replace(/[^0-9A-Za-z-]/g, '').toUpperCase().slice(0, 15));
-    // Ninguna fecha del sistema puede ser posterior a hoy (tampoco si se escribe a mano)
+    // Las fechas que registran algo ya pasado no pueden ser posteriores a hoy
+    // (tampoco si se escriben a mano); las que agendan algo, anteriores
+    if (type === 'date' && field.futura) return onChange(key, bruto && bruto < hoyISO() ? hoyISO() : bruto);
     if (type === 'date') return onChange(key, bruto > hoyISO() ? hoyISO() : bruto);
     return onChange(key, bruto);
   };
@@ -364,6 +371,18 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
           error={Boolean(error)}
           onChange={(nuevo) => onChange(key, nuevo)}
         />
+      ) : type === 'etiquetas' ? (
+        <Etiquetas
+          id={id}
+          value={value}
+          options={options}
+          readOnly={readOnly}
+          error={Boolean(error)}
+          placeholder={placeholder}
+          normalizar={field.mayusculas ? (t) => t.trim().toUpperCase() : undefined}
+          onChange={(v) => onChange(key, v)}
+          onBlur={() => onBlur?.(key)}
+        />
       ) : type === 'checkboxes' ? (
         // Con `grupos` las opciones se muestran por categoría (p. ej. los
         // módulos de un rol); si no, en una sola fila
@@ -451,7 +470,8 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             // Los textos no dejan escribir más del máximo (dinero y cantidades ya se filtran)
             maxLength={['money', 'number', 'date'].includes(type) ? undefined : maximoDe(field)}
             inputMode={esNumerico ? 'numeric' : undefined}
-            max={type === 'date' ? hoyISO() : undefined}
+            max={type === 'date' && !field.futura ? hoyISO() : undefined}
+            min={type === 'date' && field.futura ? hoyISO() : undefined}
             readOnly={readOnly}
             value={value ?? ''}
             placeholder={placeholder}

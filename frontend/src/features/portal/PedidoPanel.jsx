@@ -1,27 +1,26 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Disc3, Minus, Pencil, Plus, Send, ShoppingCart, Trash2, Wrench, X } from 'lucide-react';
+import { Disc3, Minus, Plus, Send, ShoppingCart, Trash2, Wrench, X } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import AvisoError from '../../components/base/AvisoError';
-import Badge from '../../components/base/Badge';
 import TireThumb from '../../components/base/TireThumb';
 import { BORDER_ERR, BORDER_OK, INPUT, SECTION as SECTION_TEXT, soloDigitos } from '../../components/base/formStyles';
 import { WHATSAPP_EMPRESA } from '../../config';
 import { enlaceWhatsApp, mensajeCotizacion } from '../../utils/whatsapp';
-import { SERVICIO_POR_DEFECTO } from '../../constantes';
 import { useAuth } from '../../context/AuthContext';
 import { CANTIDAD_MAXIMA, useCart } from '../../context/CartContext';
 import { usePortal } from '../../context/PortalContext';
 import { useEnvio } from '../../hooks/useEnvio';
 import { cotizacionesService, nuevaClaveIdempotencia } from '../../services';
-import SolicitudReencaucheModal from './SolicitudReencaucheModal';
 import CotizacionEnviadaModal from './CotizacionEnviadaModal';
-import Tooltip from '../../components/base/Tooltip';
 
 /**
  * Carro de cotización del cliente (columna derecha del catálogo).
  *
- * Muestra las llantas y servicios elegidos con su cantidad, que se puede
+ * El reencauche ya no entra al carro: se pide en su propia pantalla
+ * (/portal/reencauche), con la banda elegida y la revisión gratis.
+ *
+ * Muestra las llantas elegidas con su cantidad, que se puede
  * cambiar o quitar, y el lugar de despacho (por defecto la dirección del
  * perfil; se puede cambiar solo para esta solicitud). No muestra precios,
  * subtotales, totales ni stock.
@@ -40,13 +39,10 @@ import Tooltip from '../../components/base/Tooltip';
 export default function PedidoPanel({ onClose = null }) {
   const navigate = useNavigate();
   const cart = useCart();
-  const { usuario } = useAuth();
+  const { usuario, tienePermiso } = useAuth();
   const { recargar } = usePortal();
   const { enviando, errorEnvio, enviar } = useEnvio();
 
-  const [servicioModal, setServicioModal] = useState(false);
-  // Servicio del carro que se está editando (null = ninguno)
-  const [servicioEditado, setServicioEditado] = useState(null);
   // Número de la solicitud registrada (abre el aviso de confirmación)
   const [enviada, setEnviada] = useState(null);
   const [claveIdempotencia, setClaveIdempotencia] = useState(nuevaClaveIdempotencia);
@@ -64,22 +60,6 @@ export default function PedidoPanel({ onClose = null }) {
       ? 'Máximo 200 caracteres'
       : '';
 
-  /** Guarda el servicio del formulario: uno nuevo o los cambios de uno existente. */
-  const guardarServicio = (values) => {
-    const datos = {
-      servicio: SERVICIO_POR_DEFECTO,
-      cantidad: Number(values.cantidad) || 1,
-      medidas: values.medidas ?? '',
-      // Hasta 3 fotos; la primera también va como foto principal
-      fotos: values.fotos ?? (values.foto ? [values.foto] : []),
-      foto: values.fotos?.[0] ?? values.foto,
-      descripcion: values.descripcion,
-      estadoEvidencia: 'Pendiente de revisión',
-    };
-    if (servicioEditado) cart.updateServicio(servicioEditado.id, datos);
-    else cart.addServicio(datos);
-  };
-
   const enviarSolicitud = () => {
     setLugarTocado(true);
     if (errorLugar) return;
@@ -88,7 +68,8 @@ export default function PedidoPanel({ onClose = null }) {
       const { datos: solicitud } = await cotizacionesService.crearDesdePortal({
         direccion: lugarLimpio,
         productos: cart.productos,
-        servicios: cart.servicios,
+        // El reencauche se pide en su propia pantalla, no en la cotización
+        servicios: [],
         claveIdempotencia,
       });
       setClaveIdempotencia(nuevaClaveIdempotencia());
@@ -109,7 +90,7 @@ export default function PedidoPanel({ onClose = null }) {
       nombre: usuario.nombre,
       lugar: lugarLimpio,
       productos: cart.productos,
-      servicios: cart.servicios,
+      servicios: [],
     });
     window.open(enlaceWhatsApp(WHATSAPP_EMPRESA, texto), '_blank', 'noopener,noreferrer');
     setWhatsappAbierto(true);
@@ -140,12 +121,14 @@ export default function PedidoPanel({ onClose = null }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setServicioModal(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-amber-400 px-3 py-2 text-sm font-bold text-amber-600 hover:bg-amber-400/10 dark:text-amber-400"
-            >
-              <Wrench size={15} /> Reencauche
-            </button>
+            {tienePermiso('Mis reencauches') && (
+              <Link
+                to="/portal/reencauche"
+                className="inline-flex items-center gap-2 rounded-lg border border-amber-400 px-3 py-2 text-sm font-bold text-amber-600 hover:bg-amber-400/10 dark:text-amber-400"
+              >
+                <Wrench size={15} /> Reencauche
+              </Link>
+            )}
             {onClose && (
               <button
                 onClick={onClose}
@@ -165,7 +148,7 @@ export default function PedidoPanel({ onClose = null }) {
             </span>
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Tu carro está vacío</p>
             <p className="max-w-xs text-xs text-slate-400 dark:text-slate-500">
-              Agrega llantas desde el catálogo o pide un reencauche.
+              Agrega llantas desde el catálogo. El reencauche se pide aparte, con su revisión gratis.
             </p>
             {!onClose && (
               <Link to="/portal/catalogo" className="mt-1 rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300">
@@ -216,48 +199,6 @@ export default function PedidoPanel({ onClose = null }) {
                   >
                     <Trash2 size={15} />
                   </button>
-                </div>
-              </li>
-            ))}
-
-            {/* ---- Servicios de reencauche ---- */}
-            {cart.servicios.map((s) => (
-              <li key={s.id} className="flex items-start gap-3 px-5 py-4">
-                {s.foto ? (
-                  <img src={s.foto} alt="Carcasa" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-                ) : (
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-white/5">
-                    <Wrench size={18} />
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold tracking-wide text-blue-500 dark:text-blue-400">SERVICIO</p>
-                  <p className="text-sm font-bold leading-snug text-slate-900 dark:text-white">{s.servicio}</p>
-                  <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{s.descripcion}</p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <Badge>{s.estadoEvidencia}</Badge>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">{s.cantidad} llantas</span>
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col gap-1">
-                  <Tooltip texto="Editar las medidas, fotos o descripción del reencauche">
-                    <button
-                      onClick={() => setServicioEditado(s)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:text-amber-500"
-                      aria-label="Editar el servicio"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                  </Tooltip>
-                  <Tooltip texto="Quitar este reencauche del carro">
-                    <button
-                      onClick={() => cart.removeServicio(s.id)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:text-red-500"
-                      aria-label="Quitar el servicio del carro"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </Tooltip>
                 </div>
               </li>
             ))}
@@ -313,17 +254,6 @@ export default function PedidoPanel({ onClose = null }) {
           </button>
         </div>
       </div>
-
-      {(servicioModal || servicioEditado) && (
-        <SolicitudReencaucheModal
-          inicial={servicioEditado}
-          onGuardar={guardarServicio}
-          onClose={() => {
-            setServicioModal(false);
-            setServicioEditado(null);
-          }}
-        />
-      )}
 
       {enviada && <CotizacionEnviadaModal numero={enviada} onClose={cerrarAviso} />}
     </div>

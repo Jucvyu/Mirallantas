@@ -19,6 +19,9 @@ export const MODULOS_ADMIN = [
   { ruta: '/admin/pedidos-cotizacion', permiso: 'Pedidos-Cotización' },
   { ruta: '/admin/ventas', permiso: 'Ventas' },
   { ruta: '/admin/compras', permiso: 'Compras' },
+  { ruta: '/admin/reencauches', permiso: 'Reencauche' },
+  { ruta: '/admin/ordenes-reencauche', permiso: 'Reencauche' },
+  { ruta: '/admin/bandas', permiso: 'Reencauche' },
   { ruta: '/admin/solicitudes-servicio', permiso: 'Solicitudes de servicio' },
   { ruta: '/admin/creditos', permiso: 'Cartera' },
   { ruta: '/admin/solicitudes-credito', permiso: 'Cartera' },
@@ -34,6 +37,7 @@ export const MODULOS_PORTAL = [
   { ruta: '/portal/catalogo', permiso: 'Catálogo (portal)' },
   { ruta: '/portal/pedidos', permiso: 'Mis cotizaciones' },
   { ruta: '/portal/cartera', permiso: 'Mi cartera' },
+  { ruta: '/portal/reencauche', permiso: 'Mis reencauches' },
 ];
 
 /**
@@ -44,7 +48,9 @@ export const GRUPOS_MODULOS = [
   { titulo: 'Configuración', opciones: ['Roles', 'Usuarios'] },
   { titulo: 'Catálogo', opciones: ['Productos', 'Categorías', 'Marcas'] },
   { titulo: 'Usuarios externos', opciones: ['Clientes', 'Proveedores', 'Terceros'] },
-  { titulo: 'Operación', opciones: ['Pedidos-Cotización', 'Ventas', 'Compras', 'Solicitudes de servicio'] },
+  { titulo: 'Operación', opciones: ['Pedidos-Cotización', 'Ventas', 'Compras'] },
+  // Bandas, revisiones y órdenes en la reencauchadora
+  { titulo: 'Reencauche', opciones: ['Reencauche', 'Solicitudes de servicio'] },
   { titulo: 'Cartera', opciones: ['Cartera', 'Abonos'] },
   { titulo: 'General', opciones: ['Dashboard'] },
   { titulo: 'Vista de cliente', opciones: MODULOS_PORTAL.map((m) => m.permiso) },

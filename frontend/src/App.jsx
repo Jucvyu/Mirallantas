@@ -27,6 +27,12 @@ const PedidosCotizacionPage = lazy(() => import('./features/admin/generic/Pedido
 const VentasPage = lazy(() => import('./features/admin/generic/VentasPage'));
 const ComprasPage = lazy(() => import('./features/admin/generic/ComprasPage'));
 const SolicitudesServicioPage = lazy(() => import('./features/admin/generic/SolicitudesServicioPage'));
+// Reencauche por banda
+const BandasPage = lazy(() => import('./features/reencauche/admin/BandasPage'));
+const RevisionesPage = lazy(() => import('./features/reencauche/admin/RevisionesPage'));
+const ReencaucheDetallePage = lazy(() => import('./features/reencauche/admin/ReencaucheDetallePage'));
+const OrdenesReencauchePage = lazy(() => import('./features/reencauche/admin/OrdenesReencauchePage'));
+const ReencauchePortalPage = lazy(() => import('./features/reencauche/portal/ReencauchePortalPage'));
 const CreditosPage = lazy(() => import('./features/admin/generic/CreditosPage'));
 const SolicitudesCreditoPage = lazy(() => import('./features/admin/generic/SolicitudesCreditoPage'));
 const AbonosPage = lazy(() => import('./features/admin/generic/AbonosPage'));
@@ -52,6 +58,12 @@ const PAGINAS_ADMIN = [
   { ruta: 'pedidos-cotizacion', permiso: 'Pedidos-Cotización', pagina: <PedidosCotizacionPage /> },
   { ruta: 'ventas', permiso: 'Ventas', pagina: <VentasPage /> },
   { ruta: 'compras', permiso: 'Compras', pagina: <ComprasPage /> },
+  // Reencauche por banda: revisiones (con su detalle), órdenes en la planta y bandas
+  { ruta: 'reencauches', permiso: 'Reencauche', pagina: <RevisionesPage /> },
+  { ruta: 'reencauches/:numero', permiso: 'Reencauche', pagina: <ReencaucheDetallePage /> },
+  { ruta: 'ordenes-reencauche', permiso: 'Reencauche', pagina: <OrdenesReencauchePage /> },
+  { ruta: 'bandas', permiso: 'Reencauche', pagina: <BandasPage /> },
+  // Servicios del flujo anterior (con foto de la carcasa), para terminar los que quedaron a medias
   { ruta: 'solicitudes-servicio', permiso: 'Solicitudes de servicio', pagina: <SolicitudesServicioPage /> },
   { ruta: 'creditos', permiso: 'Cartera', pagina: <CreditosPage /> },
   { ruta: 'solicitudes-credito', permiso: 'Cartera', pagina: <SolicitudesCreditoPage /> },
@@ -111,6 +123,7 @@ export default function App() {
               <Route path="catalogo" element={<ConPermiso modulo="Catálogo (portal)"><CatalogoPage /></ConPermiso>} />
               <Route path="pedidos" element={<ConPermiso modulo="Mis cotizaciones"><ClientPedidosPage /></ConPermiso>} />
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
+              <Route path="reencauche" element={<ConPermiso modulo="Mis reencauches"><ReencauchePortalPage /></ConPermiso>} />
               <Route path="*" element={<NoEncontradaPage compacta inicio="/portal" />} />
             </Route>
             {/* Cualquier otra dirección */}

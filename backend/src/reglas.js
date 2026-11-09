@@ -53,8 +53,17 @@ export function exigirAbonoMinimo(monto, saldo) {
   }
 }
 
-/** Servicio que se asume cuando el cliente pide un reencauche. */
+/** Servicio que se asume cuando el cliente pide un reencauche (flujo anterior). */
 export const SERVICIO_POR_DEFECTO = 'Reencauche';
+
+/**
+ * Reencauche por banda. Cada solicitud admite hasta 20 llantas, y el
+ * cliente elige una fecha para la revisión de hoy en adelante (máximo dos
+ * meses). La revisión es gratis: solo se cobra cada llanta cuando la
+ * reencauchadora la entrega terminada.
+ */
+export const LLANTAS_POR_REENCAUCHE = 20;
+export const DIAS_MAXIMOS_REVISION = 60;
 
 // Los métodos de pago (Contado, Crédito, Efectivo, Transferencia…) y los tipos de
 // documento viven en la base de datos (tablas metodo_pago y
@@ -109,6 +118,26 @@ export const FLUJOS = {
     'Pendiente de cuota inicial': [],
     Aprobada: [],
     Rechazada: [],
+  },
+  // Solicitud de reencauche: se agenda, se revisa en persona y el cliente
+  // responde la cotización. Mientras no responda, la revisión se puede
+  // corregir (Cotizada → Cotizada).
+  reencauche: {
+    'Por agendar': ['Agendada', 'Cancelada'],
+    Agendada: ['Cotizada', 'Sin llantas aptas', 'Cancelada'],
+    Cotizada: ['Aceptada', 'No aceptada', 'Sin llantas aptas'],
+    Aceptada: [],
+    'No aceptada': [],
+    'Sin llantas aptas': [],
+    Cancelada: [],
+  },
+  // Orden de cada llanta apta en la reencauchadora
+  ordenReencauche: {
+    'Por enviar': ['En planta'],
+    'En planta': ['Lista para entregar', 'Rechazada en planta'],
+    'Lista para entregar': ['Entregada'],
+    Entregada: [],
+    'Rechazada en planta': [],
   },
 };
 

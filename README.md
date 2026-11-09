@@ -123,8 +123,8 @@ npm run admin:crear -- --nombre "Tu Nombre" --correo tu@correo.com --documento 1
 y, de forma recomendada, activa ahí la verificación en dos pasos (Google Authenticator,
 Microsoft Authenticator o Authy).
 
-El sistema no trae datos de ejemplo: clientes, productos, etc. se crean desde el panel. El único
-servicio, **"Reencauche"**, lo crea la migración.
+El sistema no trae datos de ejemplo: clientes, productos, bandas, etc. se crean desde el panel. Los
+diseños de banda (direccional, tracción y mixta) los crea la migración 0037.
 
 ### 3. Día a día: tres terminales
 
@@ -252,6 +252,7 @@ la pantalla.
 | `operacion.service.js` | Cotizaciones (desde el panel o el portal), ventas y compras. |
 | `cartera.service.js` | Créditos, abonos, solicitudes de crédito y de servicio. |
 | `tableros.service.js` | Dashboard y resumen del portal. |
+| `reencauche.service.js` | Bandas, solicitudes de reencauche, órdenes en la reencauchadora y el reencauche del portal. |
 | `recurso.js` | Fábrica: `listar`, `obtener`, `crear`, `editar`, `eliminar` para cualquier ruta. |
 | `http.js` | Único lugar que hace `fetch`: agrega el token y traduce los errores. |
 | `adaptadores.js` | Conversiones API ↔ pantalla (`activo: true` ↔ `'Activo'`, `1968000` ↔ `'$ 1.968.000'`). |
@@ -338,11 +339,15 @@ Todas las rutas empiezan por `/api`. Salvo `salud`, `auth/login`, `auth/2fa/veri
 | Compras | `GET/POST /compras`, `GET/PATCH /compras/:numero` | `Compras` |
 | Créditos | `GET/POST /creditos`, `GET/PATCH /creditos/:numero`, `POST /creditos/:numero/abonos` (acepta `Idempotency-Key`) | `Cartera` |
 | Abonos | `GET /abonos`, `PATCH /abonos/:numero` (confirmar o rechazar) | `Abonos` |
-| Solicitudes | `/solicitudes-credito`, `/solicitudes-servicio` | `Cartera`, `Solicitudes de servicio` |
+| Solicitudes | `/solicitudes-credito`, `/solicitudes-servicio` (servicios del flujo anterior) | `Cartera`, `Solicitudes de servicio` |
+| Bandas | `GET/POST /bandas`, `GET/PUT/DELETE /bandas/:id`, `PATCH /bandas/:id/estado` | `Reencauche` |
+| Reencauche | `GET/POST /reencauches`, `GET /reencauches/:numero`, `POST /reencauches/:numero/agenda`, `/revision`, `/respuesta`, `/cancelar` | `Reencauche` |
+| Órdenes de reencauche | `GET /reencauches/ordenes`, `POST /reencauches/ordenes/:id/envio`, `/lista`, `/rechazo`, `/entrega` | `Reencauche` |
 | Tableros | `GET /dashboard`, `GET /portal/resumen` | `Dashboard` / sesión |
 | Portal | `POST /portal/cotizaciones/:numero/aceptar`, `POST /portal/servicios/:numero/pago`, `GET /portal/ventas/:numero/pdf`, `GET /portal/notificaciones`, `POST /portal/notificaciones/leidas` | cliente |
-| Avisos del personal | `GET /notificaciones`, `POST /notificaciones/leidas` | personal (solo los módulos que tenga, hoy Pedidos-Cotización) |
-| Pago de servicios | `POST /solicitudes-servicio/:numero/pago` (aprobar o rechazar) | `Solicitudes de servicio` |
+| Portal · reencauche | `GET /portal/bandas`, `GET/POST /portal/reencauches`, `POST /portal/reencauches/:numero/respuesta`, `/cancelar` | `Mis reencauches` |
+| Avisos del personal | `GET /notificaciones`, `POST /notificaciones/leidas` | personal (solo los módulos que tenga: Pedidos-Cotización y Reencauche) |
+| Pago de servicios | `POST /solicitudes-servicio/:numero/pago` (aprobar o rechazar, flujo anterior) | `Solicitudes de servicio` |
 
 Los listados aceptan `?q=` (búsqueda), `?pagina=` y `?porPagina=` (máximo 100). Los errores
 responden con `{ "error": "mensaje para el usuario", "detalles": [...] }` y un código HTTP
@@ -431,16 +436,37 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
   estado hasta que el asesor la aprueba o la desaprueba con motivo. Desaprobada, la fila se ve
   atenuada y el cliente recibe el aviso para volver a subir el pago; todas las consignaciones
   quedan en "Desplegar historial de pagos" del detalle (la más nueva primero).
-- **Un solo servicio**: "Reencauche". En "Solicitudes de servicio" las solicitudes de una misma
-  cotización se agrupan en una fila; al desplegarla aparecen en tarjetas donde se asigna el valor,
-  se revisa el pago y se avanza el estado.
+- **Reencauche por banda** (migración 0037, módulo "Reencauche" del panel y "Reencauche" del portal):
+  - **La banda es el producto**: se registra en Reencauche › Bandas con su diseño (direccional,
+    tracción o mixta), tipo de vehículo, **ancho de banda** (mm), profundidad y las **medidas de
+    llanta compatibles**. Su precio solo lo ve el personal. **No se vende sola**: no entra al carro
+    de productos; el cliente la elige en el portal al pedir el reencauche.
+  - **Solicitud**: banda, medida de sus llantas (debe ser compatible con la banda), cantidad (1 a
+    20) y dónde revisarlas (en el local o en su dirección). El asesor también la registra para un
+    cliente que llega o llama. Queda "Por agendar".
+  - **Revisión gratis**: el asesor agenda la fecha y, en persona, anota cada llanta: DOT (semana y
+    año), reencauches previos y si es **apta** (con una banda compatible con su medida, precio de la
+    banda y mano de obra) o **no apta** (con el motivo). Queda "Cotizada"; si ninguna sirve, "Sin
+    llantas aptas". Mientras el cliente no responda, la revisión se puede corregir.
+  - **Aceptación sin pago**: el cliente acepta (o no) desde el portal o en el local. Cada llanta
+    apta pasa a ser una **orden** en la reencauchadora: Por enviar → En planta → Lista para
+    entregar → Entregada. La planta puede rechazarla ("Rechazada en planta", con motivo).
+  - **Solo se cobra al entregar**: el único cobro es "Entregar y cobrar" de cada llanta lista. Una
+    llanta no apta o rechazada en la planta no se cobra (la base lo garantiza con restricciones).
+  - **Avisos**: el cliente recibe la fecha de la revisión, la cotización, cuándo su llanta está
+    lista y el cobro; el personal con el módulo Reencauche, las solicitudes nuevas y las respuestas.
+  - El dashboard cuenta como reencauchadas las llantas entregadas.
+- **Servicios anteriores**: el reencauche ya no se pide dentro de la cotización. Los servicios que se
+  pidieron así (con foto de la carcasa) siguen en Reencauche › Servicios anteriores (permiso "Solicitudes de servicio") para terminarlos;
+  las reglas siguientes ("Servicios en el valor de la cotización", "Servicios de reencauche") aplican
+  solo a ellos.
 - **Cuentas**: el correo, el número de documento y el teléfono no se repiten entre cuentas. El
   mensaje es genérico ("No pudimos crear tu usuario") para no revelar qué dato ya existe. El
   administrador principal (el primero que se creó) no se desactiva, no cambia de rol ni se
   elimina; los demás se activan o desactivan desde la tabla de Usuarios, y una cuenta inactiva
   no entra (se le pide hablar con el administrador).
-- **Servicios de reencauche**: se cobran aparte de la cotización (entran con valor $ 0). En
-  "Solicitudes de servicio" el asesor le pone valor y el cliente recibe una notificación; el
+- **Servicios de reencauche (flujo anterior)**: se cobran aparte de la cotización (entran con valor $ 0). En
+  "Servicios anteriores" el asesor le pone valor y el cliente recibe una notificación; el
   cliente lo paga desde "Mis cotizaciones" (con comprobante, salvo efectivo) y el pago queda
   "En revisión"; el asesor lo aprueba o lo rechaza con motivo. Rechazado, el servicio se ve en
   rojo y el cliente vuelve a subir el comprobante. El reencauche solo avanza de "Pendiente" con

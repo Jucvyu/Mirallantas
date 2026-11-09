@@ -153,6 +153,7 @@ export const modulosPermiso = [
   'Pedidos-Cotización',
   'Ventas',
   'Solicitudes de servicio',
+  'Reencauche',
   'Cartera',
   'Abonos',
   'Dashboard',
@@ -160,7 +161,7 @@ export const modulosPermiso = [
 
 export const roles = [
   { id: 'ROL001', nombre: 'Administrador', descripcion: 'Acceso completo al aplicativo.', permisos: modulosPermiso.join(', '), estado: 'Activo' },
-  { id: 'ROL002', nombre: 'Asesor de ventas', descripcion: 'Ventas, cotizaciones, compras y servicios.', permisos: 'Clientes, Productos, Compras, Pedidos-Cotización, Ventas, Solicitudes de servicio', estado: 'Activo' },
+  { id: 'ROL002', nombre: 'Asesor de ventas', descripcion: 'Ventas, cotizaciones, compras y servicios.', permisos: 'Clientes, Productos, Compras, Pedidos-Cotización, Ventas, Solicitudes de servicio, Reencauche', estado: 'Activo' },
   { id: 'ROL003', nombre: 'Secretaría', descripcion: 'Cartera, abonos y comprobantes.', permisos: 'Clientes, Cartera, Abonos, Ventas', estado: 'Activo' },
   { id: 'ROL004', nombre: 'Cliente', descripcion: 'Portal: catálogo, cotizaciones y cartera.', permisos: 'Pedidos-Cotización, Cartera', estado: 'Activo' },
 ];

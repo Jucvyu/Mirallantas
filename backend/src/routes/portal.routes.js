@@ -2,11 +2,17 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as cotizaciones from '../controllers/cotizaciones.controller.js';
 import * as controlador from '../controllers/portal.controller.js';
-import { autenticar } from '../middleware/auth.js';
+import * as reencauches from '../controllers/reencauches.controller.js';
+import { autenticar, requierePermiso } from '../middleware/auth.js';
 import { validar } from '../middleware/validar.js';
 import { esquemaId } from '../validators/comunes.validator.js';
 import * as ventas from '../controllers/ventas.controller.js';
 import { esquemaAceptacion, esquemaCancelacionCliente, esquemaPagoCliente } from '../validators/cotizaciones.validator.js';
+import {
+  esquemaCancelacionCliente as esquemaCancelacionReencauche,
+  esquemaRespuesta,
+  esquemaSolicitudPortal,
+} from '../validators/reencauche.validator.js';
 import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator.js';
 
 /**
@@ -25,9 +31,23 @@ import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator
  *   POST /notificaciones/vista     el cliente entró a una sección ({ ruta })
  *   DELETE /notificaciones/:id     borrar una notificación
  *   DELETE /notificaciones         borrar todas
+ *
+ * Reencauche por banda (permiso "Mis reencauches"):
+ *   GET  /bandas                         bandas que se ofrecen (sin precio)
+ *   GET  /reencauches                    mis solicitudes con sus llantas
+ *   POST /reencauches                    pedir un reencauche (revisión gratis)
+ *   POST /reencauches/:numero/respuesta  aceptar o no la cotización (sin pagar)
+ *   POST /reencauches/:numero/cancelar   cancelar antes de la revisión
  */
 export const rutasPortal = Router();
 rutasPortal.use(autenticar);
+
+const conReencauche = requierePermiso('Mis reencauches');
+rutasPortal.get('/bandas', conReencauche, reencauches.bandasPortal);
+rutasPortal.get('/reencauches', conReencauche, reencauches.misReencauches);
+rutasPortal.post('/reencauches', conReencauche, validar(esquemaSolicitudPortal), reencauches.solicitarDesdePortal);
+rutasPortal.post('/reencauches/:numero/respuesta', conReencauche, validar(esquemaRespuesta), reencauches.responderDesdePortal);
+rutasPortal.post('/reencauches/:numero/cancelar', conReencauche, validar(esquemaCancelacionReencauche), reencauches.cancelarDesdePortal);
 
 rutasPortal.get('/resumen', controlador.resumen);
 rutasPortal.post('/servicios/:numero/pago', validar(esquemaPagoServicio), controlador.pagarServicio);

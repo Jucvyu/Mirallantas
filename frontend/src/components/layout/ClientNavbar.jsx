@@ -15,6 +15,7 @@ const LINKS = [
   { to: '/portal', label: 'Inicio', end: true },
   { to: '/portal/catalogo', label: 'Catálogo' },
   { to: '/portal/pedidos', label: 'Mis Cotizaciones' },
+  { to: '/portal/reencauche', label: 'Reencauche' },
   { to: '/portal/cartera', label: 'Mi Cartera' },
 ];
 

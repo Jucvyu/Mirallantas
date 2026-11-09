@@ -137,16 +137,18 @@ export default function SolicitudesServicioPage() {
 
   return (
     <div>
-      <PageHeader crumbs={['Inicio', 'Solicitudes de servicio']} />
+      <PageHeader crumbs={['Inicio', 'Reencauche', 'Servicios anteriores']} />
+      <p className="mb-4 max-w-prose text-sm text-slate-500 dark:text-slate-400">
+        Servicios pedidos con el flujo anterior (foto de la carcasa dentro de la cotización). Aquí solo se terminan los que
+        quedaron a medias; los reencauches nuevos van en Revisiones.
+      </p>
       <DataTable
-        title="Solicitudes de servicio"
+        title="Servicios anteriores"
         columns={columns}
         data={grupos}
         cargando={solicitudes.cargando}
         error={solicitudes.error}
         onRecargar={solicitudes.recargar}
-        onCreate={(valores) => solicitudes.crear(valores, contexto)}
-        newLabel="Nueva solicitud"
         formSections={secciones}
         entityName="solicitud"
         titleKey="cliente"

@@ -41,7 +41,7 @@ export const NOMBRE_ACCION = {
 };
 
 /** Módulos que solo se consultan: no tienen acciones que negar. */
-export const MODULOS_SOLO_VER = ['Dashboard', 'Catálogo (portal)', 'Mis cotizaciones', 'Mi cartera'];
+export const MODULOS_SOLO_VER = ['Dashboard', 'Catálogo (portal)', 'Mis cotizaciones', 'Mi cartera', 'Mis reencauches'];
 
 /** Acciones que se pueden negar en un módulo. */
 export const accionesDe = (modulo) =>

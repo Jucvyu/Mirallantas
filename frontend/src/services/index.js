@@ -40,3 +40,9 @@ export {
   nuevaClaveIdempotencia,
   servidorDisponible,
 } from './http';
+export {
+  bandasService,
+  ordenesReencaucheService,
+  portalReencaucheService,
+  reencauchesService,
+} from './reencauche.service';
