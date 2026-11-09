@@ -20,7 +20,10 @@ const TITLES = {
   '/admin/pedidos-cotizacion': 'Pedidos-Cotización',
   '/admin/ventas': 'Ventas',
   '/admin/compras': 'Compras',
-  '/admin/solicitudes-servicio': 'Solicitudes de servicio',
+  '/admin/reencauches': 'Revisiones',
+  '/admin/ordenes-reencauche': 'Órdenes de reencauche',
+  '/admin/bandas': 'Bandas',
+  '/admin/solicitudes-servicio': 'Servicios anteriores',
   '/admin/creditos': 'Cartera',
   '/admin/solicitudes-credito': 'Solicitudes de crédito',
   '/admin/abonos': 'Abonos',
@@ -62,7 +65,8 @@ const perfilSections = [
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
-  const title = TITLES[pathname] ?? 'Dashboard';
+  // El detalle de una solicitud (/admin/reencauches/REE-…) lleva el título de su módulo
+  const title = TITLES[pathname] ?? (pathname.startsWith('/admin/reencauches/') ? 'Revisiones' : 'Dashboard');
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);

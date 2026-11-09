@@ -32,6 +32,7 @@ import { rutasCatalogo } from './routes/catalogo.routes.js';
 import { rutasNotificaciones } from './routes/notificaciones.routes.js';
 import { rutasPortal } from './routes/portal.routes.js';
 import { rutasProductos } from './routes/productos.routes.js';
+import { rutasBandas, rutasReencauches } from './routes/reencauche.routes.js';
 import { rutasReferencias } from './routes/referencias.routes.js';
 import { rutasRoles, rutasUsuarios } from './routes/seguridad.routes.js';
 import { rutasSeleccion } from './routes/seleccion.routes.js';
@@ -147,6 +148,8 @@ export function crearApp() {
   app.use('/api/ventas', rutasVentas);
   app.use('/api/compras', rutasCompras);
   app.use('/api/solicitudes-servicio', rutasSolicitudesServicio);
+  app.use('/api/bandas', rutasBandas);
+  app.use('/api/reencauches', rutasReencauches);
   app.use('/api/creditos', rutasCreditos);
   app.use('/api/abonos', rutasAbonos);
   app.use('/api/solicitudes-credito', rutasSolicitudesCredito);

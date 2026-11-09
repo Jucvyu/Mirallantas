@@ -14,6 +14,8 @@ const NOMBRES = {
   marca: ['La marca', 'inactiva'],
   servicio: ['El servicio', 'inactivo'],
   producto: ['El producto', 'inactivo'],
+  banda: ['La banda', 'inactiva'],
+  tercero: ['La reencauchadora', 'inactiva'],
 };
 
 /** Lanza un error claro si el registro no existe o está inactivo. */

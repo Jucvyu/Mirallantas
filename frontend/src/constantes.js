@@ -35,6 +35,9 @@ export const SOLICITUD_CREDITO_APROBADA = ['Pendiente de cuota inicial', 'Aproba
 /** Abono mínimo de un crédito (el último pago, por el saldo exacto, puede ser menor). */
 export const ABONO_MINIMO = 20000;
 
+/** Diseños de banda de reencauche: [{ nombre, descripcion }] (tabla diseno_banda). */
+export const disenosBanda = [];
+
 /** Plazos de financiación (en días) e interés que suma cada uno. */
 export const PLAZOS_CREDITO = [30, 60, 90];
 // 3,3 % fijo sobre el total, sea a 30, 60 o 90 días
@@ -134,6 +137,22 @@ export const FLUJO_ESTADOS_SERVICIO = {
 
 /** Revisión de la carcasa antes de aceptarla para reencauche. */
 export const estadosEvidenciaCarcasa = ['Pendiente de revisión', 'Apta', 'No apta'];
+
+// -------------------------------------------------------------------------
+// Reencauche por banda (copia de las reglas de backend/src/reglas.js).
+// La banda solo se vende con el servicio, la revisión es gratis y cada
+// llanta se cobra cuando la reencauchadora la entrega terminada.
+// -------------------------------------------------------------------------
+
+/** Llantas por solicitud y días máximos para agendar la revisión. */
+export const LLANTAS_POR_REENCAUCHE = 20;
+export const DIAS_MAXIMOS_REVISION = 60;
+
+/** Estados de la solicitud de reencauche, en el orden en que suceden. */
+export const estadosReencauche = ['Por agendar', 'Agendada', 'Cotizada', 'Aceptada', 'No aceptada', 'Sin llantas aptas', 'Cancelada'];
+
+/** Estados de cada llanta en la reencauchadora (su orden). */
+export const estadosOrdenReencauche = ['Por enviar', 'En planta', 'Lista para entregar', 'Entregada', 'Rechazada en planta'];
 
 export const estadosAbono = ['Pendiente', 'Confirmado', 'Rechazado'];
 

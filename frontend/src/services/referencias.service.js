@@ -1,5 +1,6 @@
 // =========================================================================
-// Servicio de las listas del sistema: tipos de documento y métodos de pago.
+// Servicio de las listas del sistema: tipos de documento, métodos de pago
+// y diseños de banda.
 // Viven en la base de datos; se piden al abrir la app.
 //
 // Si la API todavía no responde (p. ej. arrancando en Render), se reintenta en
@@ -7,7 +8,7 @@
 // diciendo que no hay métodos de pago hasta recargar la página.
 // =========================================================================
 
-import { mediosPago, metodosPago, tiposDocumento } from '../constantes';
+import { disenosBanda, mediosPago, metodosPago, tiposDocumento } from '../constantes';
 import { api } from './http';
 
 const ESPERA_REINTENTO_MS = 5000;
@@ -31,6 +32,7 @@ export async function cargarReferencias() {
   );
   reemplazar(metodosPago, datos.metodosPago);
   reemplazar(mediosPago, datos.mediosPago);
+  reemplazar(disenosBanda, datos.disenosBanda ?? []);
   version += 1;
   oyentes.forEach((avisar) => avisar());
 }

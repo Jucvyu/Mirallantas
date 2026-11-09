@@ -141,7 +141,7 @@ export const pesosPositivos = (mensaje) => pesos.refine((v) => v > 0, { error: m
 export const idRelacion = z.coerce.number().int().positive('Selecciona un valor de la lista.');
 
 /** Hoy en la zona horaria del negocio, como AAAA-MM-DD (en-CA da ese formato). */
-const hoyNegocio = () => new Intl.DateTimeFormat('en-CA', { timeZone: config.zonaHoraria }).format(new Date());
+export const hoyNegocio = () => new Intl.DateTimeFormat('en-CA', { timeZone: config.zonaHoraria }).format(new Date());
 
 /**
  * Fecha en formato AAAA-MM-DD, como la entrega un <input type="date">. No

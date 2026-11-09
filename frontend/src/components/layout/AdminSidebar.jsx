@@ -5,9 +5,13 @@ import {
   Building2,
   ChevronDown,
   ChevronLeft,
+  ClipboardCheck,
   CreditCard,
+  Factory,
   FileText,
   HandCoins,
+  History,
+  Layers,
   LayoutGrid,
   LogOut,
   Package,
@@ -19,7 +23,6 @@ import {
   Stamp,
   Tag,
   Users,
-  Wrench,
   X,
 } from 'lucide-react';
 import Logo from '../base/Logo';
@@ -62,7 +65,16 @@ const SECTIONS = [
       { to: '/admin/pedidos-cotizacion', label: 'Pedidos-Cotización', icon: FileText },
       { to: '/admin/ventas', label: 'Ventas', icon: Receipt },
       { to: '/admin/compras', label: 'Compras', icon: ShoppingCart },
-      { to: '/admin/solicitudes-servicio', label: 'Solicitudes de servicio', icon: Wrench },
+    ],
+  },
+  {
+    label: 'REENCAUCHE',
+    items: [
+      { to: '/admin/reencauches', label: 'Revisiones', icon: ClipboardCheck },
+      { to: '/admin/ordenes-reencauche', label: 'Órdenes', icon: Factory },
+      { to: '/admin/bandas', label: 'Bandas', icon: Layers },
+      // Solo para terminar los servicios que se pidieron con el flujo anterior
+      { to: '/admin/solicitudes-servicio', label: 'Servicios anteriores', icon: History },
     ],
   },
   {
