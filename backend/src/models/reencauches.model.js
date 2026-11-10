@@ -52,13 +52,14 @@ const DESDE_SOLICITUD = `
   ${RESUMEN}`;
 
 const SELECT_LLANTA = `
-  l.id, l.reencauche_id AS "reencaucheId", l.posicion, l.dot, l.medida,
+  l.id, l.reencauche_id AS "reencaucheId", l.posicion, l.identificador, l.medida,
   l.reencauches_previos AS "reencauchesPrevios", l.resultado, l.motivo_no_apta AS "motivoNoApta",
   l.banda_id AS "bandaId", lb.nombre AS banda, lb.diseno, lb.ancho_mm AS "anchoMm",
   l.precio_banda AS "precioBanda", l.mano_obra AS "manoObra",
   COALESCE(l.precio_banda, 0) + COALESCE(l.mano_obra, 0) AS valor,
   l.estado, l.tercero_id AS "terceroId", t.nombre_razon_social AS tercero, l.enviada_en AS "enviadaEn",
-  l.motivo_planta AS "motivoPlanta", l.pago_medio AS "pagoMedio", l.pago_fecha AS "pagoFecha"`;
+  l.motivo_planta AS "motivoPlanta", l.pago_medio AS "pagoMedio", l.pago_fecha AS "pagoFecha",
+  l.pago_comprobante AS "pagoComprobante"`;
 
 const DESDE_LLANTA = `
   FROM reencauche_llanta l
@@ -182,13 +183,13 @@ export async function reemplazarLlantas(db, reencaucheId, llantas) {
   for (const [i, l] of llantas.entries()) {
     const apta = l.resultado === 'Apta';
     await db.query(
-      `INSERT INTO reencauche_llanta (reencauche_id, posicion, dot, medida, reencauches_previos, resultado,
+      `INSERT INTO reencauche_llanta (reencauche_id, posicion, identificador, medida, reencauches_previos, resultado,
                                       motivo_no_apta, banda_id, precio_banda, mano_obra)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         reencaucheId,
         i + 1,
-        l.dot,
+        l.identificador,
         l.medida,
         l.reencauchesPrevios ?? 0,
         l.resultado,
@@ -224,7 +225,7 @@ export function listarOrdenes(parametros) {
     {
       select: SELECT_ORDEN,
       desde: `${DESDE_ORDEN}`,
-      buscarEn: ['r.numero', 'cl.nombre_completo', 'l.dot', 'lb.nombre', 't.nombre_razon_social'],
+      buscarEn: ['r.numero', 'cl.nombre_completo', 'l.identificador', 'lb.nombre', 't.nombre_razon_social'],
       // Solo las llantas que el cliente aceptó (las demás no tienen orden)
       filtros: { estado: 'l.estado', conOrden: "(l.estado IS NOT NULL)" },
       orden: `CASE l.estado WHEN 'Lista para entregar' THEN 0 WHEN 'Por enviar' THEN 1 WHEN 'En planta' THEN 2 ELSE 3 END,
@@ -243,7 +244,7 @@ export async function orden(id, db = POOL) {
 /** Orden bloqueada (dentro de una transacción), o null si no existe o aún no es orden. */
 export async function bloquearOrden(db, id) {
   const { rows } = await db.query(
-    `SELECT l.id, l.posicion, l.dot, l.estado, l.precio_banda + l.mano_obra AS valor,
+    `SELECT l.id, l.posicion, l.identificador, l.estado, l.precio_banda + l.mano_obra AS valor,
             r.numero, r.cliente_id
        FROM reencauche_llanta l JOIN reencauche r ON r.id = l.reencauche_id
       WHERE l.id = $1 AND l.estado IS NOT NULL
@@ -266,12 +267,15 @@ export async function registrarEnvio(db, id, terceroId) {
   );
 }
 
-/** La llanta se entrega hoy al cliente y se cobra con el medio indicado. */
-export async function registrarEntrega(db, id, { medio, usuarioId }) {
+/**
+ * La llanta se entrega hoy al cliente y se cobra con el medio indicado (con
+ * su comprobante, si se pagó por transferencia).
+ */
+export async function registrarEntrega(db, id, { medio, comprobante, usuarioId }) {
   await db.query(
     `UPDATE reencauche_llanta
-        SET estado = 'Entregada', pago_medio = $2, pago_fecha = CURRENT_DATE, cobrada_por = $3
+        SET estado = 'Entregada', pago_medio = $2, pago_fecha = CURRENT_DATE, cobrada_por = $3, pago_comprobante = $4
       WHERE id = $1`,
-    [id, medio, usuarioId],
+    [id, medio, usuarioId, comprobante ?? null],
   );
 }

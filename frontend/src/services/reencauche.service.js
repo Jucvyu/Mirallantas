@@ -90,7 +90,7 @@ const solicitudHaciaApi = (v) => {
 const llantaHaciaApi = (l) => {
   const apta = l.resultado === 'Apta';
   return {
-    dot: String(l.dot ?? '').trim(),
+    identificador: String(l.identificador ?? '').trim().toUpperCase(),
     medida: l.medida,
     reencauchesPrevios: Number(l.reencauchesPrevios) || 0,
     resultado: l.resultado,
@@ -134,8 +134,9 @@ export const ordenesReencaucheService = {
   enviar: (orden, terceroId) => enviar(rutaOrden(orden.id, '/envio'), { terceroId: Number(terceroId) }),
   marcarLista: (orden) => enviar(rutaOrden(orden.id, '/lista')),
   rechazar: (orden, motivo) => enviar(rutaOrden(orden.id, '/rechazo'), { motivo }),
-  /** Se entrega y se cobra: es el único momento en que se recibe dinero. */
-  entregar: (orden, medioPago) => enviar(rutaOrden(orden.id, '/entrega'), { medioPago }),
+  /** Se entrega y se cobra: es el único momento en que se recibe dinero (por transferencia, con su comprobante). */
+  entregar: (orden, { medioPago, comprobante }) =>
+    enviar(rutaOrden(orden.id, '/entrega'), { medioPago, comprobante: comprobante || null }),
 };
 
 // ---- Portal ---------------------------------------------------------------------------

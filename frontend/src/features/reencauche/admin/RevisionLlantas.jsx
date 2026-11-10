@@ -12,7 +12,7 @@ const miles = (n) => (n ? Number(n).toLocaleString('es-CO') : '');
 function filasIniciales(solicitud, bandas) {
   if (solicitud.llantas.length) {
     return solicitud.llantas.map((l) => ({
-      dot: l.dot,
+      identificador: l.identificador,
       medida: l.medida,
       reencauchesPrevios: String(l.reencauchesPrevios ?? 0),
       resultado: l.resultado,
@@ -24,7 +24,7 @@ function filasIniciales(solicitud, bandas) {
   }
   const pedida = bandas.find((b) => b.id === solicitud.bandaId);
   return Array.from({ length: solicitud.cantidad }, () => ({
-    dot: '',
+    identificador: '',
     medida: solicitud.medida,
     reencauchesPrevios: '0',
     resultado: 'Apta',
@@ -35,10 +35,17 @@ function filasIniciales(solicitud, bandas) {
   }));
 }
 
-/** Lo que le falta a cada llanta (por campo), o {} si está completa. */
-function erroresDe(f) {
+/** ID de la llanta: letras, números y guiones, en mayúsculas (máximo 20). */
+const limpiarId = (texto) => texto.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+
+/**
+ * Lo que le falta a cada llanta (por campo), o {} si está completa.
+ * `repetido` dice si su ID ya lo tiene otra llanta de la solicitud.
+ */
+function erroresDe(f, repetido) {
   const e = {};
-  if (!/^\d{4}$/.test(f.dot)) e.dot = 'Los 4 dígitos de semana y año';
+  if (!/^[A-Z0-9][A-Z0-9-]*$/.test(f.identificador)) e.identificador = 'Escribe el ID de la llanta';
+  else if (repetido) e.identificador = 'Otra llanta ya tiene este ID';
   if (f.resultado === 'No apta' && !f.motivoNoApta.trim()) e.motivoNoApta = 'Escribe por qué no sirve';
   if (f.resultado === 'Apta') {
     if (!f.bandaId) e.bandaId = 'Elige la banda';
@@ -111,10 +118,10 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
 
   // Una llanta nueva copia la medida, la banda y los valores de la anterior
   const agregar = () =>
-    setFilas((actuales) => [...actuales, { ...actuales[actuales.length - 1], dot: '', reencauchesPrevios: '0' }]);
+    setFilas((actuales) => [...actuales, { ...actuales[actuales.length - 1], identificador: '', reencauchesPrevios: '0' }]);
   const quitar = (i) => setFilas((actuales) => actuales.filter((_, j) => j !== i));
 
-  const errores = filas.map(erroresDe);
+  const errores = filas.map((f, i) => erroresDe(f, filas.some((otra, j) => j < i && otra.identificador && otra.identificador === f.identificador)));
   const aptas = filas.filter((f) => f.resultado === 'Apta').length;
   const total = filas.reduce((suma, f) => suma + valorDe(f), 0);
 
@@ -158,14 +165,14 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
               </div>
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Campo etiqueta="DOT" error={err.dot}>
+                <Campo etiqueta="ID de la llanta" error={err.identificador}>
                   <input
-                    value={f.dot}
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="2321"
-                    onChange={(e) => cambiar(i, { dot: soloDigitos(e.target.value).slice(0, 4) })}
-                    className={`${INPUT} ${err.dot ? BORDER_ERR : BORDER_OK} tabular-nums`}
+                    value={f.identificador}
+                    maxLength={20}
+                    placeholder="LL-0145"
+                    autoCapitalize="characters"
+                    onChange={(e) => cambiar(i, { identificador: limpiarId(e.target.value) })}
+                    className={`${INPUT} ${err.identificador ? BORDER_ERR : BORDER_OK} tabular-nums uppercase`}
                   />
                 </Campo>
                 <Campo etiqueta="Medida">

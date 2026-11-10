@@ -444,8 +444,8 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
   - **Solicitud**: banda, medida de sus llantas (debe ser compatible con la banda), cantidad (1 a
     20) y dónde revisarlas (en el local o en su dirección). El asesor también la registra para un
     cliente que llega o llama. Queda "Por agendar".
-  - **Revisión gratis**: el asesor agenda la fecha y, en persona, anota cada llanta: DOT (semana y
-    año), reencauches previos y si es **apta** (con una banda compatible con su medida, precio de la
+  - **Revisión gratis**: el asesor agenda la fecha y, en persona, anota cada llanta: su ID (el que se
+    marca en la llanta), reencauches previos y si es **apta** (con una banda compatible con su medida, precio de la
     banda y mano de obra) o **no apta** (con el motivo). Queda "Cotizada"; si ninguna sirve, "Sin
     llantas aptas". Mientras el cliente no responda, la revisión se puede corregir.
   - **Aceptación sin pago**: el cliente acepta (o no) desde el portal o en el local. Cada llanta

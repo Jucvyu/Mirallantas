@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Disc3, Minus, Plus, Send, ShoppingCart, Trash2, Wrench, X } from 'lucide-react';
+import { Disc3, Minus, Plus, Send, ShoppingCart, Trash2, X } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import AvisoError from '../../components/base/AvisoError';
 import TireThumb from '../../components/base/TireThumb';
@@ -39,7 +39,7 @@ import CotizacionEnviadaModal from './CotizacionEnviadaModal';
 export default function PedidoPanel({ onClose = null }) {
   const navigate = useNavigate();
   const cart = useCart();
-  const { usuario, tienePermiso } = useAuth();
+  const { usuario } = useAuth();
   const { recargar } = usePortal();
   const { enviando, errorEnvio, enviar } = useEnvio();
 
@@ -121,14 +121,6 @@ export default function PedidoPanel({ onClose = null }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {tienePermiso('Mis reencauches') && (
-              <Link
-                to="/portal/reencauche"
-                className="inline-flex items-center gap-2 rounded-lg border border-amber-400 px-3 py-2 text-sm font-bold text-amber-600 hover:bg-amber-400/10 dark:text-amber-400"
-              >
-                <Wrench size={15} /> Reencauche
-              </Link>
-            )}
             {onClose && (
               <button
                 onClick={onClose}
@@ -148,7 +140,7 @@ export default function PedidoPanel({ onClose = null }) {
             </span>
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Tu carro está vacío</p>
             <p className="max-w-xs text-xs text-slate-400 dark:text-slate-500">
-              Agrega llantas desde el catálogo. El reencauche se pide aparte, con su revisión gratis.
+              Agrega llantas desde el catálogo.
             </p>
             {!onClose && (
               <Link to="/portal/catalogo" className="mt-1 rounded-lg bg-amber-400 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300">

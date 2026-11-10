@@ -5,7 +5,7 @@ import * as bandasModel from '../models/bandas.model.js';
 import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import * as reencauchesModel from '../models/reencauches.model.js';
-import { pesos, validarTransicion } from '../reglas.js';
+import { exigirMedioAceptado, pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarTodo } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
@@ -75,12 +75,29 @@ function exigirCancelable(actual) {
   }
 }
 
-/** Aceptar o no la cotización. Al aceptar, cada llanta apta queda como orden. */
+/** Lo que se dice cuando la cotización ya tiene respuesta. */
+const YA_RESPONDIDA = {
+  Aceptada: 'El cliente ya aceptó esta cotización',
+  'No aceptada': 'El cliente ya respondió que no acepta esta cotización',
+};
+
+/**
+ * Aceptar o no la cotización. Al aceptar, cada llanta apta queda como orden.
+ * Si ya tenía esa misma respuesta (p. ej. el cliente aceptó en el portal
+ * mientras el asesor tenía la pantalla abierta) no cambia nada y devuelve
+ * null; si la respuesta fue la contraria, lo explica.
+ */
 async function responder(db, actual, acepta) {
-  if (actual.estado !== 'Cotizada') {
-    throw new HttpError(422, `La solicitud está "${actual.estado}": no hay una cotización por responder.`);
-  }
   const estado = acepta ? 'Aceptada' : 'No aceptada';
+  if (actual.estado === estado) return null;
+  if (actual.estado !== 'Cotizada') {
+    throw new HttpError(
+      422,
+      YA_RESPONDIDA[actual.estado]
+        ? `${YA_RESPONDIDA[actual.estado]} (quedó "${actual.estado}"): ya no se puede cambiar.`
+        : `La solicitud está "${actual.estado}": no hay una cotización por responder.`,
+    );
+  }
   validarTransicion('reencauche', actual.estado, estado);
   await reencauchesModel.marcarRespondida(db, actual.id, estado);
   return acepta ? reencauchesModel.abrirOrdenes(db, actual.id) : 0;
@@ -266,8 +283,8 @@ async function cambiarOrden(req, res, siguiente, trabajo) {
   enviarDato(res, await reencauchesModel.orden(id));
 }
 
-/** Nombre de la llanta en los avisos: "DOT 2321 (REE-2026-001)". */
-const llantaDe = (o) => `DOT ${o.dot} (${o.numero})`;
+/** Nombre de la llanta en los avisos: "llanta LL-0145 (REE-2026-001)". */
+const llantaDe = (o) => `llanta ${o.identificador} (${o.numero})`;
 
 /** POST /reencauches/ordenes/:id/envio — sale hacia la reencauchadora. */
 export function enviarOrden(req, res) {
@@ -316,11 +333,20 @@ export function rechazarEnPlanta(req, res) {
   });
 }
 
-/** POST /reencauches/ordenes/:id/entrega — se entrega y se cobra (el único cobro). */
+/**
+ * POST /reencauches/ordenes/:id/entrega — se entrega y se cobra (el único
+ * cobro). Por transferencia se adjunta el pantallazo de la consignación.
+ */
 export function entregarOrden(req, res) {
-  const { medioPago } = req.validado.body;
+  const { medioPago, comprobante } = req.validado.body;
+  exigirMedioAceptado(medioPago);
+  if (medioPago === 'Transferencia' && !comprobante) throw new HttpError(422, 'Adjunta el comprobante de la transferencia.');
   return cambiarOrden(req, res, 'Entregada', async (db, orden) => {
-    await reencauchesModel.registrarEntrega(db, orden.id, { medio: medioPago, usuarioId: req.usuario.id });
+    await reencauchesModel.registrarEntrega(db, orden.id, {
+      medio: medioPago,
+      comprobante: medioPago === 'Transferencia' ? comprobante : null,
+      usuarioId: req.usuario.id,
+    });
     await notificaciones.crear(
       {
         clienteId: orden.cliente_id,
@@ -380,6 +406,8 @@ export async function responderDesdePortal(req, res) {
   await enTransaccion(async (db) => {
     const actual = await bloquear(db, req.params.numero, clienteId);
     const ordenes = await responder(db, actual, acepta);
+    // Ya tenía esa respuesta: no se repite el aviso
+    if (ordenes === null) return;
     await avisarPersonal(db, clienteId, acepta
       ? {
           titulo: `Reencauche aceptado · ${actual.numero}`,

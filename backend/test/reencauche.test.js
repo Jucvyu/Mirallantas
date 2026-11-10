@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
+import { PNG } from './comercial.js';
 import { levantarEntorno } from './entorno.js';
 
 /**
@@ -142,7 +143,7 @@ describe('Solicitud y revisión', () => {
 
   test('sin agendar no se registra la revisión', async () => {
     const r = await accion(`/reencauches/${t.numero}/revision`, {
-      llantas: [{ dot: '2321', medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
+      llantas: [{ identificador: 'LL-2321', medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
     });
     assert.equal(r.estado, 422);
   });
@@ -157,22 +158,33 @@ describe('Solicitud y revisión', () => {
 
   test('una llanta no apta lleva motivo y una apta lleva banda compatible', async () => {
     const sinMotivo = await accion(`/reencauches/${t.numero}/revision`, {
-      llantas: [{ dot: '0919', medida: '295/80R22.5', resultado: 'No apta' }],
+      llantas: [{ identificador: 'LL-0919', medida: '295/80R22.5', resultado: 'No apta' }],
     });
     assert.equal(sinMotivo.estado, 422);
     const incompatible = await accion(`/reencauches/${t.numero}/revision`, {
-      llantas: [{ dot: '2321', medida: '12R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
+      llantas: [{ identificador: 'LL-2321', medida: '12R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
     });
     assert.equal(incompatible.estado, 422);
     assert.match(incompatible.cuerpo.error, /Llanta 1/);
   });
 
+  test('el ID de la llanta no se repite en la misma solicitud', async () => {
+    const r = await accion(`/reencauches/${t.numero}/revision`, {
+      llantas: [
+        { identificador: 'LL-7', medida: '295/80R22.5', resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
+        { identificador: 'll-7', medida: '295/80R22.5', resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
+      ],
+    });
+    assert.equal(r.estado, 422);
+    assert.match(JSON.stringify(r.cuerpo), /ya es de la llanta 1/);
+  });
+
   test('la revisión deja la cotización: solo las aptas suman valor', async () => {
     const r = await accion(`/reencauches/${t.numero}/revision`, {
       llantas: [
-        { dot: '2321', medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 },
-        { dot: '1820', medida: '295/80R22.5', reencauchesPrevios: 1, resultado: 'Apta', bandaId: t.banda.id, precioBanda: 450000, manoObra: 200000 },
-        { dot: '0919', medida: '295/80R22.5', reencauchesPrevios: 2, resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
+        { identificador: 'LL-2321', medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 },
+        { identificador: 'LL-1820', medida: '295/80R22.5', reencauchesPrevios: 1, resultado: 'Apta', bandaId: t.banda.id, precioBanda: 450000, manoObra: 200000 },
+        { identificador: 'LL-0919', medida: '295/80R22.5', reencauchesPrevios: 2, resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
       ],
     });
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
@@ -200,8 +212,19 @@ describe('Solicitud y revisión', () => {
     const estados = r.cuerpo.datos.llantas.map((l) => l.estado);
     assert.deepEqual(estados, ['Por enviar', 'Por enviar', null]);
 
+    // Aceptar otra vez no duplica nada; responder lo contrario se explica
     const otraVez = await accion(`/portal/reencauches/${t.numero}/respuesta`, { acepta: true }, t.luis);
-    assert.equal(otraVez.estado, 422);
+    assert.equal(otraVez.estado, 200);
+    assert.deepEqual(otraVez.cuerpo.datos.llantas.map((l) => l.estado), ['Por enviar', 'Por enviar', null]);
+    const contraria = await accion(`/portal/reencauches/${t.numero}/respuesta`, { acepta: false }, t.luis);
+    assert.equal(contraria.estado, 422);
+    assert.match(contraria.cuerpo.error, /ya aceptó/);
+  });
+
+  test('si el cliente ya aceptó en el portal, "Aceptó en el local" no falla', async () => {
+    const r = await accion(`/reencauches/${t.numero}/respuesta`, { acepta: true });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    assert.equal(r.cuerpo.datos.estado, 'Aceptada');
   });
 });
 
@@ -237,8 +260,14 @@ describe('Órdenes y cobro al entregar', () => {
     assert.ok(envio.cuerpo.datos.tercero);
     assert.equal((await accion(`/reencauches/ordenes/${t.ordenA}/lista`)).cuerpo.datos.estado, 'Lista para entregar');
 
-    const entrega = await accion(`/reencauches/ordenes/${t.ordenA}/entrega`, { medioPago: 'Transferencia' });
+    // Por transferencia se pide el comprobante; "Otro" ya no se acepta
+    const sinComprobante = await accion(`/reencauches/ordenes/${t.ordenA}/entrega`, { medioPago: 'Transferencia' });
+    assert.equal(sinComprobante.estado, 422);
+    assert.equal((await accion(`/reencauches/ordenes/${t.ordenA}/entrega`, { medioPago: 'Otro' })).estado, 422);
+
+    const entrega = await accion(`/reencauches/ordenes/${t.ordenA}/entrega`, { medioPago: 'Transferencia', comprobante: PNG });
     assert.equal(entrega.estado, 200, JSON.stringify(entrega.cuerpo));
+    assert.ok(entrega.cuerpo.datos.pagoComprobante, 'queda el comprobante');
     assert.equal(entrega.cuerpo.datos.estado, 'Entregada');
     assert.equal(entrega.cuerpo.datos.pagoMedio, 'Transferencia');
     assert.ok(entrega.cuerpo.datos.pagoFecha);
@@ -297,7 +326,7 @@ describe('Sin llantas aptas', () => {
     const numero = r.cuerpo.datos.numero;
     await accion(`/reencauches/${numero}/agenda`, { fechaRevision: hoy() });
     const revision = await accion(`/reencauches/${numero}/revision`, {
-      llantas: [{ dot: '1015', medida: '11R22.5', resultado: 'No apta', motivoNoApta: 'Carcasa de más de 7 años' }],
+      llantas: [{ identificador: 'LL-1015', medida: '11R22.5', resultado: 'No apta', motivoNoApta: 'Carcasa de más de 7 años' }],
     });
     assert.equal(revision.cuerpo.datos.estado, 'Sin llantas aptas');
     assert.equal(revision.cuerpo.datos.valor, 0);

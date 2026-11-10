@@ -36,7 +36,7 @@ export default function LlantasLista({ llantas, paraCliente = false }) {
           <li key={l.id ?? l.posicion} className="flex flex-col gap-2 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                Llanta {l.posicion} <span className="font-normal text-slate-400">· DOT {l.dot}</span>
+                Llanta {l.posicion} <span className="font-normal text-slate-400">· ID {l.identificador}</span>
               </p>
               <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 {l.medida} · {previosTexto(l.reencauchesPrevios)}

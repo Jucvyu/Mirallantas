@@ -7,6 +7,7 @@ import { BORDER_OK, INPUT, LABEL } from '../../../components/base/formStyles';
 import PageHeader from '../../../components/base/PageHeader';
 import Skeleton from '../../../components/base/Skeleton';
 import { DIAS_MAXIMOS_REVISION } from '../../../constantes';
+import { useAlCambiar } from '../../../hooks/useAlCambiar';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { bandasService, reencauchesService } from '../../../services';
@@ -165,6 +166,10 @@ export default function ReencaucheDetallePage() {
     };
   }, [numero]);
 
+  // Si el cliente responde desde el portal (u otro asesor cambia algo), se
+  // ve aquí al instante, sin recargar la página
+  useAlCambiar(cargar);
+
   /** Ejecuta una acción y vuelve a cargar lo que quedó guardado. */
   const tras = (accion) => async (...argumentos) => {
     await accion(...argumentos);
@@ -228,7 +233,7 @@ export default function ReencaucheDetallePage() {
       <div className="p-5 sm:p-6">
         <h2 className="text-base font-bold text-slate-900 dark:text-white">Revisión de las llantas</h2>
         <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Anota el DOT de cada llanta y si sirve. A las aptas asígnales la banda según su medida y su valor.
+          Anota el ID de cada llanta y si sirve. A las aptas asígnales la banda según su medida y su valor.
         </p>
         <RevisionLlantas
           key={`${s.numero}-${s.revisadoEn ?? 'nueva'}`}

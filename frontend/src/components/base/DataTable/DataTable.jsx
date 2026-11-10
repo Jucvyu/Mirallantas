@@ -106,6 +106,7 @@ function textoParaExportar(row, col) {
  *   editModal:   ({ row, onSubmit, onClose }) => nodo, formulario de "Editar" a medida
  *   motivoNoEditable: texto del botón Editar deshabilitado (o (row) => texto)
  *   rowActions: (row, { update }) => nodo, botones extra en cada fila
+ *   accionesIniciales: igual, pero antes de desplegar (p. ej. un "ver detalle" propio)
  *   accionesFinales: igual, pero después de Editar (p. ej. anular: lo destructivo va al final)
  *   formValidate: (values) => ({ campo: 'mensaje' }) reglas entre campos
  *   exportable, canView / canEdit / canDelete, entityGender, titleKey
@@ -145,6 +146,7 @@ export default function DataTable({
   editModal,
   motivoNoEditable = 'Este registro ya no se puede editar',
   rowActions,
+  accionesIniciales,
   accionesFinales,
   statusFlow,
   formValidate,
@@ -287,6 +289,7 @@ export default function DataTable({
   const botonesFila = (row, desplegable, abierta) => (
     <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5">
       {canView && <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => setDialog({ mode: 'view', row })} />}
+      {accionesIniciales?.(row, { update: updateDe(row) })}
       {expandir && (
         <BotonAccion
           icono={abierta ? ChevronUp : ChevronDown}
