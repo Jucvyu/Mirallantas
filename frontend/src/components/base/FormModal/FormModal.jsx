@@ -34,6 +34,8 @@ const MODE_META = {
  * "Detalle" con la misma definición de campos.
  *
  * sections: [{ title, fields: [ ...ver Field.jsx ] }]
+ * Campo con `soloSi: (values) => boolean`: solo aparece (y se valida) cuando
+ *   la función devuelve true.
  * mode: 'create' | 'edit' | 'view' (en "view" los datos se leen como texto,
  *   ver VistaDetalle). `resumen` = { titulo, estado } encabeza el detalle y la
  *   edición, para saber qué registro se está viendo o cambiando
@@ -89,11 +91,13 @@ export default function FormModal({
     [rawSections, mode],
   );
 
+  // Un campo puede depender de los valores del registro con `soloSi(values)`
+  // (p. ej. el precio fijo, que solo lo lleva la llanta reencauchada)
+  const visible = (f) => !f.soloSi || f.soloSi(values);
+
   // Un campo de solo lectura no se le pide al usuario, aunque sea obligatorio
-  const camposEditables = useMemo(
-    () => (mode === 'view' ? [] : sections.flatMap((s) => s.fields.filter((f) => !f.soloLectura))),
-    [sections, mode],
-  );
+  const camposEditables =
+    mode === 'view' ? [] : sections.flatMap((s) => s.fields.filter((f) => !f.soloLectura && visible(f)));
 
   /** Todos los errores del formulario con estos valores. */
   const erroresDe = (vals) => {
@@ -220,7 +224,7 @@ export default function FormModal({
         {sections.map((section) => {
           // El estado ya se ve en el resumen: si no se edita, no se repite
           const campos = section.fields.filter(
-            (f) => !(mode === 'edit' && resumen?.estado && f.key === 'estado' && f.soloLectura),
+            (f) => visible(f) && !(mode === 'edit' && resumen?.estado && f.key === 'estado' && f.soloLectura),
           );
           if (campos.length === 0) return null;
           return (

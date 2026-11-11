@@ -68,13 +68,12 @@ export default function PedidoPanel({ onClose = null }) {
       const { datos: solicitud } = await cotizacionesService.crearDesdePortal({
         direccion: lugarLimpio,
         productos: cart.productos,
-        // El reencauche se pide en su propia pantalla, no en la cotización
-        servicios: [],
         claveIdempotencia,
       });
       setClaveIdempotencia(nuevaClaveIdempotencia());
       await recargar();
-      setEnviada(solicitud.numero);
+      // Solo llantas reencauchadas: la cotización ya sale con su precio fijo
+      setEnviada({ numero: solicitud.numero, emitida: Boolean(solicitud.emitidaEn) });
     });
   };
 
@@ -161,6 +160,12 @@ export default function PedidoPanel({ onClose = null }) {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1">
+                  {p.reencauchada ? (
+                    <span className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:border-white/10 dark:text-slate-300">
+                      1 und. · única
+                    </span>
+                  ) : (
+                  <>
                   <button
                     onClick={() => cart.setCantidad(p.id, p.cantidad - 1)}
                     disabled={p.cantidad <= 1}
@@ -184,6 +189,8 @@ export default function PedidoPanel({ onClose = null }) {
                   >
                     <Plus size={13} />
                   </button>
+                  </>
+                  )}
                   <button
                     onClick={() => cart.removeProducto(p.id)}
                     className="ml-1 rounded-lg p-1.5 text-slate-400 hover:text-red-500"
@@ -247,7 +254,7 @@ export default function PedidoPanel({ onClose = null }) {
         </div>
       </div>
 
-      {enviada && <CotizacionEnviadaModal numero={enviada} onClose={cerrarAviso} />}
+      {enviada && <CotizacionEnviadaModal numero={enviada.numero} emitida={enviada.emitida} onClose={cerrarAviso} />}
     </div>
   );
 }

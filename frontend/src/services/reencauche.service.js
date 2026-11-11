@@ -90,7 +90,6 @@ const solicitudHaciaApi = (v) => {
 const llantaHaciaApi = (l) => {
   const apta = l.resultado === 'Apta';
   return {
-    identificador: String(l.identificador ?? '').trim().toUpperCase(),
     medida: l.medida,
     reencauchesPrevios: Number(l.reencauchesPrevios) || 0,
     resultado: l.resultado,
@@ -134,6 +133,9 @@ export const ordenesReencaucheService = {
   enviar: (orden, terceroId) => enviar(rutaOrden(orden.id, '/envio'), { terceroId: Number(terceroId) }),
   marcarLista: (orden) => enviar(rutaOrden(orden.id, '/lista')),
   rechazar: (orden, motivo) => enviar(rutaOrden(orden.id, '/rechazo'), { motivo }),
+  /** El cliente no la pagó: pasa al catálogo con el precio que digita el asesor. */
+  noPagada: (orden, { precioVenta, motivo }) =>
+    enviar(rutaOrden(orden.id, '/no-pagada'), { precioVenta: parseCOP(precioVenta), motivo: vacioANull(motivo) }),
   /** Se entrega y se cobra: es el único momento en que se recibe dinero (por transferencia, con su comprobante). */
   entregar: (orden, { medioPago, comprobante }) =>
     enviar(rutaOrden(orden.id, '/entrega'), { medioPago, comprobante: comprobante || null }),

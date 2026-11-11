@@ -1,11 +1,12 @@
 import { enTransaccion } from '../db.js';
-import { noEncontrado } from '../errores.js';
+import { HttpError, noEncontrado } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import { aPares } from '../models/listado.model.js';
 import * as productosModel from '../models/productos.model.js';
 import { enviarCatalogo, enviarCatalogoPublico, enviarProducto } from '../views/productos.view.js';
 import { enviarDato } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
+import { vencerNoPagadas } from './reencauches.controller.js';
 
 /**
  * Controlador de productos.
@@ -19,6 +20,8 @@ import { exigirActivo } from './estados.js';
 export async function listar(req, res) {
   const filtros = req.validado.query;
   const esCliente = Boolean(clienteDeSesion(req));
+  // El personal ve al instante las llantas que pasaron solas al catálogo
+  if (!esCliente) await vencerNoPagadas();
   const resultado = await productosModel.listar({
     ...filtros,
     activo: filtros.activo === undefined ? undefined : filtros.activo === 'true',
@@ -46,7 +49,7 @@ export async function medidas(req, res) {
 export async function obtener(req, res) {
   const esCliente = Boolean(clienteDeSesion(req));
   const producto = await productosModel.buscarPorId(req.validado.params.id);
-  if (!producto || (esCliente && !producto.activo)) throw noEncontrado('El producto');
+  if (!producto || (esCliente && !producto.disponible)) throw noEncontrado('El producto');
 
   const imagenes = await productosModel.imagenes(producto.id);
   enviarProducto(res, { ...producto, imagenes });
@@ -76,6 +79,14 @@ export async function actualizar(req, res) {
     await exigirActivo('categoria', cambios.categoriaId);
   }
   if (cambios.marcaId !== undefined && cambios.marcaId !== actual.marcaId) await exigirActivo('marca', cambios.marcaId);
+  // El precio fijo es solo de la llanta reencauchada; sin él no se ofrece
+  if (cambios.precioVenta !== undefined && !actual.reencauchada) {
+    throw new HttpError(422, 'El precio de venta se define en cada cotización: solo la llanta reencauchada lleva precio fijo.');
+  }
+  const activa = cambios.activo ?? actual.activo;
+  if (actual.reencauchada && activa && !(cambios.precioVenta ?? actual.precioVenta)) {
+    throw new HttpError(422, 'Ponle el precio de venta a la llanta reencauchada antes de activarla.');
+  }
 
   await enTransaccion(async (db) => {
     await productosModel.actualizar(db, id, aPares(cambios, productosModel.COLUMNAS_EDITABLES));

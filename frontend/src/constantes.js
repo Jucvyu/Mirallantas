@@ -152,7 +152,10 @@ export const DIAS_MAXIMOS_REVISION = 60;
 export const estadosReencauche = ['Por agendar', 'Agendada', 'Cotizada', 'Aceptada', 'No aceptada', 'Sin llantas aptas', 'Cancelada'];
 
 /** Estados de cada llanta en la reencauchadora (su orden). */
-export const estadosOrdenReencauche = ['Por enviar', 'En planta', 'Lista para entregar', 'Entregada', 'Rechazada en planta'];
+export const estadosOrdenReencauche = ['Por enviar', 'En planta', 'Lista para entregar', 'Entregada', 'No pagada', 'Rechazada en planta'];
+
+/** Días que espera una llanta lista sin pago antes de pasar sola al catálogo (igual que la API). */
+export const DIAS_PARA_NO_PAGADA = 30;
 
 export const estadosAbono = ['Pendiente', 'Confirmado', 'Rechazado'];
 

@@ -14,7 +14,7 @@ import {
 } from './adaptadores';
 import { api, traerTodo } from './http';
 import { crearServicio } from './recurso';
-import { vacioANull } from '../utils/formato';
+import { parseCOP, vacioANull } from '../utils/formato';
 
 /**
  * Agrega a un servicio de catálogo la operación "activar / desactivar"
@@ -58,6 +58,8 @@ function productoHaciaApi(v, fila, { categorias, marcas, tipos }) {
     tipoVehiculoId: idPorNombre(tipos, v.tipoVehiculo),
     // La foto solo se envía si cambió (las imágenes pesan)
     foto: imagenCambiada(v.foto, fila?.foto),
+    // Solo la llanta reencauchada lleva precio fijo
+    ...(fila?.reencauchada && parseCOP(v.precioVenta) ? { precioVenta: parseCOP(v.precioVenta) } : {}),
   };
 }
 
@@ -68,7 +70,7 @@ export const productosService = {
 
   /** Productos que se están vendiendo (el portal y las cotizaciones solo usan estos). */
   async listarActivos() {
-    return (await productosBase.listar()).filter((p) => p.activo);
+    return (await productosBase.listar()).filter((p) => p.disponible ?? p.activo);
   },
 
   /** Medidas registradas en el catálogo, sin repetir (buscador de medidas). */

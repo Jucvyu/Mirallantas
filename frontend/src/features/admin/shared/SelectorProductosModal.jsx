@@ -37,7 +37,8 @@ export default function SelectorProductosModal({ yaAgregados = [], onAgregar, on
 
   // Catálogo de la API. Un producto inactivo ya no se ofrece en cotizaciones nuevas
   const productos = useRecurso(productosService);
-  const catalogo = useMemo(() => productos.filas.filter((p) => p.activo), [productos.filas]);
+  // Lo que se puede pedir: activo y, si es reencauchada, con precio y sin apartar
+  const catalogo = useMemo(() => productos.filas.filter((p) => p.disponible ?? p.activo), [productos.filas]);
   const enCotizacion = useMemo(() => new Set(yaAgregados), [yaAgregados]);
 
   const options = useMemo(

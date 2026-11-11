@@ -14,7 +14,7 @@ const WHATSAPP = WHATSAPP_EMPRESA.replace(/^57/, '').replace(/(\d{3})(\d{3})(\d{
  * proveedores (plazo de respuesta de 24 horas, distinto de los 8 días de
  * vigencia de la cotización formal). Enviarla no es una compra.
  */
-export default function CotizacionEnviadaModal({ numero, onClose }) {
+export default function CotizacionEnviadaModal({ numero, emitida = false, onClose }) {
   return (
     <Modal
       title="¡Solicitud recibida!"
@@ -33,12 +33,20 @@ export default function CotizacionEnviadaModal({ numero, onClose }) {
       )}
     >
       <div className="space-y-5">
-        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          ¡Tu solicitud de cotización fue recibida correctamente! Estamos verificando los precios vigentes con
-          nuestros proveedores para ofrecerte una cotización actualizada. En un plazo de hasta 24 horas te
-          confirmaremos los precios finales y las condiciones de tu solicitud. Ten en cuenta que el envío de esta
-          solicitud no constituye una compra confirmada.
-        </p>
+        {emitida ? (
+          // Solo llantas reencauchadas: su precio es fijo, no hay nada que verificar
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            ¡Tu cotización ya está lista! La llanta reencauchada tiene precio fijo y quedó apartada para ti mientras la
+            cotización esté vigente. Acéptala en "Mis cotizaciones" para continuar con el pedido.
+          </p>
+        ) : (
+          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            ¡Tu solicitud de cotización fue recibida correctamente! Estamos verificando los precios vigentes con
+            nuestros proveedores para ofrecerte una cotización actualizada. En un plazo de hasta 24 horas te
+            confirmaremos los precios finales y las condiciones de tu solicitud. Ten en cuenta que el envío de esta
+            solicitud no constituye una compra confirmada.
+          </p>
+        )}
         <p className="text-xs text-slate-500 dark:text-slate-400">
           Puedes consultar el estado de tu solicitud en "Mis cotizaciones". Si tienes dudas, comunícate con
           nosotros:

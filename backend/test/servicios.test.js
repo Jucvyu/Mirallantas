@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { levantarEntorno } from './entorno.js';
+import { cotizacionSoloServicioLegado } from './legado.js';
 
 /**
  * Pruebas del pago de los servicios de reencauche (se cobran aparte de la
@@ -34,30 +35,19 @@ const pagar = (cuerpo, token = t.luis) =>
   e.api(`/portal/servicios/${t.solicitud}/pago`, { metodo: 'POST', token, cuerpo });
 
 describe('Pago de un servicio de reencauche', () => {
-  test('el servicio entra a la cotización sin cobrarse', async () => {
-    const r = await e.api('/cotizaciones', {
-      metodo: 'POST',
-      token: t.luis,
-      cuerpo: {
-        metodoPago: 'Contado',
-        direccionEntrega: 'Cra 5 #10-22, Pereira',
-        lineas: [{ tipo: 'servicio', cantidad: 2, medidas: '295/80R22.5', descripcion: 'Carcasa sana', foto: PNG }],
-      },
+  test('el servicio del flujo anterior está en su cotización sin cobrarse', async () => {
+    const { numero, solicitud: sol } = await cotizacionSoloServicioLegado(e, 'lfmora@yahoo.com', {
+      cantidad: 2,
+      medidas: '295/80R22.5',
+      foto: PNG,
     });
-    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
-    assert.equal(r.cuerpo.datos.total, 0);
-    t.solicitud = r.cuerpo.datos.detalle[0].solicitudServicio;
-
-    // El aviso suma en la burbuja de "Solicitudes de servicio" hasta que se entra al módulo
-    const burbujas = await e.api('/notificaciones/por-modulo', { token: t.admin });
-    assert.ok(burbujas.cuerpo.datos['/admin/solicitudes-servicio'] >= 1, JSON.stringify(burbujas.cuerpo));
-    await e.api('/notificaciones/vista', { metodo: 'POST', token: t.admin, cuerpo: { ruta: '/admin/solicitudes-servicio' } });
-    const despues = await e.api('/notificaciones/por-modulo', { token: t.admin });
-    assert.equal(despues.cuerpo.datos['/admin/solicitudes-servicio'] ?? 0, 0);
+    const c = (await e.api(`/cotizaciones/${numero}`, { token: t.admin })).cuerpo.datos;
+    assert.equal(c.total, 0);
+    t.solicitud = sol;
 
     const solicitud = await e.api(`/solicitudes-servicio/${t.solicitud}`, { token: t.admin });
     assert.equal(solicitud.cuerpo.datos.pagoEstado, 'Sin precio');
-    assert.equal(solicitud.cuerpo.datos.cotizacion, r.cuerpo.datos.numero);
+    assert.equal(solicitud.cuerpo.datos.cotizacion, numero);
   });
 
   test('sin precio no se paga, y sin pago el reencauche no avanza', async () => {
@@ -228,17 +218,11 @@ describe('Abono rechazado', () => {
 
 describe('Carcasa no apta', () => {
   test('cancela el reencauche solo, con la observación como motivo, y cierra el proceso', async () => {
-    const r = await e.api('/cotizaciones', {
-      metodo: 'POST',
-      token: t.luis,
-      cuerpo: {
-        metodoPago: 'Contado',
-        direccionEntrega: 'Cra 5 #10-22, Pereira',
-        lineas: [{ tipo: 'servicio', cantidad: 1, medidas: '11R22.5', descripcion: 'Llanta con cortes laterales', foto: PNG }],
-      },
+    const { solicitud: numero } = await cotizacionSoloServicioLegado(e, 'lfmora@yahoo.com', {
+      medidas: '11R22.5',
+      descripcion: 'Llanta con cortes laterales',
+      foto: PNG,
     });
-    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
-    const numero = r.cuerpo.datos.detalle[0].solicitudServicio;
     const ruta = `/solicitudes-servicio/${numero}`;
 
     const revisada = await e.api(ruta, {

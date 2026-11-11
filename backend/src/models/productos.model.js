@@ -20,7 +20,26 @@ export const COLUMNAS_EDITABLES = {
   medidas: 'medidas',
   tipoVehiculoId: 'tipo_vehiculo_id',
   activo: 'activo',
+  // Solo la llanta reencauchada lleva precio fijo en el producto
+  precioVenta: 'precio_venta',
 };
+
+/** Marca y categoría con las que entra al catálogo una llanta reencauchada. */
+export const MARCA_REENCAUCHADA = 'Sin marca';
+export const CATEGORIA_REENCAUCHADA = 'Reencauchadas';
+
+/**
+ * ¿La llanta reencauchada ya la pidió alguien? Es una sola unidad: queda
+ * apartada mientras su cotización siga viva (no rechazada ni vencida sin
+ * aceptar). Si esa cotización se cancela o vence, vuelve al catálogo.
+ */
+export const RESERVADA = `EXISTS (
+    SELECT 1 FROM cotizacion_detalle rd JOIN cotizacion rc ON rc.id = rd.cotizacion_id
+     WHERE rd.producto_id = p.id AND rc.estado <> 'Rechazada'
+       AND NOT (rc.metodo_pago IS NULL AND rc.vence_en IS NOT NULL AND rc.vence_en < CURRENT_DATE))`;
+
+/** Se puede pedir: activo y, si es reencauchada, con precio y sin apartar. */
+const DISPONIBLE = `(p.activo AND (NOT p.reencauchada OR (p.precio_venta > 0 AND NOT ${RESERVADA})))`;
 
 const SELECCION = `
   p.id, p.codigo, p.nombre, p.descripcion, p.medidas,
@@ -28,13 +47,18 @@ const SELECCION = `
   p.marca_id AS "marcaId", m.nombre AS marca,
   p.tipo_vehiculo_id AS "tipoVehiculoId", tv.nombre AS "tipoVehiculo",
   c.color AS "colorCategoria", p.activo,
+  -- Llanta reencauchada: unidad única con precio fijo (el resto no lleva precio aquí)
+  p.reencauchada, CASE WHEN p.reencauchada THEN p.precio_venta END AS "precioVenta",
+  CASE WHEN p.reencauchada THEN ${RESERVADA} ELSE FALSE END AS reservada,
+  ${DISPONIBLE} AS disponible, rl.identificador AS "llantaReencauche",
   (SELECT i.url FROM producto_imagen i WHERE i.producto_id = p.id ORDER BY i.orden, i.id LIMIT 1) AS foto`;
 
 const DESDE = `
   FROM producto p
   JOIN categoria c ON c.id = p.categoria_id
   JOIN marca m ON m.id = p.marca_id
-  LEFT JOIN tipo_vehiculo tv ON tv.id = p.tipo_vehiculo_id`;
+  LEFT JOIN tipo_vehiculo tv ON tv.id = p.tipo_vehiculo_id
+  LEFT JOIN reencauche_llanta rl ON rl.producto_id = p.id`;
 
 /**
  * Catálogo con búsqueda, filtros y paginación → { filas, total }.
@@ -52,7 +76,8 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
   if (q) {
     agregar(`%${q}%`, (p) => `(p.nombre ILIKE ${p} OR p.codigo ILIKE ${p} OR p.medidas ILIKE ${p} OR m.nombre ILIKE ${p})`);
   }
-  if (soloActivos) agregar(true, (p) => `p.activo = ${p}`);
+  // Lo que ve el cliente: lo que se puede pedir (una reencauchada apartada no sale)
+  if (soloActivos) condiciones.push(DISPONIBLE);
   else if (activo !== undefined) agregar(activo, (p) => `p.activo = ${p}`);
   if (categoriaId) agregar(categoriaId, (p) => `p.categoria_id = ${p}`);
   if (marcaId) agregar(marcaId, (p) => `p.marca_id = ${p}`);
@@ -116,12 +141,70 @@ export async function guardarFoto(db, productoId, foto) {
   if (foto) await db.query('INSERT INTO producto_imagen (producto_id, url) VALUES ($1, $2)', [productoId, foto]);
 }
 
-/** Datos de un producto que necesita la cotización (nombre, medida, precio sugerido y estado). */
+/**
+ * Datos de un producto que necesita la cotización (nombre, medida, precio
+ * sugerido y estado). La fila queda bloqueada: así dos clientes no apartan
+ * a la vez la misma llanta reencauchada.
+ */
 export async function paraCotizar(db, id) {
-  const { rows } = await (db ?? POOL).query('SELECT id, nombre, medidas, precio_venta, activo FROM producto WHERE id = $1', [
-    id,
-  ]);
+  const { rows } = await (db ?? POOL).query(
+    `SELECT p.id, p.nombre, p.medidas, p.precio_venta, p.activo, p.reencauchada,
+            CASE WHEN p.reencauchada THEN ${RESERVADA} ELSE FALSE END AS reservada
+       FROM producto p WHERE p.id = $1 FOR UPDATE`,
+    [id],
+  );
   return rows[0] ?? null;
+}
+
+/**
+ * ¿Alguna llanta reencauchada de esta cotización ya la apartó otra
+ * cotización viva? (p. ej. al volver a emitir una que venció). Devuelve el
+ * nombre de la primera, o null.
+ */
+export async function reencauchadaOcupada(db, cotizacionId) {
+  const { rows } = await db.query(
+    `SELECT p.nombre, rl.identificador
+       FROM cotizacion_detalle d
+       JOIN producto p ON p.id = d.producto_id AND p.reencauchada
+       LEFT JOIN reencauche_llanta rl ON rl.producto_id = p.id
+      WHERE d.cotizacion_id = $1
+        AND EXISTS (
+          SELECT 1 FROM cotizacion_detalle rd JOIN cotizacion rc ON rc.id = rd.cotizacion_id
+           WHERE rd.producto_id = p.id AND rc.id <> $1 AND rc.estado <> 'Rechazada'
+             AND NOT (rc.metodo_pago IS NULL AND rc.vence_en IS NOT NULL AND rc.vence_en < CURRENT_DATE))
+      LIMIT 1`,
+    [cotizacionId],
+  );
+  if (!rows[0]) return null;
+  return rows[0].identificador ? `${rows[0].nombre} (${rows[0].identificador})` : rows[0].nombre;
+}
+
+/** Id de una marca o categoría por nombre; la crea si no existe. */
+async function idPorNombre(db, tabla, nombre) {
+  const { rows } = await db.query(
+    `INSERT INTO ${tabla} (nombre) VALUES ($1)
+     ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
+     RETURNING id`,
+    [nombre],
+  );
+  return rows[0].id;
+}
+
+/**
+ * Crea el producto de una llanta reencauchada que el cliente no pagó: sin
+ * marca, en la categoría "Reencauchadas" y sin imagen. Sin precio queda
+ * inactivo (no se ofrece) hasta que el personal se lo ponga. Devuelve el id.
+ */
+export async function crearReencauchada(db, { descripcion, medidas, tipoVehiculoId, precioVenta }) {
+  const marcaId = await idPorNombre(db, 'marca', MARCA_REENCAUCHADA);
+  const categoriaId = await idPorNombre(db, 'categoria', CATEGORIA_REENCAUCHADA);
+  const { rows } = await db.query(
+    `INSERT INTO producto (nombre, descripcion, categoria_id, marca_id, medidas, tipo_vehiculo_id,
+                           precio_venta, activo, reencauchada)
+     VALUES ('Llanta reencauchada', $1, $2, $3, $4, $5, $6, $7, TRUE) RETURNING id`,
+    [descripcion, categoriaId, marcaId, medidas, tipoVehiculoId ?? null, precioVenta ?? 0, Boolean(precioVenta)],
+  );
+  return rows[0].id;
 }
 
 /** Guarda el último precio al que se compró el producto (costo interno). */

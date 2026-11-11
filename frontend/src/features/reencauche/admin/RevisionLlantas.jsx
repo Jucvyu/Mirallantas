@@ -12,7 +12,6 @@ const miles = (n) => (n ? Number(n).toLocaleString('es-CO') : '');
 function filasIniciales(solicitud, bandas) {
   if (solicitud.llantas.length) {
     return solicitud.llantas.map((l) => ({
-      identificador: l.identificador,
       medida: l.medida,
       reencauchesPrevios: String(l.reencauchesPrevios ?? 0),
       resultado: l.resultado,
@@ -24,7 +23,6 @@ function filasIniciales(solicitud, bandas) {
   }
   const pedida = bandas.find((b) => b.id === solicitud.bandaId);
   return Array.from({ length: solicitud.cantidad }, () => ({
-    identificador: '',
     medida: solicitud.medida,
     reencauchesPrevios: '0',
     resultado: 'Apta',
@@ -35,17 +33,9 @@ function filasIniciales(solicitud, bandas) {
   }));
 }
 
-/** ID de la llanta: letras, números y guiones, en mayúsculas (máximo 20). */
-const limpiarId = (texto) => texto.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
-
-/**
- * Lo que le falta a cada llanta (por campo), o {} si está completa.
- * `repetido` dice si su ID ya lo tiene otra llanta de la solicitud.
- */
-function erroresDe(f, repetido) {
+/** Lo que le falta a cada llanta (por campo), o {} si está completa. */
+function erroresDe(f) {
   const e = {};
-  if (!/^[A-Z0-9][A-Z0-9-]*$/.test(f.identificador)) e.identificador = 'Escribe el ID de la llanta';
-  else if (repetido) e.identificador = 'Otra llanta ya tiene este ID';
   if (f.resultado === 'No apta' && !f.motivoNoApta.trim()) e.motivoNoApta = 'Escribe por qué no sirve';
   if (f.resultado === 'Apta') {
     if (!f.bandaId) e.bandaId = 'Elige la banda';
@@ -118,10 +108,10 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
 
   // Una llanta nueva copia la medida, la banda y los valores de la anterior
   const agregar = () =>
-    setFilas((actuales) => [...actuales, { ...actuales[actuales.length - 1], identificador: '', reencauchesPrevios: '0' }]);
+    setFilas((actuales) => [...actuales, { ...actuales[actuales.length - 1], reencauchesPrevios: '0' }]);
   const quitar = (i) => setFilas((actuales) => actuales.filter((_, j) => j !== i));
 
-  const errores = filas.map((f, i) => erroresDe(f, filas.some((otra, j) => j < i && otra.identificador && otra.identificador === f.identificador)));
+  const errores = filas.map(erroresDe);
   const aptas = filas.filter((f) => f.resultado === 'Apta').length;
   const total = filas.reduce((suma, f) => suma + valorDe(f), 0);
 
@@ -145,7 +135,11 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
           return (
             <li key={i} className="border-t border-slate-100 py-5 first:border-t-0 first:pt-0 dark:border-white/5">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Llanta {n}</h3>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Llanta {n}
+                  {/* El ID lo asigna el sistema: número de la solicitud y posición */}
+                  <span className="ml-1.5 font-normal text-slate-400">· ID {solicitud.numero}-{n}</span>
+                </h3>
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-bold tabular-nums ${apta ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>
                     {apta ? formatCOP(valorDe(f)) : 'No se cobra'}
@@ -164,17 +158,7 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Campo etiqueta="ID de la llanta" error={err.identificador}>
-                  <input
-                    value={f.identificador}
-                    maxLength={20}
-                    placeholder="LL-0145"
-                    autoCapitalize="characters"
-                    onChange={(e) => cambiar(i, { identificador: limpiarId(e.target.value) })}
-                    className={`${INPUT} ${err.identificador ? BORDER_ERR : BORDER_OK} tabular-nums uppercase`}
-                  />
-                </Campo>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <Campo etiqueta="Medida">
                   <Selector value={f.medida} onChange={(e) => cambiar(i, { medida: e.target.value })}>
                     {medidas.map((m) => (

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { aceptar, cotizacionEmitida, emitir, PNG, solicitud } from './comercial.js';
 import { levantarEntorno } from './entorno.js';
+import { agregarServicioLegado } from './legado.js';
 
 /**
  * Pruebas de los flujos completos del negocio: solicitud → cotización
@@ -24,19 +25,35 @@ after(async () => {
   await e?.cerrar();
 });
 
-/** Solicitud de Luis: 2 llantas (catálogo: $ 280.000) y un reencauche. */
-const lineasLuis = [
-  { tipo: 'producto', productoId: 1, cantidad: 2 },
-  { tipo: 'servicio', cantidad: 1, medidas: '295/80R22.5', descripcion: 'Carcasa sana', foto: PNG },
-];
+/**
+ * Solicitud de Luis: 2 llantas (catálogo: $ 280.000). Para seguir probando
+ * el flujo anterior, se le agrega después un reencauche como los que
+ * quedaron registrados (la API ya no los recibe en la cotización).
+ */
+const lineasLuis = [{ tipo: 'producto', productoId: 1, cantidad: 2 }];
 
 const credito = (cuotaInicial) => ({ metodoPago: 'Crédito', plazoDias: 30, ...(cuotaInicial ? { cuotaInicial } : {}) });
 
 describe('Solicitud de cotización desde el portal', () => {
-  test('se registra sin precios ni método de pago y abre las solicitudes de reencauche', async () => {
+  test('la cotización es solo de llantas: no recibe reencauches', async () => {
+    const r = await e.api('/cotizaciones', {
+      metodo: 'POST',
+      token: t.luis,
+      cuerpo: solicitud([
+        ...lineasLuis,
+        { tipo: 'servicio', cantidad: 1, medidas: '295/80R22.5', descripcion: 'Carcasa sana', foto: PNG },
+      ]),
+    });
+    assert.equal(r.estado, 422);
+    assert.match(JSON.stringify(r.cuerpo), /solo de llantas/);
+  });
+
+  test('se registra sin precios ni método de pago', async () => {
     const r = await e.api('/cotizaciones', { metodo: 'POST', token: t.luis, cuerpo: solicitud(lineasLuis) });
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
-    const c = r.cuerpo.datos;
+    // Un reencauche del flujo anterior, como los que siguen registrados
+    await agregarServicioLegado(e, r.cuerpo.datos.numero, { medidas: '295/80R22.5', foto: PNG });
+    const c = (await e.api(`/cotizaciones/${r.cuerpo.datos.numero}`, { token: t.luis })).cuerpo.datos;
     assert.equal(c.numero, `PED-${anio}-001`);
     assert.equal(c.etapa, 'Solicitud');
     assert.equal(c.metodoPago, null);

@@ -15,14 +15,18 @@ export default function LlantasLista({ llantas, paraCliente = false }) {
     <ul className="divide-y divide-slate-100 dark:divide-white/5">
       {llantas.map((l) => {
         const apta = l.resultado === 'Apta';
-        const noSeCobra = !apta || l.estado === 'Rechazada en planta';
+        const noSeCobra = !apta || l.estado === 'Rechazada en planta' || l.estado === 'No pagada';
 
         // Lo que se dice debajo de la llanta: la banda, o por qué no sirvió
         const detalle = !apta
           ? l.motivoNoApta
           : l.estado === 'Rechazada en planta'
             ? `${paraCliente ? 'La reencauchadora no pudo reencaucharla' : 'Rechazada en planta'}: ${l.motivoPlanta}`
-            : [l.banda, l.anchoMm && `${l.anchoMm} mm`, !paraCliente && l.tercero].filter(Boolean).join(' · ');
+            : l.estado === 'No pagada'
+              ? paraCliente
+                ? 'No se pagó a tiempo: ya no está apartada para ti'
+                : `No pagada: pasó al catálogo${l.productoCodigo ? ` (${l.productoCodigo})` : ''}`
+              : [l.banda, l.anchoMm && `${l.anchoMm} mm`, !paraCliente && l.tercero].filter(Boolean).join(' · ');
 
         const estado = !apta ? (
           <Badge tone="No apta">No apta</Badge>
@@ -47,7 +51,7 @@ export default function LlantasLista({ llantas, paraCliente = false }) {
               {estado}
               <div className="min-w-[7.5rem] text-right">
                 {noSeCobra ? (
-                  <span className="text-xs font-semibold text-slate-400">No se cobra</span>
+                  <span className="text-xs font-semibold text-slate-400">{l.estado === 'No pagada' ? 'No pagada' : 'No se cobra'}</span>
                 ) : (
                   <>
                     <p className="text-sm font-bold tabular-nums text-slate-800 dark:text-slate-100">{l.valorTexto}</p>

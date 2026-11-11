@@ -87,6 +87,9 @@ export const marcaHaciaApi = (v) => ({ nombre: v.nombre, activo: activoDesdeEsta
 export const productoDesdeApi = (f) => ({
   ...f,
   estado: estadoActivo(f.activo),
+  // Llanta reencauchada: su precio fijo, como lo muestra un campo de dinero
+  precioVenta: f.precioVenta ? Number(f.precioVenta).toLocaleString('es-CO') : '',
+  precioVentaValor: f.precioVenta ?? null,
   tipoVehiculo: f.tipoVehiculo ?? '',
   // Solo cuenta como foto una imagen real (subida o con URL)
   foto: esImagen(f.foto) ? f.foto : '',
@@ -128,6 +131,8 @@ export const usuarioDesdeApi = conEstado;
  * de reencauche, trae también el estado de esa solicitud.
  */
 export const lineaDesdeApi = (l) => ({
+  // Llanta reencauchada: precio fijo, sin proveedor
+  reencauchada: Boolean(l.reencauchada),
   lineaId: l.id,
   tipo: l.tipo,
   productoId: l.productoId ?? null,

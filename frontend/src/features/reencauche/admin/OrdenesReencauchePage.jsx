@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Ban, Check, Eye, FileText, HandCoins, PackageCheck, Search, Truck } from 'lucide-react';
+import { Ban, Check, Eye, FileText, HandCoins, PackageCheck, Search, Store, Truck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
 import BotonAccion from '../../../components/base/BotonAccion';
 import DataTable from '../../../components/base/DataTable';
 import { DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
-import { BORDER_OK, INPUT, LABEL } from '../../../components/base/formStyles';
+import { BORDER_OK, INPUT, LABEL, formatoMiles } from '../../../components/base/formStyles';
 import Modal from '../../../components/base/Modal';
 import PageHeader from '../../../components/base/PageHeader';
-import { estadosOrdenReencauche, mediosPago } from '../../../constantes';
+import { DIAS_PARA_NO_PAGADA, estadosOrdenReencauche, mediosPago } from '../../../constantes';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { ordenesReencaucheService, tercerosService } from '../../../services';
@@ -22,12 +22,25 @@ const Segunda = ({ children }) => <p className="text-xs text-slate-400 dark:text
 
 // ---- Entrega y pago final de cada llanta -------------------------------------
 // Solo se cobra al entregar; lo que la planta rechaza no se cobra y se devuelve.
+// La que el cliente no paga ("No pagada") pasa al catálogo.
+
+/** Días que le quedan a una llanta lista para que el cliente la pague. */
+function diasParaPagar(o) {
+  if (o.estado !== 'Lista para entregar' || !o.listaEn) return null;
+  const desde = Date.parse(`${String(o.listaEn).slice(0, 10)}T00:00:00Z`);
+  const transcurridos = Math.floor((Date.now() - desde) / 86_400_000);
+  return Math.max(0, DIAS_PARA_NO_PAGADA - transcurridos);
+}
 
 /** Cómo va la entrega de una llanta al cliente. */
 function entregaDe(o) {
   if (o.estado === 'Entregada') return { texto: 'Entregada', tono: 'Entregado', nota: fechaCorta(o.pagoFecha) };
   if (o.estado === 'Rechazada en planta') return { texto: 'Se devuelve', tono: 'Inactivo', nota: 'Sin reencauchar' };
-  if (o.estado === 'Lista para entregar') return { texto: 'Lista para entregar', tono: 'Pendiente' };
+  if (o.estado === 'No pagada') return { texto: 'No reclamada', tono: 'Inactivo', nota: 'Pasó al catálogo' };
+  if (o.estado === 'Lista para entregar') {
+    const dias = diasParaPagar(o);
+    return { texto: 'Lista para entregar', tono: 'Pendiente', nota: dias == null ? null : `${dias} días para pagarla` };
+  }
   return { texto: 'Pendiente', tono: 'Neutral', nota: o.estado === 'En planta' ? 'En la planta' : 'Por enviar a la planta' };
 }
 
@@ -35,10 +48,11 @@ function entregaDe(o) {
 function pagoDe(o) {
   if (o.estado === 'Entregada') return { texto: 'Pagado', tono: 'Pagado', nota: o.pagoMedio };
   if (o.estado === 'Rechazada en planta') return { texto: 'No se cobra', tono: 'Inactivo' };
+  if (o.estado === 'No pagada') return { texto: 'No pagada', tono: 'Vencido', nota: o.productoCodigo ? `En venta · ${o.productoCodigo}` : 'En venta' };
   return { texto: 'Pendiente', tono: 'Pendiente', nota: 'Se cobra al entregar' };
 }
 
-const ESTADO_MAS_URGENTE = ['Lista para entregar', 'Por enviar', 'En planta', 'Entregada', 'Rechazada en planta'];
+const ESTADO_MAS_URGENTE = ['Lista para entregar', 'Por enviar', 'En planta', 'Entregada', 'No pagada', 'Rechazada en planta'];
 
 /**
  * Agrupa las órdenes (una por llanta) por su solicitud de reencauche: la
@@ -53,7 +67,8 @@ function agrupar(ordenes) {
   return [...grupos.entries()].map(([numero, delGrupo]) => {
     // Dentro de la solicitud, las llantas en su orden de revisión
     const llantas = [...delGrupo].sort((x, y) => x.posicion - y.posicion);
-    const cobrables = llantas.filter((o) => o.estado !== 'Rechazada en planta');
+    // Lo rechazado en la planta y lo que el cliente no pagó ya no se cobra
+    const cobrables = llantas.filter((o) => !['Rechazada en planta', 'No pagada'].includes(o.estado));
     const entregadas = llantas.filter((o) => o.estado === 'Entregada');
     const cobrado = entregadas.reduce((s, o) => s + o.valor, 0);
     const total = cobrables.reduce((s, o) => s + o.valor, 0);
@@ -195,6 +210,14 @@ function LlantasDelGrupo({ g, onAccion, onVer, onLista }) {
                 onClick={() => onAccion('entrega', o)}
               />
               <BotonAccion
+                icono={Store}
+                etiqueta="No pagada: pasarla al catálogo"
+                tono="peligro"
+                deshabilitado={o.estado !== 'Lista para entregar'}
+                motivo="Solo para las que están listas para entregar"
+                onClick={() => onAccion('noPagada', o)}
+              />
+              <BotonAccion
                 icono={Ban}
                 etiqueta="La planta la rechazó"
                 tono="peligro"
@@ -276,13 +299,16 @@ function AccionOrdenModal({ tipo, orden, terceros, onConfirmar, onClose }) {
     envio: { titulo: 'Enviar a la reencauchadora', boton: 'Enviar', icono: <Truck size={17} />, tamano: 'lg' },
     rechazo: { titulo: 'Rechazada en la planta', boton: 'Guardar rechazo', icono: <Ban size={17} />, tono: 'danger', tamano: 'md' },
     entrega: { titulo: 'Entregar y cobrar', boton: 'Registrar pago y entregar', icono: <HandCoins size={17} />, tamano: 'md' },
+    noPagada: { titulo: 'No pagada: pasar al catálogo', boton: 'Pasar al catálogo', icono: <Store size={17} />, tono: 'danger', tamano: 'md' },
   }[tipo];
 
+  const [motivo, setMotivo] = useState('');
   const listo =
     tipo === 'entrega'
       ? Boolean(pago.medioPago) && (!pideComprobante(pago.medioPago) || Boolean(pago.comprobante))
       : Boolean(String(valor).trim());
-  const datos = tipo === 'entrega' ? pago : String(valor).trim();
+  const datos =
+    tipo === 'entrega' ? pago : tipo === 'noPagada' ? { precioVenta: valor, motivo: motivo.trim() } : String(valor).trim();
 
   return (
     <Modal
@@ -341,6 +367,42 @@ function AccionOrdenModal({ tipo, orden, terceros, onConfirmar, onClose }) {
           </>
         )}
 
+        {tipo === 'noPagada' && (
+          <>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              La llanta queda <b>No pagada</b> y entra al catálogo como <b>Llanta reencauchada</b> (sin marca, categoría
+              Reencauchadas, una sola unidad). Si nadie la marca, pasa sola a los {DIAS_PARA_NO_PAGADA} días.
+            </p>
+            <label className="block">
+              <span className={LABEL}>
+                Precio de venta en el catálogo <span className="text-red-500">*</span>
+              </span>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                <input
+                  inputMode="numeric"
+                  value={valor}
+                  onChange={(e) => setValor(formatoMiles(e.target.value))}
+                  placeholder={formatoMiles(String(orden.valor ?? ''))}
+                  className={`${INPUT} ${BORDER_OK} pl-7 tabular-nums`}
+                />
+              </div>
+              <span className="mt-1 block text-xs text-slate-400">El reencauche se cotizó en {orden.valorTexto}.</span>
+            </label>
+            <label className="block">
+              <span className={LABEL}>Motivo (opcional)</span>
+              <textarea
+                rows={2}
+                maxLength={300}
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Ej.: el cliente no volvió por la llanta"
+                className={`${INPUT} ${BORDER_OK} resize-none`}
+              />
+            </label>
+          </>
+        )}
+
         {tipo === 'entrega' && (
           <>
             <dl className="space-y-1.5 rounded-xl bg-slate-50 p-4 text-sm dark:bg-white/[0.03]">
@@ -389,7 +451,7 @@ function DetalleLlantaModal({ orden: o, onClose }) {
     >
       <div className="space-y-5">
         <DetalleResumen
-          etiqueta={o.estado === 'Rechazada en planta' ? 'No se cobra' : 'Valor del reencauche'}
+          etiqueta={['Rechazada en planta', 'No pagada'].includes(o.estado) ? 'No se cobra' : 'Valor del reencauche'}
           valor={o.valorTexto}
           nota={`Banda ${formatCOP(o.precioBanda)} + mano de obra ${formatCOP(o.manoObra)}`}
           estado={o.estado}
@@ -406,6 +468,9 @@ function DetalleLlantaModal({ orden: o, onClose }) {
             { etiqueta: 'Pago final', valor: <Badge tone={pago.tono}>{pago.texto}</Badge> },
             o.estado === 'Entregada' && { etiqueta: 'Pagado', valor: `${fechaCorta(o.pagoFecha)} · ${o.pagoMedio}` },
             o.motivoPlanta && { etiqueta: 'Motivo de la planta', valor: o.motivoPlanta, ancho: true },
+            o.estado === 'No pagada' && { etiqueta: 'En el catálogo como', valor: o.productoCodigo },
+            o.estado === 'No pagada' && { etiqueta: 'No pagada desde', valor: fechaCorta(o.noPagadaEn) },
+            o.motivoNoPagada && { etiqueta: 'Por qué no se pagó', valor: o.motivoNoPagada, ancho: true },
           ]}
         />
         {o.pagoMedio === 'Transferencia' && (
@@ -444,6 +509,7 @@ export default function OrdenesReencauchePage() {
       envio: () => ordenesReencaucheService.enviar(orden, datos),
       rechazo: () => ordenesReencaucheService.rechazar(orden, datos),
       entrega: () => ordenesReencaucheService.entregar(orden, datos),
+      noPagada: () => ordenesReencaucheService.noPagada(orden, datos),
     }[tipo];
     return ordenes.ejecutar(operacion);
   };

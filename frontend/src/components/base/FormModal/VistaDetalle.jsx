@@ -55,10 +55,12 @@ export default function VistaDetalle({ sections, values, resumen }) {
         />
       )}
       {sections.map((seccion) => {
-        const imagenes = seccion.fields.filter((c) => c.type === 'image' || c.type === 'avatar');
-        const matrices = seccion.fields.filter((c) => c.type === 'privilegios');
+        // Campos que dependen del registro (soloSi) solo si aplican
+        const campos = seccion.fields.filter((c) => !c.soloSi || c.soloSi(values));
+        const imagenes = campos.filter((c) => c.type === 'image' || c.type === 'avatar');
+        const matrices = campos.filter((c) => c.type === 'privilegios');
         // El estado ya se ve en el resumen: no se repite en la lista
-        const datos = seccion.fields.filter(
+        const datos = campos.filter(
           (c) => !imagenes.includes(c) && !matrices.includes(c) && !(resumen?.estado && c.key === 'estado'),
         );
         if (datos.length + imagenes.length + matrices.length === 0) return null;

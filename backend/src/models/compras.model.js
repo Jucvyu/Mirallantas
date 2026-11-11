@@ -122,7 +122,8 @@ export async function lineasParaComprar(db, cotizacionId) {
                 d.id AS did, dp.id AS ord
            FROM cotizacion_detalle d
            JOIN cotizacion_detalle_proveedor dp ON dp.detalle_id = d.id
-          WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
+           JOIN producto p ON p.id = d.producto_id
+          WHERE d.cotizacion_id = $1 AND d.tipo = 'producto' AND NOT p.reencauchada
          UNION ALL
          SELECT d.producto_id, d.cantidad,
                 COALESCE(d.proveedor_id, c.proveedor_id),
@@ -132,6 +133,8 @@ export async function lineasParaComprar(db, cotizacionId) {
            JOIN cotizacion c ON c.id = d.cotizacion_id
            JOIN producto p ON p.id = d.producto_id
           WHERE d.cotizacion_id = $1 AND d.tipo = 'producto'
+            -- La llanta reencauchada ya es del negocio: no se le compra a nadie
+            AND NOT p.reencauchada
             AND NOT EXISTS (SELECT 1 FROM cotizacion_detalle_proveedor dp WHERE dp.detalle_id = d.id)
        ) q
       ORDER BY did, ord`,

@@ -168,17 +168,6 @@ describe('Solicitud y revisión', () => {
     assert.match(incompatible.cuerpo.error, /Llanta 1/);
   });
 
-  test('el ID de la llanta no se repite en la misma solicitud', async () => {
-    const r = await accion(`/reencauches/${t.numero}/revision`, {
-      llantas: [
-        { identificador: 'LL-7', medida: '295/80R22.5', resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
-        { identificador: 'll-7', medida: '295/80R22.5', resultado: 'No apta', motivoNoApta: 'Corte en el costado' },
-      ],
-    });
-    assert.equal(r.estado, 422);
-    assert.match(JSON.stringify(r.cuerpo), /ya es de la llanta 1/);
-  });
-
   test('la revisión deja la cotización: solo las aptas suman valor', async () => {
     const r = await accion(`/reencauches/${t.numero}/revision`, {
       llantas: [
@@ -210,6 +199,8 @@ describe('Solicitud y revisión', () => {
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.estado, 'Aceptada');
     const estados = r.cuerpo.datos.llantas.map((l) => l.estado);
+    // El ID de cada llanta lo asigna el sistema: número de la solicitud y posición
+    assert.deepEqual(r.cuerpo.datos.llantas.map((l) => l.identificador), [1, 2, 3].map((n) => `${t.numero}-${n}`));
     assert.deepEqual(estados, ['Por enviar', 'Por enviar', null]);
 
     // Aceptar otra vez no duplica nada; responder lo contrario se explica

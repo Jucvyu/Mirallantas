@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ESTADOS_EVIDENCIA, estadosDe } from '../reglas.js';
+import { estadosDe } from '../reglas.js';
 import {
   cantidad,
   idRelacion,
@@ -12,7 +12,6 @@ import {
   texto,
   textoExplicado,
   textoExplicadoOpcional,
-  textoOpcional,
 } from './comunes.validator.js';
 
 /** POST /portal/cotizaciones/:numero/cancelar — el motivo es obligatorio. */
@@ -29,19 +28,18 @@ const lineaProducto = z.object({
   cantidad: cantidad(),
 });
 
-const lineaServicio = z.object({
-  tipo: z.literal('servicio'),
-  // Si no se indica, se usa el servicio por defecto (reencauche en frío)
-  servicioId: idRelacion.optional(),
-  cantidad: cantidad(),
-  medidas: textoOpcional(30),
-  descripcion: textoExplicado(80),
-  // Hasta 3 fotos de la llanta (`foto` sola se sigue aceptando)
-  foto: imagen.optional(),
-  fotos: z.array(imagen).max(3, 'Puedes adjuntar máximo 3 fotos.').optional(),
-  // Solo el asesor califica la carcasa; al cliente siempre le queda pendiente
-  estadoEvidencia: z.enum(ESTADOS_EVIDENCIA).optional(),
-}).refine((l) => l.foto || l.fotos?.length, { error: 'Adjunta al menos una foto de la llanta.', path: ['fotos'] });
+/**
+ * Línea de la solicitud: solo llantas. Una línea de servicio se rechaza con
+ * un mensaje claro (antes el reencauche entraba aquí; ahora tiene su módulo).
+ */
+const lineaSoloLlanta = z.unknown().superRefine((linea, ctx) => {
+  if (linea && typeof linea === 'object' && linea.tipo === 'servicio') {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'La cotización es solo de llantas: el reencauche se pide aparte, en "Reencauche".',
+    });
+  }
+}).pipe(lineaProducto);
 
 /**
  * POST /cotizaciones (asesor o cliente del portal): la solicitud. Solo
@@ -54,8 +52,10 @@ export const esquemaNueva = z.object({
   proveedorId: idRelacion.nullable().optional(),
   direccionEntrega: texto(80),
   lineas: z
-    .array(z.discriminatedUnion('tipo', [lineaProducto, lineaServicio]))
-    .min(1, 'Agrega al menos un producto o servicio.'),
+    // Solo llantas: el reencauche ya no va en la cotización, se pide en
+    // Reencauche (revisión gratis y órdenes por llanta)
+    .array(lineaSoloLlanta, { error: 'Agrega al menos una llanta.' })
+    .min(1, 'Agrega al menos una llanta.'),
 });
 
 /** Un proveedor dentro del reparto de una llanta: su cantidad y su precio de compra. */
@@ -96,8 +96,7 @@ export const esquemaEmision = z.object({
             ),
           { error: 'El precio de venta no puede ser menor que el precio de compra.', path: ['precioUnitario'] },
         ),
-    )
-    .min(1, 'Confirma el precio de al menos una llanta.'),
+    ),
 });
 
 /** Pago con su medio y, salvo en efectivo, la consignación. */

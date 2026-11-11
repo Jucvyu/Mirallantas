@@ -81,24 +81,20 @@ describe('El cliente cancela su cotización', () => {
   });
 });
 
-describe('Fotos del reencauche', () => {
-  test('acepta hasta 3 fotos de la llanta y rechaza la cuarta', async () => {
+describe('La cotización es solo de llantas', () => {
+  test('una línea de reencauche se rechaza: se pide en "Reencauche"', async () => {
     const luis = await e.iniciarSesion('lfmora@yahoo.com');
     const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-    const pedir = (fotos) =>
-      e.api('/cotizaciones', {
-        metodo: 'POST',
-        token: luis,
-        cuerpo: {
-          direccionEntrega: 'Cra 5 #10-22, Pereira',
-          lineas: [{ tipo: 'servicio', cantidad: 2, medidas: '275/80 R22.5', descripcion: 'Carcasa sana', fotos }],
-        },
-      });
-    assert.equal((await pedir([PNG, PNG, PNG, PNG])).estado, 422);
-    const ok = await pedir([PNG, PNG, PNG]);
-    assert.equal(ok.estado, 201, JSON.stringify(ok.cuerpo));
-    const linea = ok.cuerpo.datos.detalle.find((l) => l.tipo === 'servicio');
-    assert.equal(linea.fotos.length, 3);
+    const r = await e.api('/cotizaciones', {
+      metodo: 'POST',
+      token: luis,
+      cuerpo: {
+        direccionEntrega: 'Cra 5 #10-22, Pereira',
+        lineas: [{ tipo: 'servicio', cantidad: 2, medidas: '275/80 R22.5', descripcion: 'Carcasa sana', fotos: [PNG] }],
+      },
+    });
+    assert.equal(r.estado, 422);
+    assert.match(JSON.stringify(r.cuerpo), /solo de llantas/);
   });
 });
 

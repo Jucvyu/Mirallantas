@@ -28,6 +28,7 @@ export const TONO_ORDEN = {
   'Lista para entregar': 'Pendiente',
   Entregada: 'Entregado',
   'Rechazada en planta': 'Rechazada',
+  'No pagada': 'Vencido',
 };
 
 /** Lo que ve el cliente de cada estado de su llanta. */
@@ -37,6 +38,7 @@ export const ESTADO_LLANTA_CLIENTE = {
   'Lista para entregar': 'Lista para entregar',
   Entregada: 'Entregada',
   'Rechazada en planta': 'No se pudo reencauchar',
+  'No pagada': 'No reclamada',
 };
 
 export const llantasTexto = (n) => `${n} ${Number(n) === 1 ? 'llanta' : 'llantas'}`;

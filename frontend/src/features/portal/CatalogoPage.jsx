@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Check, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { BORDER_OK, INPUT, soloDigitos } from '../../components/base/formStyles';
-import { CANTIDAD_MAXIMA, useCart } from '../../context/CartContext';
+import { maximoDe, useCart } from '../../context/CartContext';
 import { useRecurso } from '../../hooks/useRecurso';
 import { productosService } from '../../services';
 import CatalogoListado from '../shared/CatalogoListado';
 import PedidoPanel from './PedidoPanel';
 
-/** Cantidad entre 1 y 999. */
-const acotar = (n) => Math.min(CANTIDAD_MAXIMA, Math.max(1, Number(n) || 1));
+/** Cantidad entre 1 y el máximo del producto (la reencauchada es una sola). */
+const acotar = (n, maximo) => Math.min(maximo, Math.max(1, Number(n) || 1));
 
 /**
  * Catálogo de llantas del portal. Sin precios ni stock: el cliente elige la
@@ -25,10 +25,10 @@ export default function CatalogoPage() {
   // A un cliente la API solo le envía los productos activos; si mira el
   // personal, se filtran aquí.
   const productos = useRecurso(productosService);
-  const catalogo = useMemo(() => productos.filas.filter((p) => p.activo), [productos.filas]);
+  const catalogo = useMemo(() => productos.filas.filter((p) => p.disponible ?? p.activo), [productos.filas]);
 
   const cantidadDe = (id) => cantidades[id] ?? 1;
-  const cambiarCantidad = (id, valor) => setCantidades((c) => ({ ...c, [id]: acotar(valor) }));
+  const cambiarCantidad = (p, valor) => setCantidades((c) => ({ ...c, [p.id]: acotar(valor, maximoDe(p)) }));
 
   const agregar = (producto) => {
     cart.addProducto(producto, cantidadDe(producto.id));
@@ -39,12 +39,32 @@ export default function CatalogoPage() {
   };
 
   /** Pie de cada tarjeta: cantidad y "Agregar", sin abrir otra ventana. */
-  const accion = (p) => (
+  const accion = (p) => {
+    // La llanta reencauchada es una sola unidad: no se elige cantidad
+    if (p.reencauchada) {
+      const enCarro = cart.productos.some((x) => x.id === p.id);
+      return (
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-500 dark:border-white/10 dark:text-slate-300">
+            1 und. · única
+          </span>
+          <button
+            type="button"
+            onClick={() => agregar(p)}
+            disabled={enCarro}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-400 py-2 text-xs font-bold text-slate-900 hover:bg-amber-300 disabled:bg-emerald-500 disabled:text-white"
+          >
+            {enCarro ? <><Check size={14} /> En el carro</> : <><ShoppingCart size={14} /> Agregar</>}
+          </button>
+        </div>
+      );
+    }
+    return (
     <div className="flex items-center gap-2">
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
-          onClick={() => cambiarCantidad(p.id, cantidadDe(p.id) - 1)}
+          onClick={() => cambiarCantidad(p, cantidadDe(p.id) - 1)}
           disabled={cantidadDe(p.id) <= 1}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/10"
           aria-label={`Una llanta menos de ${p.nombre}`}
@@ -54,14 +74,14 @@ export default function CatalogoPage() {
         <input
           inputMode="numeric"
           value={cantidadDe(p.id)}
-          onChange={(e) => cambiarCantidad(p.id, soloDigitos(e.target.value))}
+          onChange={(e) => cambiarCantidad(p, soloDigitos(e.target.value))}
           aria-label={`Cantidad de ${p.nombre}`}
           className={`${INPUT} ${BORDER_OK} !w-12 !px-1 !py-1.5 text-center`}
         />
         <button
           type="button"
-          onClick={() => cambiarCantidad(p.id, cantidadDe(p.id) + 1)}
-          disabled={cantidadDe(p.id) >= CANTIDAD_MAXIMA}
+          onClick={() => cambiarCantidad(p, cantidadDe(p.id) + 1)}
+          disabled={cantidadDe(p.id) >= maximoDe(p)}
           className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/10"
           aria-label={`Una llanta más de ${p.nombre}`}
         >
@@ -86,7 +106,8 @@ export default function CatalogoPage() {
         )}
       </button>
     </div>
-  );
+    );
+  };
 
   return (
     <div className={carroAbierto ? 'flex flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6' : ''}>

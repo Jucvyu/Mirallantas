@@ -16,9 +16,17 @@ const columns = [
     label: 'Producto',
     // Aviso discreto cuando el producto no tiene ninguna imagen cargada
     render: (row) => (
-      <span className="flex items-center gap-2">
+      <span className="flex flex-wrap items-center gap-2">
         {row.nombre}
-        {!row.imagenes?.length && (
+        {row.reencauchada && (
+          <span
+            title={row.llantaReencauche ? `Llanta ${row.llantaReencauche}` : 'Llanta reencauchada'}
+            className="inline-flex items-center rounded-md bg-slate-500/15 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300"
+          >
+            {row.reservada ? 'Reencauchada · apartada' : row.precioVentaValor ? 'Reencauchada · única' : 'Reencauchada · sin precio'}
+          </span>
+        )}
+        {!row.reencauchada && !row.imagenes?.length && (
           <span
             title="El producto no tiene imágenes cargadas"
             className="inline-flex items-center gap-1 rounded-md bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
@@ -60,6 +68,28 @@ function seccionesFormulario({ categorias, marcas, tipos, medidas }) {
           hint: 'Busca una medida existente o escribe una nueva.',
         },
         { key: 'tipoVehiculo', label: 'Tipo de vehículo', type: 'buscador', options: tipos.map((t) => t.nombre) },
+      ],
+    },
+    {
+      // Solo la llanta reencauchada (una que el cliente no pagó) lleva precio fijo
+      title: 'Llanta reencauchada',
+      fields: [
+        {
+          key: 'llantaReencauche',
+          label: 'Llanta de origen',
+          only: ['edit', 'view'],
+          soloLectura: true,
+          soloSi: (v) => Boolean(v.reencauchada),
+        },
+        {
+          key: 'precioVenta',
+          label: 'Precio de venta (COP)',
+          type: 'money',
+          required: true,
+          only: ['edit', 'view'],
+          soloSi: (v) => Boolean(v.reencauchada),
+          hint: 'Es una sola unidad con precio fijo. Sin precio no se ofrece en el catálogo.',
+        },
       ],
     },
     {

@@ -8,9 +8,10 @@ import { enviarDato, enviarSinContenido } from '../views/respuesta.view.js';
  * Cada aviso pertenece a un módulo (permiso); el usuario solo recibe los de
  * los módulos que su rol tiene permitidos. El menú lateral muestra, en cada
  * módulo, una burbuja con los avisos nuevos que llevan a él. Reencauche avisa las
- * solicitudes nuevas y las respuestas del cliente.
+ * solicitudes nuevas y las respuestas del cliente; Productos, las llantas
+ * reencauchadas que entraron solas al catálogo y esperan su precio.
  */
-export const MODULOS_CON_AVISOS = ['Pedidos-Cotización', 'Solicitudes de servicio', 'Cartera', 'Abonos', 'Compras', 'Reencauche'];
+export const MODULOS_CON_AVISOS = ['Pedidos-Cotización', 'Solicitudes de servicio', 'Cartera', 'Abonos', 'Compras', 'Reencauche', 'Productos'];
 
 const modulosDe = (req) => MODULOS_CON_AVISOS.filter((m) => req.usuario.permisos.has(m));
 

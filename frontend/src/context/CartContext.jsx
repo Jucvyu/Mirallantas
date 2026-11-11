@@ -7,8 +7,11 @@ let servicioSeq = 0;
 /** Cantidad máxima de una llanta en la solicitud (la API también la limita). */
 export const CANTIDAD_MAXIMA = 999;
 
-/** Deja la cantidad entre 1 y 999 (vacía o inválida queda en 1). */
-const acotar = (n) => Math.min(CANTIDAD_MAXIMA, Math.max(1, Math.floor(Number(n) || 1)));
+/** Cuántas se pueden pedir de un producto: la llanta reencauchada es una sola unidad. */
+export const maximoDe = (producto) => (producto?.reencauchada ? 1 : CANTIDAD_MAXIMA);
+
+/** Deja la cantidad entre 1 y el máximo (vacía o inválida queda en 1). */
+const acotar = (n, maximo = CANTIDAD_MAXIMA) => Math.min(maximo, Math.max(1, Math.floor(Number(n) || 1)));
 
 /**
  * Carro de la solicitud de cotización en curso.
@@ -31,7 +34,7 @@ export function CartProvider({ children }) {
     setProductos((prev) => {
       const encontrado = prev.find((p) => p.id === producto.id);
       if (encontrado) {
-        return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: acotar(p.cantidad + cantidad) } : p));
+        return prev.map((p) => (p.id === producto.id ? { ...p, cantidad: acotar(p.cantidad + cantidad, p.maximo) } : p));
       }
       return [
         ...prev,
@@ -43,14 +46,16 @@ export function CartProvider({ children }) {
           medidas: producto.medidas,
           categoria: producto.categoria,
           foto: producto.foto,
-          cantidad: acotar(cantidad),
+          reencauchada: Boolean(producto.reencauchada),
+          maximo: maximoDe(producto),
+          cantidad: acotar(cantidad, maximoDe(producto)),
         },
       ];
     });
   }, []);
 
   const setCantidad = useCallback((id, cantidad) => {
-    setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: acotar(cantidad) } : p)));
+    setProductos((prev) => prev.map((p) => (p.id === id ? { ...p, cantidad: acotar(cantidad, p.maximo) } : p)));
   }, []);
 
   const removeProducto = useCallback((id) => {

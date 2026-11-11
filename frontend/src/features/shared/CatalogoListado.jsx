@@ -124,6 +124,19 @@ export default function CatalogoListado({ productos, cargando, error, accion, co
               {p.descripcion && (
                 <p className="mt-1.5 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{p.descripcion}</p>
               )}
+              {/* Llanta reencauchada: unidad única con precio fijo */}
+              {p.reencauchada && (
+                <p className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-slate-500/15 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                    Única unidad
+                  </span>
+                  {p.precioVentaValor > 0 && (
+                    <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                      $ {Number(p.precioVentaValor).toLocaleString('es-CO')}
+                    </span>
+                  )}
+                </p>
+              )}
               <div className="mt-auto pt-4">{accion(p)}</div>
             </div>
           </LiquidGlass>

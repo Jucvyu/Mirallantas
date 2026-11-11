@@ -124,12 +124,6 @@ export const esquemaRespuesta = z.object({ acepta: z.boolean({ error: 'Indica si
 
 const llantaRevisada = z
   .object({
-    // El ID que el negocio marca en la llanta para seguirla hasta la planta
-    identificador: z
-      .string({ error: 'Escribe el ID de la llanta.' })
-      .trim()
-      .toUpperCase()
-      .regex(/^[A-Z0-9][A-Z0-9-]{0,19}$/, 'El ID de la llanta lleva letras, números o guiones (máximo 20).'),
     medida,
     reencauchesPrevios: z.coerce.number().int().min(0, 'No puede ser negativo.').max(9, 'Máximo 9 reencauches previos.').default(0),
     resultado: z.enum(['Apta', 'No apta'], { error: 'Indica si la llanta es apta.' }),
@@ -155,20 +149,7 @@ export const esquemaRevision = z.object({
   llantas: z
     .array(llantaRevisada, { error: 'Registra las llantas revisadas.' })
     .min(1, 'Registra al menos una llanta.')
-    .max(LLANTAS_POR_REENCAUCHE, `Cada solicitud admite hasta ${LLANTAS_POR_REENCAUCHE} llantas.`)
-    // Dos llantas de la misma solicitud no comparten ID
-    .superRefine((lista, ctx) => {
-      const vistos = new Map();
-      lista.forEach((l, i) => {
-        if (vistos.has(l.identificador)) {
-          ctx.addIssue({
-            code: 'custom',
-            path: [i, 'identificador'],
-            message: `Llanta ${i + 1}: el ID ${l.identificador} ya es de la llanta ${vistos.get(l.identificador) + 1}.`,
-          });
-        } else vistos.set(l.identificador, i);
-      });
-    }),
+    .max(LLANTAS_POR_REENCAUCHE, `Cada solicitud admite hasta ${LLANTAS_POR_REENCAUCHE} llantas.`),
 });
 
 // ---- Órdenes en la reencauchadora ---------------------------------------------------
@@ -181,6 +162,15 @@ export const esquemaEnvio = z.object({ terceroId: idRelacion });
 
 /** POST /reencauches/ordenes/:id/rechazo */
 export const esquemaRechazoPlanta = z.object({ motivo: texto(300) });
+
+/**
+ * POST /reencauches/ordenes/:id/no-pagada — el cliente no la pagó: pasa al
+ * catálogo con el precio de venta que digita el asesor.
+ */
+export const esquemaNoPagada = z.object({
+  precioVenta: pesosPositivos('Escribe el precio de venta de la llanta.'),
+  motivo: textoOpcional(300),
+});
 
 /** POST /reencauches/ordenes/:id/entrega — se cobra al entregar (por transferencia, con su comprobante). */
 export const esquemaEntrega = z.object({ medioPago, comprobante: imagen.nullable().optional() });

@@ -30,8 +30,10 @@ const RESUMEN = `
            COUNT(*) FILTER (WHERE l.estado = 'Rechazada en planta')::int AS rechazadas_planta,
            COUNT(*) FILTER (WHERE l.estado IN ('Por enviar', 'En planta', 'Lista para entregar'))::int AS en_proceso,
            COUNT(*) FILTER (WHERE l.estado = 'Lista para entregar')::int AS listas,
+           COUNT(*) FILTER (WHERE l.estado = 'No pagada')::int AS no_pagadas,
+           -- Lo rechazado en la planta y lo que el cliente no pagó no se cobra
            COALESCE(SUM(l.precio_banda + l.mano_obra)
-             FILTER (WHERE l.resultado = 'Apta' AND l.estado IS DISTINCT FROM 'Rechazada en planta'), 0) AS valor,
+             FILTER (WHERE l.resultado = 'Apta' AND COALESCE(l.estado, '') NOT IN ('Rechazada en planta', 'No pagada')), 0) AS valor,
            COALESCE(SUM(l.precio_banda + l.mano_obra) FILTER (WHERE l.estado = 'Entregada'), 0) AS cobrado
       FROM reencauche_llanta l WHERE l.reencauche_id = r.id
   ) ll ON TRUE`;
@@ -43,7 +45,7 @@ const SELECT_SOLICITUD = `
   r.fecha_revision AS "fechaRevision", r.notas, r.estado, r.motivo_cancelacion AS "motivoCancelacion",
   r.revisado_en AS "revisadoEn", r.respondido_en AS "respondidoEn", r.creado_en AS "creadoEn",
   ll.revisadas, ll.aptas, ll.no_aptas AS "noAptas", ll.entregadas, ll.rechazadas_planta AS "rechazadasPlanta",
-  ll.en_proceso AS "enProceso", ll.listas, ll.valor, ll.cobrado`;
+  ll.en_proceso AS "enProceso", ll.listas, ll.no_pagadas AS "noPagadas", ll.valor, ll.cobrado`;
 
 const DESDE_SOLICITUD = `
   FROM reencauche r
@@ -59,12 +61,15 @@ const SELECT_LLANTA = `
   COALESCE(l.precio_banda, 0) + COALESCE(l.mano_obra, 0) AS valor,
   l.estado, l.tercero_id AS "terceroId", t.nombre_razon_social AS tercero, l.enviada_en AS "enviadaEn",
   l.motivo_planta AS "motivoPlanta", l.pago_medio AS "pagoMedio", l.pago_fecha AS "pagoFecha",
-  l.pago_comprobante AS "pagoComprobante"`;
+  l.pago_comprobante AS "pagoComprobante", l.lista_en AS "listaEn",
+  l.no_pagada_en AS "noPagadaEn", l.motivo_no_pagada AS "motivoNoPagada",
+  l.producto_id AS "productoId", lp.codigo AS "productoCodigo"`;
 
 const DESDE_LLANTA = `
   FROM reencauche_llanta l
   LEFT JOIN banda lb ON lb.id = l.banda_id
-  LEFT JOIN tercero t ON t.id = l.tercero_id`;
+  LEFT JOIN tercero t ON t.id = l.tercero_id
+  LEFT JOIN producto lp ON lp.id = l.producto_id`;
 
 /** Las llantas de varias solicitudes, agrupadas por solicitud → Map id → [llantas]. */
 async function llantasDe(ids, db = POOL) {
@@ -177,8 +182,12 @@ export async function marcarRespondida(db, id, estado) {
   await db.query('UPDATE reencauche SET estado = $2, respondido_en = now() WHERE id = $1', [id, estado]);
 }
 
-/** Cambia las llantas revisadas de una solicitud por las indicadas (en su orden). */
-export async function reemplazarLlantas(db, reencaucheId, llantas) {
+/**
+ * Cambia las llantas revisadas de una solicitud por las indicadas (en su
+ * orden). El ID de cada llanta lo asigna el sistema: el número de la
+ * solicitud y su posición (REE-2026-001-1, REE-2026-001-2…).
+ */
+export async function reemplazarLlantas(db, { id: reencaucheId, numero }, llantas) {
   await db.query('DELETE FROM reencauche_llanta WHERE reencauche_id = $1', [reencaucheId]);
   for (const [i, l] of llantas.entries()) {
     const apta = l.resultado === 'Apta';
@@ -189,7 +198,7 @@ export async function reemplazarLlantas(db, reencaucheId, llantas) {
       [
         reencaucheId,
         i + 1,
-        l.identificador,
+        `${numero}-${i + 1}`,
         l.medida,
         l.reencauchesPrevios ?? 0,
         l.resultado,
@@ -245,8 +254,10 @@ export async function orden(id, db = POOL) {
 export async function bloquearOrden(db, id) {
   const { rows } = await db.query(
     `SELECT l.id, l.posicion, l.identificador, l.estado, l.precio_banda + l.mano_obra AS valor,
+            l.medida, l.reencauches_previos, b.nombre AS banda, b.tipo_vehiculo_id,
             r.numero, r.cliente_id
        FROM reencauche_llanta l JOIN reencauche r ON r.id = l.reencauche_id
+       LEFT JOIN banda b ON b.id = l.banda_id
       WHERE l.id = $1 AND l.estado IS NOT NULL
         FOR UPDATE OF l`,
     [id],
@@ -257,6 +268,32 @@ export async function bloquearOrden(db, id) {
 /** Actualiza las columnas de una orden: pares [['columna', valor], …]. */
 export function actualizarOrden(db, id, pares) {
   return actualizarCampos(db, 'reencauche_llanta', id, pares);
+}
+
+/** La planta la devolvió reencauchada: desde hoy cuenta el plazo para que el cliente la pague. */
+export async function marcarLista(db, id) {
+  await db.query(`UPDATE reencauche_llanta SET estado = 'Lista para entregar', lista_en = CURRENT_DATE WHERE id = $1`, [id]);
+}
+
+/** El cliente no la pagó: queda "No pagada" y ligada al producto con que entra al catálogo. */
+export async function marcarNoPagada(db, id, { motivo, productoId }) {
+  await db.query(
+    `UPDATE reencauche_llanta
+        SET estado = 'No pagada', no_pagada_en = CURRENT_DATE, motivo_no_pagada = $2, producto_id = $3
+      WHERE id = $1`,
+    [id, motivo, productoId],
+  );
+}
+
+/** Ids de las llantas que llevan `dias` o más "Lista para entregar" sin pago. */
+export async function listasVencidas(db, dias) {
+  const { rows } = await db.query(
+    `SELECT id FROM reencauche_llanta
+      WHERE estado = 'Lista para entregar' AND lista_en <= CURRENT_DATE - $1::int
+      ORDER BY id`,
+    [dias],
+  );
+  return rows.map((r) => r.id);
 }
 
 /** La llanta sale hoy hacia la reencauchadora indicada. */

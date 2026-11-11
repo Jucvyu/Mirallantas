@@ -5,6 +5,7 @@ import {
   imagen,
   nombreEntidad,
   objetoEstricto,
+  pesosPositivos,
   texto,
   textoExplicadoOpcional,
 } from './comunes.validator.js';
@@ -39,6 +40,7 @@ export const esquemaNuevo = objetoEstricto(campos, 'Este campo no se registra en
  * precios.
  */
 export const esquemaEdicion = objetoEstricto(
-  { ...campos, activo: z.boolean() },
+  // precioVenta: solo para la llanta reencauchada (precio fijo; el controlador lo revisa)
+  { ...campos, activo: z.boolean(), precioVenta: pesosPositivos('El precio de venta debe ser mayor que cero.') },
   'Este campo no se puede modificar desde el producto.',
 ).partial();

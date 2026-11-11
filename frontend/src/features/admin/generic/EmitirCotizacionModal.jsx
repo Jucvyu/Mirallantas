@@ -38,7 +38,15 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
   const [ediciones, setEdiciones] = useState({});
   const [intento, setIntento] = useState(false);
 
-  const llantas = useMemo(() => (documento.detalle ?? []).filter((l) => l.tipo === 'producto'), [documento.detalle]);
+  // Las llantas reencauchadas tienen precio fijo y no se le compran a nadie: no se confirman aquí
+  const llantas = useMemo(
+    () => (documento.detalle ?? []).filter((l) => l.tipo === 'producto' && !l.reencauchada),
+    [documento.detalle],
+  );
+  const reencauchadas = useMemo(
+    () => (documento.detalle ?? []).filter((l) => l.tipo === 'producto' && l.reencauchada),
+    [documento.detalle],
+  );
   // Reencauches de la cotización que todavía no tienen precio: sin ellos no se emite
   const serviciosSinPrecio = useMemo(
     () => (documento.detalle ?? []).filter((l) => l.tipo === 'servicio' && !l.solicitudDatos?.precio),
@@ -143,7 +151,9 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
   };
 
   const hayErrores = llantas.some((l) => lineaInvalida(l));
-  const subtotal = llantas.reduce((s, l) => s + aNumero(filas[l.lineaId]?.precio) * l.cantidad, 0);
+  const subtotal =
+    llantas.reduce((s, l) => s + aNumero(filas[l.lineaId]?.precio) * l.cantidad, 0) +
+    reencauchadas.reduce((s, l) => s + (l.precioUnitarioValor ?? 0) * l.cantidad, 0);
 
   const emitir = (cerrar) => {
     setIntento(true);
@@ -191,7 +201,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
           </button>
           <button
             type="button"
-            disabled={enviando || cargando || llantas.length === 0 || serviciosSinPrecio.length > 0}
+            disabled={enviando || cargando || llantas.length + reencauchadas.length === 0 || serviciosSinPrecio.length > 0}
             onClick={() => emitir(cerrar)}
             className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 shadow-sm shadow-amber-400/30 hover:bg-amber-300 disabled:opacity-60"
           >
@@ -226,6 +236,25 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
             <TriangleAlert size={14} className="mt-px shrink-0" /> La cotización venció: confirma de nuevo los
             precios vigentes para volver a emitirla.
           </p>
+        )}
+
+        {/* Llantas reencauchadas: unidad única con precio fijo, sin proveedor */}
+        {reencauchadas.length > 0 && (
+          <ul className="space-y-2">
+            {reencauchadas.map((l) => (
+              <li
+                key={l.lineaId}
+                className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-white/10 dark:bg-white/[0.02]"
+              >
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  {l.nombre} <span className="font-normal text-slate-400">· {l.codigo} · {l.medida}</span>
+                </p>
+                <span className="text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                  {l.unitario} <span className="text-xs font-normal text-slate-400">· precio fijo, sin compra al proveedor</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
 
         <ul className="space-y-3">

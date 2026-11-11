@@ -69,6 +69,8 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
           codigo: p.codigo,
           medida: p.medidas,
           detalle: `${p.codigo} · ${p.marca} · Medida ${p.medidas}`,
+          // La llanta reencauchada es una sola unidad
+          maximo: p.reencauchada ? 1 : CANTIDAD_MAXIMA,
           cantidad: 1,
         })),
     ]);
@@ -78,7 +80,7 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
   const setCantidad = (id, cantidad) =>
     setLineas((prev) =>
       prev.map((l) =>
-        l.id === id ? { ...l, cantidad: Math.min(CANTIDAD_MAXIMA, Math.max(1, Number(cantidad) || 1)) } : l,
+        l.id === id ? { ...l, cantidad: Math.min(l.maximo ?? CANTIDAD_MAXIMA, Math.max(1, Number(cantidad) || 1)) } : l,
       ),
     );
 
@@ -235,7 +237,7 @@ export default function NuevoPedidoModal({ onSubmit, onClose }) {
                       <button
                         type="button"
                         onClick={() => setCantidad(l.id, l.cantidad + 1)}
-                        disabled={l.cantidad >= CANTIDAD_MAXIMA}
+                        disabled={l.cantidad >= (l.maximo ?? CANTIDAD_MAXIMA)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/10"
                         aria-label={`Una unidad más de ${l.nombre}`}
                       >

@@ -135,6 +135,15 @@ async function lineasDelCatalogo(db, lineasPedidas) {
     if (linea.tipo === 'producto') {
       const producto = await productosModel.paraCotizar(db, linea.productoId);
       if (!producto?.activo) throw new HttpError(422, 'Uno de los productos no existe o ya no está a la venta.');
+      // Llanta reencauchada: una sola unidad, con su precio fijo y sin proveedor
+      if (producto.reencauchada) {
+        if (linea.cantidad > 1) throw new HttpError(422, 'La llanta reencauchada es una sola unidad: pide 1.');
+        if (producto.reservada || !(producto.precio_venta > 0)) {
+          throw new HttpError(422, 'Esa llanta reencauchada ya no está disponible: otro cliente la pidió.');
+        }
+        lineas.push({ ...linea, descripcion: producto.nombre, medida: producto.medidas, precioUnitario: producto.precio_venta, reencauchada: true });
+        continue;
+      }
       lineas.push({ ...linea, descripcion: producto.nombre, medida: producto.medidas, precioUnitario: null });
     } else {
       const servicio = await serviciosModel.paraCotizar(db, { id: linea.servicioId, nombre: SERVICIO_POR_DEFECTO });
@@ -190,6 +199,9 @@ export async function crear(req, res) {
     // reencauche no lleva cotización formal: su valor y su pago van en
     // "Solicitudes de servicio".
     const conProductos = lineas.some((l) => l.tipo === 'producto');
+    // Solo llantas reencauchadas: su precio es fijo, así que la cotización
+    // sale emitida de una vez (no hay nada que confirmar con un proveedor)
+    const soloReencauchadas = conProductos && lineas.every((l) => l.tipo !== 'producto' || l.reencauchada);
 
     const cotizacion = await cotizacionesModel.crear(db, {
       clienteId,
@@ -225,6 +237,11 @@ export async function crear(req, res) {
       });
     }
 
+    if (soloReencauchadas) {
+      const subtotal = lineas.reduce((suma, l) => suma + (l.precioUnitario ?? 0) * l.cantidad, 0);
+      await cotizacionesModel.emitir(db, cotizacion.id, { subtotal, dias: VIGENCIA_COTIZACION_DIAS });
+    }
+
     // Si la pidió el cliente desde el portal, se avisa al personal
     if (esPortal) {
       const cliente = await avisosPersonal.nombreCliente(db, clienteId);
@@ -232,9 +249,11 @@ export async function crear(req, res) {
         {
           modulo: conProductos ? 'Pedidos-Cotización' : 'Solicitudes de servicio',
           titulo: conProductos ? 'Nueva solicitud de cotización' : 'Nueva solicitud de reencauche',
-          mensaje: conProductos
-            ? `${cliente} pidió la cotización ${cotizacion.numero}: confirma los precios con el proveedor (plazo de respuesta: 24 horas).`
-            : `${cliente} pidió un reencauche (${cotizacion.numero}).`,
+          mensaje: soloReencauchadas
+            ? `${cliente} pidió una llanta reencauchada (${cotizacion.numero}): la cotización salió emitida con su precio fijo.`
+            : conProductos
+              ? `${cliente} pidió la cotización ${cotizacion.numero}: confirma los precios con el proveedor (plazo de respuesta: 24 horas).`
+              : `${cliente} pidió un reencauche (${cotizacion.numero}).`,
           enlace: conProductos ? '/admin/pedidos-cotizacion' : '/admin/solicitudes-servicio',
         },
         db,
@@ -268,8 +287,13 @@ export async function emitir(req, res) {
     if (cotizacion.metodoPago) throw new HttpError(422, 'El cliente ya aceptó esta cotización: sus precios no cambian.');
 
     const lineas = await cotizacionesModel.lineas(cotizacion.id, db);
-    const productos = lineas.filter((l) => l.tipo === 'producto');
-    if (productos.length === 0) throw new HttpError(422, 'La cotización no tiene llantas que cotizar.');
+    // Las reencauchadas tienen precio fijo y no se le compran a nadie: no se confirman
+    const reencauchadas = lineas.filter((l) => l.tipo === 'producto' && l.reencauchada);
+    const productos = lineas.filter((l) => l.tipo === 'producto' && !l.reencauchada);
+    if (productos.length === 0 && reencauchadas.length === 0) throw new HttpError(422, 'La cotización no tiene llantas que cotizar.');
+    // Al volver a emitir una que venció, otra cotización pudo apartar la llanta reencauchada
+    const ocupada = await productosModel.reencauchadaOcupada(db, cotizacion.id);
+    if (ocupada) throw new HttpError(422, `${ocupada} ya la pidió otro cliente: quítala de la cotización.`);
 
     // Todos los precios deben estar definidos: también el de cada reencauche,
     // que se asigna en "Solicitudes de servicio"
@@ -284,7 +308,7 @@ export async function emitir(req, res) {
       );
     }
 
-    let subtotal = 0;
+    let subtotal = reencauchadas.reduce((suma, l) => suma + (l.subtotal ?? 0), 0);
     for (const linea of productos) {
       const datos = confirmadas.find((c) => c.id === linea.id);
       if (!datos) throw new HttpError(422, `Confirma el precio de "${linea.descripcion}" antes de emitir.`);

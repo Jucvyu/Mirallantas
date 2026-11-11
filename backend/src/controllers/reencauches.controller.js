@@ -1,11 +1,13 @@
 import { enTransaccion } from '../db.js';
+import { POOL } from '../models/listado.model.js';
 import { HttpError } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import * as bandasModel from '../models/bandas.model.js';
 import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import * as reencauchesModel from '../models/reencauches.model.js';
-import { exigirMedioAceptado, pesos, validarTransicion } from '../reglas.js';
+import * as productosModel from '../models/productos.model.js';
+import { DIAS_PARA_NO_PAGADA, exigirMedioAceptado, pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarTodo } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
 
@@ -188,7 +190,7 @@ export async function registrarRevision(req, res) {
 
     const estado = aptas.length ? 'Cotizada' : 'Sin llantas aptas';
     validarTransicion('reencauche', actual.estado, estado);
-    await reencauchesModel.reemplazarLlantas(db, actual.id, revisadas);
+    await reencauchesModel.reemplazarLlantas(db, actual, revisadas);
     await reencauchesModel.marcarRevisada(db, actual.id, req.usuario.id, estado, llantas.length);
 
     const total = revisadas.filter((l) => l.resultado === 'Apta').reduce((s, l) => s + l.precioBanda + l.manoObra, 0);
@@ -262,6 +264,8 @@ export async function cancelar(req, res) {
 
 /** GET /reencauches/ordenes */
 export async function listarOrdenes(req, res) {
+  // Antes de mostrarlas, las que cumplieron el plazo sin pago pasan al catálogo
+  await vencerNoPagadas();
   const { pagina, porPagina } = req.validado.query;
   const resultado = await reencauchesModel.listarOrdenes(req.validado.query);
   enviarLista(res, { ...resultado, pagina, porPagina });
@@ -298,7 +302,7 @@ export function enviarOrden(req, res) {
 /** POST /reencauches/ordenes/:id/lista — la planta la devolvió reencauchada. */
 export function marcarLista(req, res) {
   return cambiarOrden(req, res, 'Lista para entregar', async (db, orden) => {
-    await reencauchesModel.actualizarOrden(db, orden.id, [['estado', 'Lista para entregar']]);
+    await reencauchesModel.marcarLista(db, orden.id);
     await notificaciones.crear(
       {
         clienteId: orden.cliente_id,
@@ -358,6 +362,83 @@ export function entregarOrden(req, res) {
       db,
     );
   });
+}
+
+/**
+ * La llanta que el cliente no pagó entra al catálogo como "Llanta
+ * reencauchada" (sin marca, categoría "Reencauchadas", sin imagen y de una
+ * sola unidad). Con precio queda a la venta; sin precio (la que pasa sola
+ * por el plazo) queda inactiva hasta que el personal se lo ponga.
+ */
+async function pasarAlCatalogo(db, orden, { precioVenta = null, motivo }) {
+  const descripcion = `Reencauche ${orden.banda ?? ''} · ID ${orden.identificador}`.slice(0, 80);
+  const productoId = await productosModel.crearReencauchada(db, {
+    descripcion,
+    medidas: orden.medida,
+    tipoVehiculoId: orden.tipo_vehiculo_id,
+    precioVenta,
+  });
+  await reencauchesModel.marcarNoPagada(db, orden.id, { motivo, productoId });
+  await notificaciones.crear(
+    {
+      clienteId: orden.cliente_id,
+      titulo: `Llanta no reclamada · ${llantaDe(orden)}`,
+      mensaje: 'No recibimos el pago de tu llanta reencauchada, así que ya no está apartada para ti.',
+      enlace: EN_PORTAL,
+      tipo: 'alerta',
+    },
+    db,
+  );
+  return productoId;
+}
+
+/**
+ * POST /reencauches/ordenes/:id/no-pagada — el asesor la marca "No pagada"
+ * (antes del plazo) y digita el precio con que sale al catálogo.
+ */
+export function marcarNoPagada(req, res) {
+  const { precioVenta, motivo } = req.validado.body;
+  return cambiarOrden(req, res, 'No pagada', async (db, orden) => {
+    await pasarAlCatalogo(db, orden, { precioVenta, motivo: motivo ?? 'El cliente no la pagó.' });
+  });
+}
+
+let venciendo = null;
+
+/**
+ * Las llantas que llevan DIAS_PARA_NO_PAGADA días "Lista para entregar" sin
+ * pago pasan solas a "No pagada" y al catálogo (inactivas, sin precio), con
+ * un aviso al personal para que les ponga precio. Se llama al listar las
+ * órdenes y cada hora mientras la API está encendida. Si ya hay una vuelta
+ * en curso, espera esa misma.
+ */
+export function vencerNoPagadas() {
+  venciendo ??= (async () => {
+    const ids = await reencauchesModel.listasVencidas(POOL, DIAS_PARA_NO_PAGADA);
+    for (const id of ids) {
+      await enTransaccion(async (db) => {
+        const orden = await reencauchesModel.bloquearOrden(db, id);
+        // Pudo cobrarse entre la consulta y el bloqueo
+        if (orden?.estado !== 'Lista para entregar') return;
+        await pasarAlCatalogo(db, orden, {
+          motivo: `Pasaron ${DIAS_PARA_NO_PAGADA} días sin que el cliente la pagara.`,
+        });
+        await avisosPersonal.crear(
+          {
+            modulo: 'Productos',
+            titulo: `Llanta reencauchada sin precio · ${orden.identificador}`,
+            mensaje: `Pasaron ${DIAS_PARA_NO_PAGADA} días sin pago y la llanta ${orden.identificador} entró al catálogo inactiva. Ponle el precio de venta en Productos y actívala.`,
+            enlace: '/admin/productos',
+            tipo: 'alerta',
+          },
+          db,
+        );
+      });
+    }
+  })().finally(() => {
+    venciendo = null;
+  });
+  return venciendo;
 }
 
 // =========================================================================

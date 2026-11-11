@@ -14,6 +14,7 @@ import {
   esquemaEnvio,
   esquemaListadoOrdenes,
   esquemaListadoReencauches,
+  esquemaNoPagada,
   esquemaRechazoPlanta,
   esquemaRespuesta,
   esquemaRevision,
@@ -52,6 +53,7 @@ rutasBandas.delete('/:id', conId, bandas.eliminar);
  *   POST /ordenes/:id/lista         la planta la devolvió reencauchada
  *   POST /ordenes/:id/rechazo       la planta la rechazó (no se cobra)
  *   POST /ordenes/:id/entrega       entregar y cobrar
+ *   POST /ordenes/:id/no-pagada     el cliente no la pagó: pasa al catálogo
  *   GET  /:numero                   una solicitud con sus llantas
  *   POST /                          registrar la solicitud de un cliente
  *   POST /:numero/agenda            agendar (o cambiar) la revisión
@@ -68,6 +70,7 @@ rutasReencauches.post('/ordenes/:id/envio', conId, validar(esquemaEnvio), contro
 rutasReencauches.post('/ordenes/:id/lista', conId, controlador.marcarLista);
 rutasReencauches.post('/ordenes/:id/rechazo', conId, validar(esquemaRechazoPlanta), controlador.rechazarEnPlanta);
 rutasReencauches.post('/ordenes/:id/entrega', conId, validar(esquemaEntrega), controlador.entregarOrden);
+rutasReencauches.post('/ordenes/:id/no-pagada', conId, validar(esquemaNoPagada), controlador.marcarNoPagada);
 rutasReencauches.get('/:numero', controlador.obtener);
 rutasReencauches.post('/', validar(esquemaSolicitudPersonal), controlador.crear);
 rutasReencauches.post('/:numero/agenda', validar(esquemaAgenda), controlador.agendar);

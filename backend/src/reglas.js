@@ -65,6 +65,12 @@ export const SERVICIO_POR_DEFECTO = 'Reencauche';
 export const LLANTAS_POR_REENCAUCHE = 20;
 export const DIAS_MAXIMOS_REVISION = 60;
 
+/**
+ * Días que una llanta reencauchada puede esperar "Lista para entregar" sin
+ * que el cliente la pague. Cumplidos, pasa sola a "No pagada" y al catálogo.
+ */
+export const DIAS_PARA_NO_PAGADA = 30;
+
 // Los métodos de pago (Contado, Crédito, Efectivo, Transferencia…) y los tipos de
 // documento viven en la base de datos (tablas metodo_pago y
 // tipo_documento). Las reglas de aquí usan sus nombres: 'Crédito', 'Efectivo'…
@@ -135,9 +141,11 @@ export const FLUJOS = {
   ordenReencauche: {
     'Por enviar': ['En planta'],
     'En planta': ['Lista para entregar', 'Rechazada en planta'],
-    'Lista para entregar': ['Entregada'],
+    // Si el cliente no la paga, pasa al catálogo como llanta reencauchada
+    'Lista para entregar': ['Entregada', 'No pagada'],
     Entregada: [],
     'Rechazada en planta': [],
+    'No pagada': [],
   },
 };
 

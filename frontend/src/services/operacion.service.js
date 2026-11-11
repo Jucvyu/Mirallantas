@@ -37,19 +37,6 @@ function cotizacionHaciaApi(v, fila, { proveedores }) {
   };
 }
 
-/** Una línea de servicio del formulario → línea de la API. */
-const lineaServicio = (l) => ({
-  tipo: 'servicio',
-  servicioId: l.servicioId,
-  cantidad: l.cantidad,
-  medidas: l.medidas || null,
-  descripcion: l.descripcion,
-  foto: l.foto,
-  // Hasta 3 fotos de la llanta
-  fotos: l.fotos?.length ? l.fotos : undefined,
-  estadoEvidencia: l.estadoEvidencia,
-});
-
 const cotizacionesBase = conCambios(
   crearServicio({
     ruta: '/cotizaciones',
@@ -64,7 +51,8 @@ export const cotizacionesService = {
 
   /**
    * Solicitud de cotización armada por un asesor ("Nueva cotización"). Solo
-   * cliente, llantas, cantidades y servicios: la fecha la pone el servidor,
+   * cliente, llantas y cantidades (el reencauche va aparte, en Reencauche):
+   * la fecha la pone el servidor,
    * los precios se confirman al emitir y el método de pago se elige al
    * aceptar.
    *
@@ -76,11 +64,7 @@ export const cotizacionesService = {
       cuerpo: {
         clienteId: datos.clienteId,
         direccionEntrega: datos.direccion,
-        lineas: datos.lineas.map((l) =>
-          l.tipo === 'producto'
-            ? { tipo: 'producto', productoId: l.productoId, cantidad: l.cantidad }
-            : lineaServicio({ ...l, medidas: l.medida, descripcion: l.detalle }),
-        ),
+        lineas: datos.lineas.map((l) => ({ tipo: 'producto', productoId: l.productoId, cantidad: l.cantidad })),
       },
     });
   },
@@ -139,20 +123,18 @@ export const cotizacionesService = {
 
   /**
    * Solicitud de cotización que envía un cliente desde el portal (su
-   * "carro"): llantas, cantidades y servicios, sin precios ni pago.
-   *   datos: { direccion, productos, servicios, claveIdempotencia }
+   * "carro"): llantas y cantidades, sin precios ni pago. El reencauche no
+   * va aquí: se pide en su propia pantalla.
+   *   datos: { direccion, productos, claveIdempotencia }
    */
-  crearDesdePortal({ direccion, productos, servicios, claveIdempotencia }) {
+  crearDesdePortal({ direccion, productos, claveIdempotencia }) {
     return api('/cotizaciones', {
       // Si el envío se repite, la API devuelve la misma solicitud
       cabecerasExtra: conClave(claveIdempotencia),
       metodo: 'POST',
       cuerpo: {
         direccionEntrega: direccion,
-        lineas: [
-          ...productos.map((p) => ({ tipo: 'producto', productoId: p.id, cantidad: p.cantidad })),
-          ...servicios.map((s) => lineaServicio(s)),
-        ],
+        lineas: productos.map((p) => ({ tipo: 'producto', productoId: p.id, cantidad: p.cantidad })),
       },
     });
   },

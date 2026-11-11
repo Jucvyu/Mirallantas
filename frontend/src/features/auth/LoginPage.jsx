@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Clock, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AvisoError from '../../components/base/AvisoError';
 import LiquidGlass from '../../components/base/LiquidGlass';
@@ -23,6 +23,29 @@ import PublicNavbar from '../../components/layout/PublicNavbar';
 
 /** Formato mínimo de correo, para no depender de la validación del navegador. */
 const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// ---- "Recordar usuario" ---------------------------------------------------
+// Solo se guarda el correo, nunca la contraseña. localStorage puede fallar
+// (modo privado, almacenamiento bloqueado): por eso cada acceso va en try/catch.
+const CLAVE_CORREO_RECORDADO = 'mirallantas-correo-recordado';
+
+function correoRecordado() {
+  try {
+    return localStorage.getItem(CLAVE_CORREO_RECORDADO) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** Guarda el correo si se pidió recordarlo; si no, olvida el que hubiera. */
+function recordarCorreo(correo, recordar) {
+  try {
+    if (recordar) localStorage.setItem(CLAVE_CORREO_RECORDADO, correo);
+    else localStorage.removeItem(CLAVE_CORREO_RECORDADO);
+  } catch {
+    // Sin almacenamiento no se puede recordar: se escribe cada vez
+  }
+}
 
 // ---- Registro de un cliente nuevo ---------------------------------------
 const registroSections = [
@@ -73,8 +96,11 @@ export default function LoginPage() {
   // ?motivo=sesion: la cuenta se abrió en otro dispositivo (o la sesión venció)
   const porOtroDispositivo = parametros.get('motivo') === 'sesion';
 
-  const [correo, setCorreo] = useState('');
+  const [correo, setCorreo] = useState(correoRecordado);
   const [password, setPassword] = useState('');
+  // Si hay un correo guardado, la casilla arranca marcada
+  const [recordar, setRecordar] = useState(() => Boolean(correoRecordado()));
+  const [verPassword, setVerPassword] = useState(false);
   // Pantalla de carga: guarda a dónde ir cuando termine
   const [entrando, setEntrando] = useState(null);
   const [dialogo, setDialogo] = useState(null);
@@ -117,7 +143,7 @@ export default function LoginPage() {
    * Primer paso del inicio de sesión (con contraseña o con Google): entra,
    * pide el código del doble factor o muestra el error.
    */
-  const iniciar = async (pedirInicio) => {
+  const iniciar = async (pedirInicio, alEntrar) => {
     if (faltaCaptcha) {
       setErrorApi('Completa la verificación de seguridad (captcha) para continuar.');
       return;
@@ -126,6 +152,7 @@ export default function LoginPage() {
     setErrorApi('');
     try {
       const resultado = await pedirInicio();
+      alEntrar?.();
       if (resultado.requiere2fa) {
         // La identidad es correcta, pero falta el código del celular
         setDesafio(resultado.desafio);
@@ -150,7 +177,12 @@ export default function LoginPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validar() || enviando) return;
-    iniciar(() => iniciarSesion(correo.trim().toLowerCase(), password, captcha));
+    const correoLimpio = correo.trim().toLowerCase();
+    // El correo se recuerda (u olvida) solo si la contraseña fue correcta
+    iniciar(
+      () => iniciarSesion(correoLimpio, password, captcha),
+      () => recordarCorreo(correoLimpio, recordar),
+    );
   };
 
   /** Google devolvió la cuenta elegida: la API la verifica. */
@@ -306,9 +338,10 @@ export default function LoginPage() {
                   <label htmlFor="lg-password" className="text-sm font-medium text-slate-700 dark:text-slate-200">
                     Contraseña <span className="text-red-500">*</span>
                   </label>
+                  <div className="relative mt-1.5">
                   <input
                     id="lg-password"
-                    type="password"
+                    type={verPassword ? 'text' : 'password'}
                     maxLength={72}
                     value={password}
                     onChange={(e) => {
@@ -319,14 +352,37 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     placeholder="••••••••"
                     aria-invalid={Boolean(errores.password)}
-                    className={`${INPUT} ${errores.password ? BORDER_ERR : BORDER_OK} mt-1.5 dark:bg-brand-navy-800`}
+                    className={`${INPUT} ${errores.password ? BORDER_ERR : BORDER_OK} pr-11 dark:bg-brand-navy-800`}
                   />
+                  {/* Mostrar u ocultar lo que se escribió */}
+                  <button
+                    type="button"
+                    onClick={() => setVerPassword((v) => !v)}
+                    aria-label={verPassword ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+                    aria-pressed={verPassword}
+                    title={verPassword ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+                    className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-200"
+                  >
+                    {verPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                  </div>
                   {errores.password && (
                     <p className="ml-aparece mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-500">
                       <TriangleAlert size={13} className="shrink-0" /> {errores.password}
                     </p>
                   )}
                 </div>
+
+                {/* Recordar usuario: solo el correo, en este navegador */}
+                <label className="flex w-fit cursor-pointer select-none items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={recordar}
+                    onChange={(e) => setRecordar(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-amber-400 dark:border-white/20"
+                  />
+                  Recordar usuario
+                </label>
 
                 {/* Verificación de seguridad: obligatoria para entrar */}
                 <Captcha ref={captchaRef} onToken={setCaptcha} />

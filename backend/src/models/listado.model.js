@@ -17,7 +17,8 @@ export const POOL = { query };
 export const SELECT_LINEA = `
   d.id, d.tipo, d.producto_id AS "productoId", d.servicio_id AS "servicioId",
   p.codigo AS "codigoProducto", d.descripcion, d.medida, d.cantidad,
-  d.precio_unitario AS "precioUnitario", d.subtotal`;
+  d.precio_unitario AS "precioUnitario", d.subtotal,
+  COALESCE(p.reencauchada, FALSE) AS reencauchada`;
 
 /**
  * Listado con búsqueda, filtros exactos y paginación.

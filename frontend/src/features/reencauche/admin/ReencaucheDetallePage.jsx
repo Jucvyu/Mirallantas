@@ -233,7 +233,7 @@ export default function ReencaucheDetallePage() {
       <div className="p-5 sm:p-6">
         <h2 className="text-base font-bold text-slate-900 dark:text-white">Revisión de las llantas</h2>
         <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Anota el ID de cada llanta y si sirve. A las aptas asígnales la banda según su medida y su valor.
+          Anota cada llanta y si sirve (su ID lo asigna el sistema). A las aptas asígnales la banda según su medida y su valor.
         </p>
         <RevisionLlantas
           key={`${s.numero}-${s.revisadoEn ?? 'nueva'}`}
