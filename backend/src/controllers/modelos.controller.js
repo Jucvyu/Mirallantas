@@ -136,6 +136,40 @@ export async function actualizarReferencia(req, res) {
   enviarProducto(res, await productosModel.buscarPorId(referenciaId));
 }
 
+/**
+ * PUT /modelos/:id/referencias — guarda todas las medidas de la tabla del
+ * panel en una sola transacción: las que traen `id` se editan y las demás
+ * se crean. Si una falla (p. ej. una medida repetida) no se guarda ninguna.
+ */
+export async function guardarReferencias(req, res) {
+  const { id } = req.validado.params;
+  const { referencias } = req.validado.body;
+  const modelo = await modelosModel.buscarPorId(id);
+  if (!modelo) throw noEncontrado('El producto');
+  if (modelo.deReencauchadas) {
+    throw new HttpError(422, 'Las llantas reencauchadas entran al catálogo solas, desde el reencauche.');
+  }
+  const repetida = medidaRepetida(referencias);
+  if (repetida) throw new HttpError(422, `La medida ${repetida} está repetida (misma posición e índice de carga).`);
+
+  await enTransaccion(async (db) => {
+    // Primero las que se editan (pueden liberar una medida que otra fila toma)
+    for (const { id: referenciaId, ...cambios } of referencias.filter((r) => r.id)) {
+      const referencia = await referenciaDelModelo(db, id, referenciaId);
+      if (referencia.reencauchada) throw new HttpError(422, 'La llanta reencauchada se edita desde su producto.');
+      await productosModel.actualizar(db, referenciaId, aPares(cambios, COLUMNAS_TABLA));
+    }
+    for (const { id: _sinId, ...nueva } of referencias.filter((r) => !r.id)) {
+      const nuevaId = await productosModel.crear(db, { ...nueva, modeloId: id });
+      if (nueva.activo === false) await productosModel.actualizar(db, nuevaId, [['activo', false]]);
+    }
+  });
+  enviarModelo(res, await completo(id));
+}
+
+/** Lo que la tabla de medidas puede cambiar (todo menos el precio, que es de la reencauchada). */
+const { precioVenta: _precio, ...COLUMNAS_TABLA } = productosModel.COLUMNAS_REFERENCIA;
+
 /** PATCH /modelos/:id/referencias/:referenciaId/estado — activa o desactiva una medida. */
 export async function cambiarEstadoReferencia(req, res) {
   const { id, referenciaId } = req.validado.params;

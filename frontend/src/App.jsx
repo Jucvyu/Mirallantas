@@ -21,6 +21,7 @@ const UsuariosPage = lazy(() => import('./features/admin/usuarios/UsuariosPage')
 const ProveedoresPage = lazy(() => import('./features/admin/proveedores/ProveedoresPage'));
 const TercerosPage = lazy(() => import('./features/admin/terceros/TercerosPage'));
 const ProductosPage = lazy(() => import('./features/admin/generic/ProductosPage'));
+const ProductoAdminPage = lazy(() => import('./features/admin/productos/ProductoAdminPage'));
 const CategoriasPage = lazy(() => import('./features/admin/generic/CategoriasPage'));
 const MarcasPage = lazy(() => import('./features/admin/generic/MarcasPage'));
 const PedidosCotizacionPage = lazy(() => import('./features/admin/generic/PedidosCotizacionPage'));
@@ -55,6 +56,8 @@ const PAGINAS_ADMIN = [
   { ruta: 'proveedores', permiso: 'Proveedores', pagina: <ProveedoresPage /> },
   { ruta: 'terceros', permiso: 'Terceros', pagina: <TercerosPage /> },
   { ruta: 'productos', permiso: 'Productos', pagina: <ProductosPage /> },
+  // Página de un producto: sus medidas, su ficha técnica y su foto
+  { ruta: 'productos/:id', permiso: 'Productos', pagina: <ProductoAdminPage /> },
   { ruta: 'categorias', permiso: 'Categorías', pagina: <CategoriasPage /> },
   { ruta: 'marcas', permiso: 'Marcas', pagina: <MarcasPage /> },
   { ruta: 'pedidos-cotizacion', permiso: 'Pedidos-Cotización', pagina: <PedidosCotizacionPage /> },

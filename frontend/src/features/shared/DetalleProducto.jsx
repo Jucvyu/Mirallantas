@@ -130,6 +130,12 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
   };
 
   const ficha = datosFicha(producto);
+  // Columnas de la tabla con algún dato (la medida y el código siempre van):
+  // así una llanta de moto no muestra "Lonas" vacía
+  const filasTabla = referencias.map(filaMedida);
+  const columnasVisibles = COLUMNAS_MEDIDAS.map((_, i) => i).filter(
+    (i) => i === 0 || i === COLUMNAS_MEDIDAS.length - 1 || filasTabla.some((fila) => fila[i] !== '—'),
+  );
 
   return (
     <div>
@@ -277,18 +283,18 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
           <div className="min-w-0">
             <h3 className="mb-3 text-sm font-bold text-slate-900 dark:text-white">Medidas disponibles</h3>
             <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
-              <table className="w-full min-w-[560px] text-left text-sm">
+              <table className="w-full min-w-[420px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">
                   <tr>
-                    {COLUMNAS_MEDIDAS.map((c) => (
-                      <th key={c} scope="col" className="px-3 py-2.5 font-semibold">
-                        {c}
+                    {columnasVisibles.map((i) => (
+                      <th key={COLUMNAS_MEDIDAS[i]} scope="col" className="px-3 py-2.5 font-semibold">
+                        {COLUMNAS_MEDIDAS[i]}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-white/5">
-                  {referencias.map((r) => {
+                  {referencias.map((r, fila) => {
                     const actual = r.id === elegida.id;
                     return (
                       <tr
@@ -302,9 +308,9 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
                           actual ? 'bg-amber-400/15' : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]'
                         }`}
                       >
-                        {filaMedida(r).map((valor, i) => (
+                        {columnasVisibles.map((i) => (
                           <td key={COLUMNAS_MEDIDAS[i]} className={`px-3 py-2.5 ${i === 0 ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>
-                            {valor}
+                            {filasTabla[fila][i]}
                           </td>
                         ))}
                       </tr>

@@ -80,6 +80,8 @@ export const categoriaHaciaApi = (v) => ({
   descripcion: vacioANull(v.descripcion),
   color: v.color || '#FBBF24',
   activo: activoDesdeEstado(v.estado),
+  // Datos del producto que no aplican a la categoría (claves de la API)
+  ...(v.camposOcultosClaves ? { camposOcultos: v.camposOcultosClaves } : {}),
 });
 
 export const marcaHaciaApi = (v) => ({ nombre: v.nombre, activo: activoDesdeEstado(v.estado) });
@@ -128,6 +130,22 @@ export const referenciaDesdeApi = (f) => ({
   lonasValor: f.lonas ?? null,
   profundidadValor: f.profundidadLabrado ?? null,
   pesoValor: f.pesoKg ?? null,
+});
+
+/**
+ * Fila de la tabla de medidas del panel → cuerpo de la API. Las que ya
+ * existen llevan su `id`; las nuevas no.
+ */
+export const medidaTablaHaciaApi = (f) => ({
+  ...(f.id ? { id: f.id } : {}),
+  medidas: String(f.medidas ?? '').replace(/\s+/g, '').toUpperCase(),
+  posicion: vacioANull(f.posicion),
+  indiceCarga: vacioANull(f.indiceCarga),
+  lonas: numeroONull(f.lonas),
+  profundidadLabrado: numeroONull(f.profundidadLabrado),
+  pesoKg: numeroONull(f.pesoKg),
+  codigoFabricante: vacioANull(f.codigoFabricante),
+  activo: f.activo !== false,
 });
 
 /** Formulario de una medida → cuerpo de la API. `fila` solo existe al editar. */

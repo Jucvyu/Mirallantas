@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { categoriasService, productosService } from '../../../services';
+import { CAMPOS_OCULTABLES, ocultosATexto, textoAOcultos } from '../productos/camposProducto';
+
+/** Las casillas guardan etiquetas; la API, las claves de los datos. */
+const conOcultos = (valores) => ({ ...valores, camposOcultosClaves: textoAOcultos(valores.camposOcultosTexto) });
 
 // Tabla `categoria`: nombre, descripcion, color, estado. El color se usa
 // para marcar la categoría en el catálogo del cliente. Al desactivarla, la
@@ -16,6 +20,24 @@ const formSections = [
       { key: 'nombre', label: 'Nombre', required: true, span: 2, placeholder: 'Turismo' },
       { key: 'descripcion', label: 'Descripción', type: 'textarea', span: 2 },
       { key: 'estado', label: 'Estado', type: 'select', options: estadosActivo, only: ['edit', 'view'] },
+    ],
+  },
+  {
+    // Migración 0042: lo que se marca aquí no se pide al registrar un producto
+    title: 'Datos que no aplican a esta categoría',
+    fields: [
+      {
+        key: 'camposOcultosTexto',
+        label: 'Marca los datos que estas llantas no llevan',
+        type: 'checkboxes',
+        span: 2,
+        options: CAMPOS_OCULTABLES.map((c) => c.etiqueta),
+        grupos: ['Medidas', 'Ficha técnica'].map((titulo) => ({
+          titulo,
+          opciones: CAMPOS_OCULTABLES.filter((c) => c.grupo === titulo).map((c) => c.etiqueta),
+        })),
+        hint: 'Por ejemplo, una llanta de moto no lleva lonas ni posición. Esos campos no se pedirán al registrar sus productos.',
+      },
     ],
   },
   {
@@ -34,6 +56,11 @@ const formSections = [
 
 export default function CategoriasPage() {
   const categorias = useRecurso(categoriasService);
+  // Para el formulario: los datos que no aplican, como texto de casillas
+  const filas = useMemo(
+    () => categorias.filas.map((c) => ({ ...c, camposOcultosTexto: ocultosATexto(c.camposOcultos) })),
+    [categorias.filas],
+  );
   // Los productos se piden solo para contar cuántos hay en cada categoría
   const productos = useRecurso(productosService);
   // Categoría con productos activos que se va a desactivar (se confirma antes)
@@ -73,12 +100,12 @@ export default function CategoriasPage() {
       <DataTable
         title="Categorías"
         columns={columns}
-        data={categorias.filas}
+        data={filas}
         cargando={categorias.cargando}
         error={categorias.error}
         onRecargar={categorias.recargar}
-        onCreate={categorias.crear}
-        onEdit={categorias.editar}
+        onCreate={(valores) => categorias.crear(conOcultos(valores))}
+        onEdit={(fila, valores) => categorias.editar(fila, conOcultos(valores))}
         onStatusChange={cambiarEstado}
         statusKey="estado"
         statusOptions={estadosActivo}

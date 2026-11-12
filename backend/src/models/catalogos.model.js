@@ -115,7 +115,8 @@ const CAMPOS_EMPRESA_EXTERNA = {
 
 export const categorias = crearModeloCatalogo({
   tabla: 'categoria',
-  campos: { nombre: 'nombre', descripcion: 'descripcion', color: 'color' },
+  // camposOcultos: datos del producto que no aplican a la categoría (migración 0042)
+  campos: { nombre: 'nombre', descripcion: 'descripcion', color: 'color', camposOcultos: 'campos_ocultos' },
   buscarEn: ['nombre', 'descripcion'],
   ordenarPor: 'nombre',
 });

@@ -13,6 +13,7 @@ import {
   modeloDesdeApi,
   modeloHaciaApi,
   productoDesdeApi,
+  medidaTablaHaciaApi,
   referenciaDesdeApi,
   referenciaHaciaApi,
 } from './adaptadores';
@@ -135,6 +136,15 @@ export const modelosService = {
   async editarReferencia(modelo, referencia, valores) {
     const { datos } = await api(rutaReferencia(modelo, referencia), { metodo: 'PUT', cuerpo: referenciaHaciaApi(valores, referencia) });
     return referenciaDesdeApi(datos);
+  },
+
+  /**
+   * Guarda todas las medidas de la tabla del producto en una sola
+   * operación: si una falla, no se guarda ninguna. Devuelve el modelo.
+   */
+  async guardarReferencias(modelo, filas) {
+    const { datos } = await api(rutaReferencia(modelo), { metodo: 'PUT', cuerpo: { referencias: filas.map(medidaTablaHaciaApi) } });
+    return modeloDesdeApi(datos);
   },
 
   /** Activa o desactiva una medida. */

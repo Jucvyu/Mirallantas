@@ -239,6 +239,54 @@ describe('Editar el modelo y sus medidas', () => {
   });
 });
 
+describe('Tabla de medidas y datos por categoría', () => {
+  test('guarda varias medidas de una vez: edita las que tienen id y crea las nuevas', async () => {
+    const m = await post('/modelos', modeloNuevo({ nombre: 'Tabla Prueba', referencias: [{ medidas: '11R22.5', posicion: 'Tracción' }] }));
+    assert.equal(m.estado, 201, JSON.stringify(m.cuerpo));
+    const [existente] = m.cuerpo.datos.referencias;
+    const r = await put(`/modelos/${m.cuerpo.datos.id}/referencias`, {
+      referencias: [
+        { id: existente.id, medidas: '11R22.5', posicion: 'Tracción', lonas: 16, activo: false },
+        { medidas: '295/80R22.5', posicion: 'Tracción', indiceCarga: '152/148', lonas: 16 },
+        { medidas: '295/80R22.5', posicion: 'Direccional', indiceCarga: '152/148', lonas: 16 },
+      ],
+    });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    assert.equal(r.cuerpo.datos.referencias.length, 3);
+    const editada = r.cuerpo.datos.referencias.find((x) => x.id === existente.id);
+    assert.equal(editada.lonas, 16);
+    assert.equal(editada.activo, false);
+    t.tabla = r.cuerpo.datos;
+  });
+
+  test('si una medida falla no se guarda ninguna', async () => {
+    const antes = t.tabla.referencias.length;
+    const repetida = await put(`/modelos/${t.tabla.id}/referencias`, {
+      referencias: [{ medidas: '315/80R22.5' }, { medidas: '315/80r22.5' }],
+    });
+    assert.equal(repetida.estado, 422);
+    // Choca con una que ya existe en la base: se revierte también la nueva
+    const choca = await put(`/modelos/${t.tabla.id}/referencias`, {
+      referencias: [{ medidas: '12R22.5' }, { medidas: '295/80R22.5', posicion: 'Tracción', indiceCarga: '152/148' }],
+    });
+    assert.equal(choca.estado, 409);
+    assert.equal(choca.cuerpo.error, 'Esa medida ya está registrada para este producto.');
+    const despues = (await e.api(`/modelos/${t.tabla.id}`, { token: t.admin })).cuerpo.datos.referencias.length;
+    assert.equal(despues, antes);
+    // Una medida de otro producto no se edita desde aquí
+    const ajena = await put(`/modelos/${t.tabla.id}/referencias`, { referencias: [{ id: 1, medidas: '205/55R16' }] });
+    assert.equal(ajena.estado, 404);
+  });
+
+  test('una categoría guarda los datos que no aplican', async () => {
+    const cat = await post('/categorias', { nombre: 'Moto prueba', camposOcultos: ['lonas', 'posicion', 'lonas'] });
+    assert.equal(cat.estado, 201, JSON.stringify(cat.cuerpo));
+    assert.deepEqual(cat.cuerpo.datos.camposOcultos, ['lonas', 'posicion']);
+    const mala = await post('/categorias', { nombre: 'Mala', camposOcultos: ['precio'] });
+    assert.equal(mala.estado, 422);
+  });
+});
+
 describe('Catálogo público y cotizaciones', () => {
   test('el catálogo público trae la ficha, pero no el código del fabricante ni la fuente', async () => {
     const r = await e.api('/catalogo?porPagina=100');

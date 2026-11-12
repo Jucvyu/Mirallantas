@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, TriangleAlert } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Pencil, TriangleAlert } from 'lucide-react';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
-import FormModal from '../../../components/base/FormModal';
 import BotonAccion from '../../../components/base/BotonAccion';
 import StatusSwitch from '../../../components/base/StatusSwitch';
 import AvisoError from '../../../components/base/AvisoError';
@@ -16,146 +16,19 @@ import {
   referenciasService,
   tiposVehiculoService,
 } from '../../../services';
+import { camposBasicos } from '../productos/camposProducto';
 
-// Catálogo por modelos (migración 0040).
+// Catálogo por productos (modelos de llanta) y sus medidas.
 //
-// Cada fila de la tabla es un MODELO de llanta (marca + nombre, con su ficha
-// técnica y su foto). Al desplegarlo se ven sus MEDIDAS (referencias): cada
-// una es el producto que se vende, con su código ML-… (lo genera el
-// servidor), su índice de carga, lonas, profundidad y peso. Lo que se
-// cambia en el modelo pasa a todas sus medidas. La gestión no maneja
-// precios ni stock: el precio se define en cada cotización.
+// Cada fila es UN producto (p. ej. "Michelin X Multi Z"), aunque se venda
+// en muchas medidas. "Nuevo producto" pide solo lo básico y abre la página
+// del producto, donde se cargan las medidas (una tabla), la ficha técnica y
+// la foto. El lápiz de cada fila abre esa misma página. Al desplegar una
+// fila se ven sus medidas y se pueden activar o desactivar ahí mismo.
 //
-// Las llantas reencauchadas (unidad única con precio fijo) no se agrupan:
-// van en su propia tabla, como antes.
-
-const POSICIONES = ['Direccional', 'Tracción', 'Cualquier posición'];
-const CONSTRUCCIONES = ['Radial', 'Diagonal'];
-const SI_NO = ['Sí', 'No'];
-
-// ---- Reglas de los campos numéricos -----------------------------------------
-
-const decimal = (texto) => Number(String(texto).trim().replace(',', '.'));
-const decimales = (texto) => (String(texto).split(/[.,]/)[1] ?? '').length;
-
-const validarIndiceCarga = (v) =>
-  /^[0-9]{2,3}(\/[0-9]{2,3})?$/.test(String(v).trim()) ? '' : 'Usa 2 o 3 dígitos, o dos separados por "/" (p. ej. 152/148)';
-const validarProfundidad = (v) => {
-  const n = decimal(v);
-  if (!(n > 0) || n > 50) return 'Escribe los milímetros, entre 0,1 y 50';
-  return decimales(v) > 1 ? 'Usa máximo un decimal (p. ej. 16,5)' : '';
-};
-const validarPeso = (v) => {
-  const n = decimal(v);
-  if (!(n > 0) || n > 2000) return 'Escribe los kilos, entre 0,01 y 2000';
-  return decimales(v) > 2 ? 'Usa máximo dos decimales' : '';
-};
-const validarLonas = (v) => (Number(v) > 40 ? 'Máximo 40 lonas' : '');
-const validarGarantia = (v) => {
-  const n = Number(String(v).trim());
-  return Number.isInteger(n) && n >= 0 && n <= 240 ? '' : 'Escribe los meses, de 0 a 240';
-};
-
-/** Campos de una medida (los usan el alta del modelo y el formulario de medida). */
-function camposMedida(medidas, { requerida }) {
-  return [
-    {
-      key: 'medidas',
-      label: 'Medida',
-      type: 'buscador',
-      required: requerida,
-      options: medidas,
-      permitirNuevo: true,
-      placeholderBusqueda: 'Escribe la medida, p. ej. 295/80R22.5',
-      hint: 'Busca una medida existente o escribe una nueva.',
-    },
-    {
-      key: 'posicion',
-      label: 'Posición',
-      type: 'select',
-      options: POSICIONES,
-      hint: 'El cliente elige primero la posición y luego la medida.',
-    },
-    { key: 'indiceCarga', label: 'Índice de carga', placeholder: 'p. ej. 152/148', max: 7, validar: validarIndiceCarga },
-    { key: 'lonas', label: 'Lonas (PR)', type: 'number', placeholder: 'p. ej. 16', validar: validarLonas },
-    { key: 'profundidadLabrado', label: 'Profundidad del labrado (mm)', placeholder: 'p. ej. 16,5', max: 5, validar: validarProfundidad },
-    { key: 'pesoKg', label: 'Peso (kg)', placeholder: 'p. ej. 64,2', max: 7, validar: validarPeso },
-    { key: 'codigoFabricante', label: 'Código del fabricante', placeholder: 'Código o SKU del fabricante', max: 40 },
-  ];
-}
-
-/** Formulario del modelo: datos básicos, ficha técnica, foto (y la primera medida al crear). */
-function seccionesModelo({ categorias, marcas, tipos, medidas }) {
-  const activos = (lista) => lista.filter((x) => x.activo !== false).map((x) => x.nombre);
-  return [
-    {
-      title: 'Datos básicos',
-      fields: [
-        { key: 'nombre', label: 'Nombre del producto', required: true, placeholder: 'p. ej. X Multi Z' },
-        { key: 'marca', label: 'Marca', type: 'buscador', required: true, options: activos(marcas), emptyLabel: 'marca' },
-        { key: 'categoria', label: 'Categoría', type: 'buscador', required: true, options: activos(categorias), emptyLabel: 'categoría' },
-        { key: 'tipoVehiculo', label: 'Tipo de vehículo', type: 'buscador', options: tipos.map((t) => t.nombre) },
-        { key: 'descripcion', label: 'Descripción', type: 'textarea', span: 2, max: 200 },
-      ],
-    },
-    {
-      title: 'Ficha técnica',
-      fields: [
-        { key: 'uso', label: 'Uso', placeholder: 'p. ej. Regional, urbano, mixto' },
-        { key: 'labrado', label: 'Labrado', placeholder: 'p. ej. Rayado, de tacos', max: 60 },
-        { key: 'construccion', label: 'Construcción', type: 'select', options: CONSTRUCCIONES },
-        { key: 'sinCamara', label: 'Sin cámara (tubeless)', type: 'select', options: SI_NO },
-        { key: 'recauchable', label: 'Recauchable', type: 'select', options: SI_NO },
-        { key: 'garantiaMeses', label: 'Garantía (meses)', placeholder: 'p. ej. 60', max: 3, validar: validarGarantia },
-        { key: 'paisOrigen', label: 'País de origen', max: 60 },
-        {
-          key: 'fuenteFicha',
-          label: 'Fuente de la ficha',
-          span: 2,
-          max: 300,
-          placeholder: 'Página del fabricante o del proveedor de donde se copió',
-          hint: 'Solo la ve el personal: no sale en el catálogo.',
-        },
-        {
-          key: 'fichaPdf',
-          label: 'Ficha técnica del fabricante (PDF)',
-          type: 'pdf',
-          span: 2,
-          placeholder: 'Sube el PDF de la ficha (máximo 5 MB). El cliente lo puede abrir desde el producto.',
-        },
-      ],
-    },
-    {
-      title: 'Primera medida (opcional)',
-      fields: camposMedida(medidas, { requerida: false }).map((f) => ({ ...f, only: 'create' })),
-    },
-    {
-      title: 'Estado',
-      fields: [{ key: 'estado', label: 'Estado', type: 'select', options: estadosActivo, only: ['edit', 'view'] }],
-    },
-    {
-      title: 'Foto',
-      fields: [
-        {
-          key: 'foto',
-          label: 'Foto del producto',
-          type: 'image',
-          span: 2,
-          placeholder: 'Sube la foto de la llanta (JPG o PNG). La usan todas sus medidas.',
-        },
-      ],
-    },
-  ];
-}
-
-/** Formulario de una medida del modelo. */
-const seccionesMedida = (medidas) => [
-  { title: 'Medida', fields: camposMedida(medidas, { requerida: true }) },
-  {
-    title: 'Estado',
-    fields: [{ key: 'estado', label: 'Estado', type: 'select', options: estadosActivo, only: ['edit', 'view'] }],
-  },
-];
+// La gestión no maneja precios ni stock: el precio se define en cada
+// cotización. Las llantas reencauchadas (unidad única con precio fijo) van
+// en su propia tabla.
 
 /** Formulario de la llanta reencauchada: su descripción, vehículo, precio y estado. */
 function seccionesReencauchada({ tipos }) {
@@ -181,8 +54,6 @@ function seccionesReencauchada({ tipos }) {
   ];
 }
 
-// ---- Piezas de la tabla -------------------------------------------------------
-
 const etiqueta = 'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold';
 
 const columnasModelo = [
@@ -191,7 +62,9 @@ const columnasModelo = [
     label: 'Producto',
     render: (row) => (
       <span className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-slate-800 dark:text-slate-100">{row.nombre}</span>
+        <Link to={`/admin/productos/${row.id}`} className="font-semibold text-slate-800 hover:text-amber-700 dark:text-slate-100 dark:hover:text-amber-400">
+          {row.nombre}
+        </Link>
         {!row.foto && (
           <span title="El producto no tiene foto" className={`${etiqueta} bg-amber-400/15 text-amber-600 dark:text-amber-400`}>
             <TriangleAlert size={10} aria-hidden="true" /> Sin foto
@@ -207,7 +80,9 @@ const columnasModelo = [
     label: 'Medidas',
     render: (row) =>
       row.referencias.length === 0 ? (
-        <span className="text-xs text-slate-400">Sin medidas</span>
+        <span className={`${etiqueta} bg-amber-400/15 text-amber-600 dark:text-amber-400`}>
+          <TriangleAlert size={10} aria-hidden="true" /> Sin medidas
+        </span>
       ) : (
         <span className="block max-w-[16rem]">
           <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">
@@ -243,84 +118,56 @@ const columnasReencauchada = [
   { key: 'estado', label: 'Estado' },
 ];
 
-/** Dato de una medida, o un guion si no se ha cargado. */
-const dato = (valor, unidad = '') => (valor === null || valor === undefined || valor === '' ? '—' : `${valor}${unidad}`);
-
-/** Medidas de un modelo, bajo su fila. */
-function MedidasDelModelo({ modelo, onNueva, onEditar, onEstado }) {
+/** Medidas de un producto, bajo su fila: se ven y se activan; se editan en su página. */
+function MedidasDelModelo({ modelo, onEstado }) {
+  const enlace = `/admin/productos/${modelo.id}?pestana=medidas`;
+  if (modelo.referencias.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-500 dark:border-white/15 dark:text-slate-400">
+        Este producto todavía no tiene medidas y no sale en el catálogo.{' '}
+        <Link to={enlace} className="font-bold text-amber-700 hover:underline dark:text-amber-400">
+          Agregar medidas
+        </Link>
+      </p>
+    );
+  }
   return (
-    <div className="space-y-3">
-      {modelo.referencias.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-500 dark:border-white/15 dark:text-slate-400">
-          Este producto todavía no tiene medidas. Agrega la primera para poder cotizarlo.
-        </p>
-      ) : (
-        <ul className="divide-y divide-slate-200/70 rounded-xl border border-slate-200 bg-white dark:divide-white/5 dark:border-white/10 dark:bg-brand-navy-800">
-          {modelo.referencias.map((r) => (
-            <li
-              key={r.id}
-              className="grid items-center gap-x-5 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))_auto]"
-            >
-              <div className="min-w-0">
-                <p className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                  {r.medidas}
-                  {r.posicion && <span className="ml-2 font-normal text-slate-500 dark:text-slate-400">{r.posicion}</span>}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {r.codigo}
-                  {r.codigoFabricante ? ` · Fab. ${r.codigoFabricante}` : ''}
-                </p>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Índice de carga <span className="block font-semibold tabular-nums text-slate-700 dark:text-slate-200">{dato(r.indiceCarga)}</span>
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Lonas · labrado
-                <span className="block font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                  {r.lonasValor || r.profundidadValor
-                    ? `${dato(r.lonasValor, ' PR')} · ${dato(r.profundidadValor?.toLocaleString('es-CO'), ' mm')}`
-                    : '—'}
-                </span>
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Peso <span className="block font-semibold tabular-nums text-slate-700 dark:text-slate-200">{dato(r.pesoValor?.toLocaleString('es-CO'), ' kg')}</span>
-              </p>
-              <div className="flex items-center justify-end gap-2">
-                <StatusSwitch value={r.estado} options={estadosActivo} onChange={(estado) => onEstado(r, estado)} label={`Estado de ${r.medidas}`} />
-                <BotonAccion icono={Pencil} etiqueta={`Editar la medida ${r.medidas}`} accion="editar" onClick={() => onEditar(r)} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <button
-        type="button"
-        onClick={onNueva}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-400/10 dark:text-amber-400"
-      >
-        <Plus size={14} aria-hidden="true" /> Agregar medida
-      </button>
+    <div className="space-y-2">
+      <ul className="divide-y divide-slate-200/70 rounded-xl border border-slate-200 bg-white dark:divide-white/5 dark:border-white/10 dark:bg-brand-navy-800">
+        {modelo.referencias.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5">
+            <p className="min-w-0 text-sm">
+              <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{r.medidas}</span>
+              <span className="ml-2 text-slate-500 dark:text-slate-400">
+                {[r.posicion, r.indiceCarga, r.codigo].filter(Boolean).join(' · ')}
+              </span>
+            </p>
+            <StatusSwitch value={r.estado} options={estadosActivo} onChange={(estado) => onEstado(r, estado)} label={`Estado de ${r.medidas}`} />
+          </li>
+        ))}
+      </ul>
+      <Link to={enlace} className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:underline dark:text-amber-400">
+        <Pencil size={13} aria-hidden="true" /> Editar medidas
+      </Link>
     </div>
   );
 }
 
 export default function ProductosPage() {
+  const navigate = useNavigate();
   // Listas para los selects del formulario
   const categorias = useRecurso(categoriasService);
   const marcas = useRecurso(marcasService);
   const tipos = useRecurso(tiposVehiculoService);
   const modelos = useRecurso(modelosService);
-  // Todas las medidas del catálogo (con sus datos), para agruparlas por modelo
+  // Todas las medidas del catálogo, para agruparlas por producto
   const referencias = useRecurso(referenciasService);
   const productos = useRecurso(productosService);
-
-  // { modelo, referencia? } del formulario de medida abierto
-  const [medidaAbierta, setMedidaAbierta] = useState(null);
   const [errorMedida, setErrorMedida] = useState('');
 
   const contexto = { categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas };
 
-  // Cada modelo con sus medidas. El de las reencauchadas va en su propia tabla.
+  // Cada producto con sus medidas. El de las reencauchadas va en su propia tabla.
   const filasModelos = useMemo(() => {
     const porModelo = new Map();
     for (const r of referencias.filas) {
@@ -332,23 +179,17 @@ export default function ProductosPage() {
 
   const reencauchadas = useMemo(() => productos.filas.filter((p) => p.reencauchada), [productos.filas]);
 
-  // Medidas registradas, sin repetir (buscador de medidas)
-  const medidas = useMemo(
-    () => [...new Set(referencias.filas.filter((r) => !r.reencauchada).map((r) => r.medidas))].sort(),
-    [referencias.filas],
-  );
-
-  /** Ejecuta un cambio y recarga los modelos y sus medidas. */
-  const guardar = async (operacion) => {
-    const resultado = await operacion();
-    await Promise.all([modelos.recargar(), referencias.recargar()]);
-    return resultado;
+  /** Crea el producto con lo básico y abre su página para cargar las medidas. */
+  const crear = async (valores) => {
+    const nuevo = await modelosService.crear(valores, contexto);
+    navigate(`/admin/productos/${nuevo.id}?pestana=medidas`);
   };
 
   const cambiarEstadoMedida = async (modelo, referencia, estado) => {
     setErrorMedida('');
     try {
-      await guardar(() => modelosService.cambiarEstadoReferencia(modelo, referencia, estado));
+      await modelosService.cambiarEstadoReferencia(modelo, referencia, estado);
+      await referencias.recargar();
     } catch (e) {
       setErrorMedida(e.message);
     }
@@ -365,26 +206,29 @@ export default function ProductosPage() {
         cargando={modelos.cargando || referencias.cargando}
         error={modelos.error || referencias.error}
         onRecargar={() => Promise.all([modelos.recargar(), referencias.recargar()])}
-        onCreate={(valores) => guardar(() => modelosService.crear(valores, contexto))}
-        onEdit={(fila, valores) => guardar(() => modelosService.editar(fila, valores, contexto))}
-        onStatusChange={(fila, estado) => guardar(() => modelosService.cambiarEstado(fila, estado))}
+        onCreate={crear}
+        onStatusChange={(fila, estado) => modelos.ejecutar(() => modelosService.cambiarEstado(fila, estado))}
         newLabel="Nuevo producto"
-        formSections={seccionesModelo({ categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas, medidas })}
+        formSections={[
+          {
+            title: 'Lo básico',
+            fields: camposBasicos(contexto).map((f) =>
+              f.key === 'nombre' ? { ...f, hint: 'Después agregas sus medidas, la ficha técnica y la foto.' } : f,
+            ),
+          },
+        ]}
         entityName="producto"
         exportable={false}
+        canView={false}
         // Un producto con ventas o compras no se borra: se desactiva
         canDelete={false}
+        rowActions={(fila) => (
+          <BotonAccion icono={Pencil} etiqueta="Abrir el producto" accion="editar" onClick={() => navigate(`/admin/productos/${fila.id}`)} />
+        )}
         statusKey="estado"
         statusOptions={estadosActivo}
         statusVariant="switch"
-        expandir={(m) => (
-          <MedidasDelModelo
-            modelo={m}
-            onNueva={() => setMedidaAbierta({ modelo: m })}
-            onEditar={(referencia) => setMedidaAbierta({ modelo: m, referencia })}
-            onEstado={(referencia, estado) => cambiarEstadoMedida(m, referencia, estado)}
-          />
-        )}
+        expandir={(m) => <MedidasDelModelo modelo={m} onEstado={(referencia, estado) => cambiarEstadoMedida(m, referencia, estado)} />}
         filters={[
           { key: 'categoria', label: 'Categoría', options: categorias.filas.map((c) => c.nombre) },
           { key: 'marca', label: 'Marca', options: marcas.filas.map((m) => m.nombre) },
@@ -393,8 +237,7 @@ export default function ProductosPage() {
         ]}
       />
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Despliega cada producto para ver, agregar o desactivar sus medidas. Lo que cambies en el producto (nombre, ficha, foto)
-        pasa a todas sus medidas.
+        Cada fila es un producto con todas sus medidas. Ábrelo con el lápiz para editar sus medidas, la ficha técnica y la foto.
       </p>
 
       {(reencauchadas.length > 0 || productos.cargando) && (
@@ -419,26 +262,6 @@ export default function ProductosPage() {
             statusVariant="switch"
           />
         </div>
-      )}
-
-      {medidaAbierta && (
-        <FormModal
-          title={medidaAbierta.referencia ? 'Editar medida' : 'Nueva medida'}
-          subtitle={`${medidaAbierta.modelo.marca} ${medidaAbierta.modelo.nombre}`}
-          mode={medidaAbierta.referencia ? 'edit' : 'create'}
-          size="md"
-          sections={seccionesMedida(medidas)}
-          initialValues={medidaAbierta.referencia ?? {}}
-          resumen={medidaAbierta.referencia ? { titulo: medidaAbierta.referencia.medidas, estado: medidaAbierta.referencia.estado } : undefined}
-          onSubmit={(valores) =>
-            guardar(() =>
-              medidaAbierta.referencia
-                ? modelosService.editarReferencia(medidaAbierta.modelo, medidaAbierta.referencia, valores)
-                : modelosService.crearReferencia(medidaAbierta.modelo, valores),
-            )
-          }
-          onClose={() => setMedidaAbierta(null)}
-        />
       )}
     </div>
   );

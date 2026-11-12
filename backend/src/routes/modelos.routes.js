@@ -11,6 +11,7 @@ import {
   esquemaIdReferencia,
   esquemaNuevo,
   esquemaReferencia,
+  esquemaReferenciasEnBloque,
 } from '../validators/modelos.validator.js';
 
 /**
@@ -23,6 +24,7 @@ import {
  *   PUT   /:id                                actualiza el modelo (pasa a todas sus medidas)
  *   PATCH /:id/estado                         activa o desactiva el modelo
  *   POST  /:id/referencias                    agrega una medida
+ *   PUT   /:id/referencias                    guarda todas las medidas (la tabla del panel)
  *   PUT   /:id/referencias/:referenciaId      edita una medida
  *   PATCH /:id/referencias/:referenciaId/estado  activa o desactiva una medida
  *
@@ -41,6 +43,7 @@ rutasModelos.post('/', escritura, validar(esquemaNuevo), controlador.crear);
 rutasModelos.put('/:id', escritura, conId, validar(esquemaEdicion), controlador.actualizar);
 rutasModelos.patch('/:id/estado', escritura, conId, validar(esquemaEstado), controlador.cambiarEstado);
 rutasModelos.post('/:id/referencias', escritura, conId, validar(esquemaReferencia), controlador.crearReferencia);
+rutasModelos.put('/:id/referencias', escritura, conId, validar(esquemaReferenciasEnBloque), controlador.guardarReferencias);
 rutasModelos.put(
   '/:id/referencias/:referenciaId',
   escritura,

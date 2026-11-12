@@ -29,9 +29,23 @@ const contactoOpcional = {
 /** Cuerpo de PATCH /:id/estado */
 export const esquemaEstado = z.object({ activo: z.boolean({ error: 'Envía "activo" como true o false.' }) });
 
+/**
+ * Datos del producto que una categoría puede marcar como "no aplica" (p. ej.
+ * una llanta de moto no lleva lonas ni posición). Ver migración 0042.
+ */
+export const CAMPOS_OCULTABLES = [
+  'uso', 'labrado', 'construccion', 'sinCamara', 'recauchable', 'garantiaMeses', 'paisOrigen',
+  'posicion', 'indiceCarga', 'lonas', 'profundidadLabrado', 'pesoKg', 'codigoFabricante',
+];
+
 export const esquemaCategoria = z.object({
   nombre: nombreEntidad(80),
   descripcion: textoExplicadoOpcional(80),
+  camposOcultos: z
+    .array(z.enum(CAMPOS_OCULTABLES, { error: 'Uno de los datos marcados no existe.' }))
+    .max(CAMPOS_OCULTABLES.length)
+    .transform((lista) => [...new Set(lista)])
+    .optional(),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'El color debe tener la forma #RRGGBB.')

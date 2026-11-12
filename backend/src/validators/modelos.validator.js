@@ -79,6 +79,29 @@ export const esquemaEdicionReferencia = objetoEstricto(
   'Este campo no se puede modificar en la medida.',
 ).partial();
 
+/**
+ * PUT /modelos/:id/referencias — todas las medidas del modelo de una vez
+ * (la tabla del panel). Con `id` se edita esa medida; sin él se crea.
+ */
+export const esquemaReferenciasEnBloque = objetoEstricto(
+  {
+    referencias: z
+      .array(
+        objetoEstricto(
+          {
+            id: idRelacion.optional(),
+            ...camposReferencia,
+            activo: z.boolean({ error: 'Envía "activo" como true o false.' }).optional(),
+          },
+          'Este campo no se registra en la medida.',
+        ),
+      )
+      .min(1, 'Agrega al menos una medida.')
+      .max(60, 'Máximo 60 medidas por producto.'),
+  },
+  'Envía solo la lista de medidas.',
+);
+
 /** POST /modelos — el modelo con su ficha, su foto y (opcional) sus primeras medidas. */
 export const esquemaNuevo = objetoEstricto(
   {
