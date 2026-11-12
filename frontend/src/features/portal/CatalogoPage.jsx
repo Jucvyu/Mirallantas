@@ -14,6 +14,9 @@ const acotar = (n, maximo) => Math.min(maximo, Math.max(1, Number(n) || 1));
  * Catálogo de llantas del portal. Sin precios ni stock: el cliente elige la
  * cantidad en cada tarjeta y la agrega a su carro de cotización, que se ve
  * a la derecha. El precio se confirma después en la cotización formal.
+ *
+ * Cada tarjeta es una llanta (modelo) con selector de medida: `accion(p)`
+ * recibe la medida elegida (la referencia), que es lo que va al carro.
  */
 export default function CatalogoPage() {
   // Cantidad elegida en cada tarjeta (por defecto 1)

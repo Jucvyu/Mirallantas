@@ -10,7 +10,11 @@ import {
   idPorNombre,
   imagenCambiada,
   marcaHaciaApi,
+  modeloDesdeApi,
+  modeloHaciaApi,
   productoDesdeApi,
+  referenciaDesdeApi,
+  referenciaHaciaApi,
 } from './adaptadores';
 import { api, traerTodo } from './http';
 import { crearServicio } from './recurso';
@@ -81,6 +85,52 @@ export const productosService = {
 
   /** En productos el estado viaja en la edición normal (PUT). */
   cambiarEstado: (fila, estado) => productosBase.enviar(fila, { activo: estado === 'Activo' }, { metodo: 'PUT' }),
+};
+
+/**
+ * Todas las referencias (medidas) del catálogo con sus datos propios
+ * (índice de carga, lonas…), para agruparlas bajo su modelo en el admin.
+ */
+export const referenciasService = {
+  async listar() {
+    return (await traerTodo('/productos')).map(referenciaDesdeApi);
+  },
+};
+
+// ---- Modelos de llanta (panel admin) -----------------------------------------
+
+const modelosBase = conCambioDeEstado(
+  crearServicio({ ruta: '/modelos', desdeApi: modeloDesdeApi, haciaApi: modeloHaciaApi }),
+);
+
+/** Ruta de una medida de un modelo: /modelos/3/referencias/12 */
+const rutaReferencia = (modelo, referencia) =>
+  `/modelos/${encodeURIComponent(modelo.id)}/referencias${referencia ? `/${encodeURIComponent(referencia.id)}` : ''}`;
+
+/**
+ * Modelos de llanta: la llanta con su ficha técnica y su foto. Sus medidas
+ * (referencias) son los productos que se venden; se agregan, editan y
+ * activan desde aquí.
+ */
+export const modelosService = {
+  ...modelosBase,
+
+  /** Agrega una medida al modelo. */
+  async crearReferencia(modelo, valores) {
+    const { datos } = await api(rutaReferencia(modelo), { metodo: 'POST', cuerpo: referenciaHaciaApi(valores, null) });
+    return referenciaDesdeApi(datos);
+  },
+
+  /** Guarda los cambios de una medida (también su estado). */
+  async editarReferencia(modelo, referencia, valores) {
+    const { datos } = await api(rutaReferencia(modelo, referencia), { metodo: 'PUT', cuerpo: referenciaHaciaApi(valores, referencia) });
+    return referenciaDesdeApi(datos);
+  },
+
+  /** Activa o desactiva una medida. */
+  async cambiarEstadoReferencia(modelo, referencia, estado) {
+    await api(`${rutaReferencia(modelo, referencia)}/estado`, { metodo: 'PATCH', cuerpo: { activo: estado === 'Activo' } });
+  },
 };
 
 /**
