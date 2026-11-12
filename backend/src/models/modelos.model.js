@@ -23,7 +23,6 @@ export const COLUMNAS = {
   activo: 'activo',
   // Ficha técnica
   uso: 'uso',
-  posicion: 'posicion',
   labrado: 'labrado',
   construccion: 'construccion',
   sinCamara: 'sin_camara',
@@ -31,6 +30,7 @@ export const COLUMNAS = {
   paisOrigen: 'pais_origen',
   recauchable: 'recauchable',
   fuenteFicha: 'fuente_ficha',
+  fichaPdf: 'ficha_pdf',
 };
 
 const SELECCION = `
@@ -38,9 +38,11 @@ const SELECCION = `
   ml.categoria_id AS "categoriaId", c.nombre AS categoria, c.color AS "colorCategoria",
   ml.marca_id AS "marcaId", m.nombre AS marca,
   ml.tipo_vehiculo_id AS "tipoVehiculoId", tv.nombre AS "tipoVehiculo",
-  ml.uso, ml.posicion, ml.labrado, ml.construccion, ml.sin_camara AS "sinCamara",
+  ml.uso, ml.labrado, ml.construccion, ml.sin_camara AS "sinCamara",
   ml.garantia_meses AS "garantiaMeses", ml.pais_origen AS "paisOrigen", ml.recauchable,
-  ml.fuente_ficha AS "fuenteFicha", ml.activo, ml.creado_en AS "creadoEn",
+  ml.fuente_ficha AS "fuenteFicha", ml.ficha_pdf AS "fichaPdf", ml.activo,
+  -- Posiciones en que viene (cada medida lleva la suya)
+  (SELECT string_agg(DISTINCT p.posicion, ', ') FROM producto p WHERE p.modelo_id = ml.id) AS posiciones, ml.creado_en AS "creadoEn",
   (SELECT count(*)::int FROM producto p WHERE p.modelo_id = ml.id) AS "totalReferencias",
   (SELECT count(*)::int FROM producto p WHERE p.modelo_id = ml.id AND p.activo) AS "referenciasActivas",
   -- Las llantas reencauchadas (unidades únicas) cuelgan de su propio modelo

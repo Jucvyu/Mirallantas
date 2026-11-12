@@ -24,7 +24,6 @@ const modeloNuevo = (extra = {}) => ({
   marcaId: t.marca,
   tipoVehiculoId: t.camion,
   uso: 'Regional',
-  posicion: 'Direccional',
   labrado: 'Rayado (5 canales)',
   construccion: 'Radial',
   sinCamara: true,
@@ -33,8 +32,8 @@ const modeloNuevo = (extra = {}) => ({
   recauchable: true,
   fuenteFicha: 'https://www.michelin.com.co/camion/x-multi-z',
   referencias: [
-    { medidas: '295/80 r22.5', indiceCarga: '152/148', lonas: 16, profundidadLabrado: 16.5, pesoKg: 64.2, codigoFabricante: 'MI-123456' },
-    { medidas: '11R22.5', indiceCarga: '148/145', lonas: 16 },
+    { medidas: '295/80 r22.5', posicion: 'Direccional', indiceCarga: '152/148', lonas: 16, profundidadLabrado: 16.5, pesoKg: 64.2, codigoFabricante: 'MI-123456' },
+    { medidas: '11R22.5', posicion: 'Direccional', indiceCarga: '148/145', lonas: 16 },
   ],
   ...extra,
 });
@@ -89,13 +88,14 @@ describe('Crear y listar modelos', () => {
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
     t.modelo = r.cuerpo.datos;
     assert.equal(t.modelo.nombre, 'X Multi Z');
-    assert.equal(t.modelo.posicion, 'Direccional');
+    assert.equal(t.modelo.posiciones, 'Direccional');
     assert.equal(t.modelo.garantiaMeses, 60);
     assert.equal(t.modelo.referencias.length, 2);
     assert.ok(t.modelo.referencias.every((x) => /^ML-\d{6}$/.test(x.codigo)));
     const grande = t.modelo.referencias.find((x) => x.medidas === '295/80R22.5');
     assert.ok(grande, 'la medida se guarda sin espacios y en mayúsculas');
     assert.equal(grande.indiceCarga, '152/148');
+    assert.equal(grande.posicion, 'Direccional');
     assert.equal(grande.profundidadLabrado, 16.5);
     assert.equal(grande.pesoKg, 64.2);
     assert.equal(grande.rin, 22.5);
@@ -137,7 +137,7 @@ describe('Crear y listar modelos', () => {
   });
 
   test('una medida repetida en el mismo modelo se rechaza con un mensaje claro', async () => {
-    const r = await post(`/modelos/${t.modelo.id}/referencias`, { medidas: '295/80R22.5', indiceCarga: '152/148' });
+    const r = await post(`/modelos/${t.modelo.id}/referencias`, { medidas: '295/80R22.5', posicion: 'Direccional', indiceCarga: '152/148' });
     assert.equal(r.estado, 409);
     assert.equal(r.cuerpo.error, 'Esa medida ya está registrada para este producto.');
     // Y también dentro de la misma petición de alta
@@ -153,10 +153,11 @@ describe('Crear y listar modelos', () => {
   });
 
   test('valida la ficha y los datos de la medida', async () => {
-    const r = await post('/modelos', modeloNuevo({ nombre: 'Mala', posicion: 'Delantera', garantiaMeses: 300, referencias: [{ medidas: '11R22.5', indiceCarga: '1520' }] }));
+    const r = await post('/modelos', modeloNuevo({ nombre: 'Mala', construccion: 'Mixta', garantiaMeses: 300, referencias: [{ medidas: '11R22.5', posicion: 'Delantera', indiceCarga: '1520' }] }));
     assert.equal(r.estado, 422);
     const campos = r.cuerpo.detalles.map((d) => d.campo);
-    assert.ok(campos.includes('posicion'));
+    assert.ok(campos.includes('construccion'));
+    assert.ok(campos.includes('referencias.0.posicion'));
     assert.ok(campos.includes('garantiaMeses'));
     assert.ok(campos.includes('referencias.0.indiceCarga'));
     // El índice de velocidad no existe en el catálogo
@@ -196,6 +197,29 @@ describe('Editar el modelo y sus medidas', () => {
     assert.equal(hermana.lonas, 16, 'las lonas son de cada medida');
   });
 
+  test('la misma medida puede venir en otra posición (y no se repite en la misma)', async () => {
+    const traccion = await post(`/modelos/${t.modelo.id}/referencias`, { medidas: '295/80R22.5', posicion: 'Tracción', indiceCarga: '152/148' });
+    assert.equal(traccion.estado, 201, JSON.stringify(traccion.cuerpo));
+    assert.equal(traccion.cuerpo.datos.posicion, 'Tracción');
+    const otraVez = await post(`/modelos/${t.modelo.id}/referencias`, { medidas: '295/80R22.5', posicion: 'Tracción', indiceCarga: '152/148' });
+    assert.equal(otraVez.estado, 409);
+    const modelo = (await e.api(`/modelos/${t.modelo.id}`, { token: t.admin })).cuerpo.datos;
+    assert.equal(modelo.posiciones, 'Direccional, Tracción');
+    await patch(`/modelos/${t.modelo.id}/referencias/${traccion.cuerpo.datos.id}/estado`, { activo: false });
+  });
+
+  test('sube el PDF de la ficha técnica (solo PDF de verdad)', async () => {
+    const pdf = `data:application/pdf;base64,${Buffer.from('%PDF-1.4 %%EOF').toString('base64')}`;
+    const r = await put(`/modelos/${t.modelo.id}`, { fichaPdf: pdf });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    assert.equal(r.cuerpo.datos.fichaPdf, pdf, 'sin Cloudinary queda la misma data URL');
+    const falso = `data:application/pdf;base64,${Buffer.from('<html>no soy pdf</html>').toString('base64')}`;
+    const malo = await put(`/modelos/${t.modelo.id}`, { fichaPdf: falso });
+    assert.equal(malo.estado, 422);
+    assert.match(malo.cuerpo.detalles[0].mensaje, /no es un PDF/);
+    assert.equal((await e.db.query('SELECT imagen_en_uso($1) AS uso', [pdf])).rows[0].uso, true);
+  });
+
   test('agrega, edita y desactiva una medida', async () => {
     const nueva = await post(`/modelos/${t.modelo.id}/referencias`, { medidas: '315/80R22.5', indiceCarga: '156/150', codigoFabricante: 'MI-999' });
     assert.equal(nueva.estado, 201, JSON.stringify(nueva.cuerpo));
@@ -220,8 +244,14 @@ describe('Catálogo público y cotizaciones', () => {
     const r = await e.api('/catalogo?porPagina=100');
     const fila = r.cuerpo.datos.find((p) => p.modeloId === t.modelo.id);
     assert.ok(fila);
+    assert.equal(fila.construccion, 'Radial');
     assert.equal(fila.posicion, 'Direccional');
     assert.ok(!('codigoFabricante' in fila) && !('fuenteFicha' in fila));
+    assert.ok(fila.fichaPdf, 'el cliente puede ver el PDF de la ficha');
+    // El detalle del producto pide solo sus medidas
+    const detalle = await e.api(`/catalogo?modeloId=${t.modelo.id}`);
+    assert.ok(detalle.cuerpo.datos.length >= 2);
+    assert.ok(detalle.cuerpo.datos.every((p) => p.modeloId === t.modelo.id));
   });
 
   test('una cotización con una referencia funciona como siempre', async () => {

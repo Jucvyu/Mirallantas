@@ -56,11 +56,11 @@ export async function crear(req, res) {
   enviarModelo(res, await completo(id), 201);
 }
 
-/** ¿Dos medidas iguales (con el mismo índice de carga) en la misma petición? */
+/** ¿Dos medidas iguales (mismo índice de carga y posición) en la misma petición? */
 function medidaRepetida(referencias) {
   const vistas = new Set();
   for (const r of referencias) {
-    const clave = `${r.medidas}|${r.indiceCarga ?? ''}`;
+    const clave = `${r.medidas}|${r.indiceCarga ?? ''}|${r.posicion ?? ''}`;
     if (vistas.has(clave)) return r.medidas;
     vistas.add(clave);
   }

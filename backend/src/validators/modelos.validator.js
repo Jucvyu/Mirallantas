@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { esquemaListado, idRelacion, imagen, nombreEntidad, objetoEstricto, textoExplicadoOpcional, textoOpcional } from './comunes.validator.js';
+import {
+  archivoPdf,
+  esquemaListado,
+  idRelacion,
+  imagen,
+  nombreEntidad,
+  objetoEstricto,
+  textoExplicadoOpcional,
+  textoOpcional,
+} from './comunes.validator.js';
 import { camposReferencia } from './productos.validator.js';
 
 /**
@@ -20,7 +29,6 @@ export const esquemaIdReferencia = z.object({
   referenciaId: z.coerce.number().int().positive('El id no es válido.'),
 });
 
-export const POSICIONES = ['Direccional', 'Tracción', 'Cualquier posición'];
 export const CONSTRUCCIONES = ['Radial', 'Diagonal'];
 
 /** Sí / No / sin dato (null). */
@@ -29,7 +37,6 @@ const siNo = z.boolean({ error: 'Elige Sí o No.' }).nullable().optional();
 /** Ficha técnica: todo opcional, se copia a mano de la página del fabricante. */
 const camposFicha = {
   uso: textoOpcional(80),
-  posicion: z.enum(POSICIONES, { error: 'La posición es Direccional, Tracción o Cualquier posición.' }).nullable().optional(),
   labrado: textoOpcional(60),
   construccion: z.enum(CONSTRUCCIONES, { error: 'La construcción es Radial o Diagonal.' }).nullable().optional(),
   sinCamara: siNo,
@@ -48,6 +55,8 @@ const camposFicha = {
   recauchable: siNo,
   // Página de donde se copió la ficha (fabricante o proveedor)
   fuenteFicha: textoOpcional(300),
+  // PDF de la ficha técnica del fabricante; null lo quita
+  fichaPdf: archivoPdf.nullable().optional(),
 };
 
 const camposModelo = {

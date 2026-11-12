@@ -8,11 +8,11 @@ import { enviarDato, enviarLista } from './respuesta.view.js';
  */
 
 const PUBLICOS = [
-  'id', 'codigo', 'modeloId', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto',
+  'id', 'codigo', 'modeloId', 'posicion', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto',
   // Datos de la referencia (sin el código del fabricante, que es interno)
   'indiceCarga', 'lonas', 'profundidadLabrado', 'pesoKg', 'ancho', 'perfil', 'rin',
-  // Ficha técnica del modelo (sin la fuente de donde se copió)
-  'uso', 'posicion', 'labrado', 'construccion', 'sinCamara', 'garantiaMeses', 'paisOrigen', 'recauchable',
+  // Ficha técnica del modelo (sin la fuente de donde se copió) y su PDF
+  'fichaPdf', 'uso', 'labrado', 'construccion', 'sinCamara', 'garantiaMeses', 'paisOrigen', 'recauchable',
 ];
 
 /** Lo que solo lleva la llanta reencauchada (su precio fijo). */

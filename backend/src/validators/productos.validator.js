@@ -29,14 +29,22 @@ const numeroOpcional = (esquema) => z.preprocess((v) => (v === '' ? null : v), e
 
 /**
  * Datos propios de cada referencia. El índice de velocidad no se maneja.
+ *   posicion           Direccional, Tracción o Cualquier posición
  *   indiceCarga        152/148 (sencilla/doble) o 91
  *   lonas              número de lonas (PR)
  *   profundidadLabrado en milímetros, con un decimal
  *   pesoKg             peso de la llanta en kilos
  *   codigoFabricante   código o SKU del fabricante
  */
+export const POSICIONES = ['Direccional', 'Tracción', 'Cualquier posición'];
+
 export const camposReferencia = {
   medidas,
+  // Posición de la llanta: el cliente la elige junto con la medida
+  posicion: z
+    .enum(POSICIONES, { error: 'La posición es Direccional, Tracción o Cualquier posición.' })
+    .nullable()
+    .optional(),
   indiceCarga: textoOpcional(7).refine((v) => v == null || /^[0-9]{2,3}(\/[0-9]{2,3})?$/.test(v), {
     error: 'El índice de carga son 2 o 3 dígitos, o dos separados por "/" (p. ej. 152/148).',
   }),

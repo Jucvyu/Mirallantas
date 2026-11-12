@@ -44,6 +44,22 @@ export function problemaDeImagen(dataUrl) {
   return null;
 }
 
+/** Tamaño máximo de un PDF (ficha técnica del fabricante) ya decodificado. */
+export const MAXIMO_BYTES_PDF = 5 * 1024 * 1024;
+
+const PATRON_PDF = /^data:application\/pdf;base64,([A-Za-z0-9+/]+={0,2})$/;
+
+/** Revisa un PDF en data URL. Devuelve null si es válido o el motivo del rechazo. */
+export function problemaDePdf(dataUrl) {
+  const partes = PATRON_PDF.exec(dataUrl);
+  if (!partes) return 'El archivo debe ser un PDF.';
+  const bytes = Buffer.from(partes[1], 'base64');
+  if (bytes.length > MAXIMO_BYTES_PDF) return 'El PDF es demasiado grande (máximo 5 MB).';
+  // Todo PDF empieza por "%PDF-"
+  if (bytes.subarray(0, 5).toString('ascii') !== '%PDF-') return 'El archivo no es un PDF válido.';
+  return null;
+}
+
 if (config.cloudinaryUrl) {
   // El SDK lee CLOUDINARY_URL del entorno; aquí solo se exige https
   cloudinary.config({ secure: true });
@@ -76,6 +92,27 @@ export async function guardarImagen(dataUrl) {
     // Se guarda liviana: WebP, máximo 1600 px de lado y calidad automática
     format: 'webp',
     transformation: [{ width: 1600, height: 1600, crop: 'limit', quality: 'auto:good' }],
+  });
+  return resultado.secure_url;
+}
+
+/**
+ * Guarda un PDF ya validado (ficha técnica) y devuelve su dirección https.
+ * Se sube como recurso "image" de Cloudinary (así lo admite para PDF) y sin
+ * transformarlo; la limpieza de archivos lo borra igual que una imagen.
+ * Sin Cloudinary (desarrollo) se guarda la misma data URL.
+ *
+ * ⚠ En cuentas nuevas Cloudinary bloquea la entrega de PDF: hay que activar
+ * "Allow delivery of PDF and ZIP files" en Settings → Security.
+ */
+export async function guardarPdf(dataUrl) {
+  if (!config.cloudinaryUrl) return dataUrl;
+  const resultado = await cloudinary.uploader.upload(dataUrl, {
+    folder: 'mirallantas',
+    public_id: randomUUID(),
+    resource_type: 'image',
+    format: 'pdf',
+    overwrite: false,
   });
   return resultado.secure_url;
 }

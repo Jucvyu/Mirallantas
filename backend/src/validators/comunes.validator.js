@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { config } from '../config.js';
-import { esImagenPropia, guardarImagen, problemaDeImagen } from '../utils/imagenes.js';
+import { esImagenPropia, guardarImagen, guardarPdf, problemaDeImagen, problemaDePdf } from '../utils/imagenes.js';
 
 /**
  * Piezas de validación que comparten todos los módulos.
@@ -178,6 +178,22 @@ export const imagen = z
     if (problema) ctx.addIssue({ code: 'custom', message: problema });
   })
   .transform((valor) => (esImagenPropia(valor) ? valor : guardarImagen(valor)));
+
+/**
+ * PDF subido desde el navegador (ficha técnica del fabricante), como data
+ * URL (data:application/pdf;base64,…). Se revisan los bytes reales (empieza
+ * por "%PDF-", máximo 5 MB) y se sube a Cloudinary; queda su dirección https.
+ * También acepta un PDF que ya está en nuestra cuenta de Cloudinary.
+ */
+export const archivoPdf = z
+  .string()
+  .max(8_000_000, 'El PDF es demasiado grande (máximo 5 MB).')
+  .superRefine((valor, ctx) => {
+    if (esImagenPropia(valor)) return;
+    const problema = problemaDePdf(valor);
+    if (problema) ctx.addIssue({ code: 'custom', message: problema });
+  })
+  .transform((valor) => (esImagenPropia(valor) ? valor : guardarPdf(valor)));
 
 /**
  * Correo: primero se limpian espacios y mayúsculas y luego se valida el

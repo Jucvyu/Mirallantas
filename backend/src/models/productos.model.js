@@ -37,6 +37,7 @@ export const COLUMNAS_REFERENCIA = {
   activo: 'activo',
   // Solo la llanta reencauchada lleva precio fijo en el producto
   precioVenta: 'precio_venta',
+  posicion: 'posicion',
   indiceCarga: 'indice_carga',
   lonas: 'lonas',
   profundidadLabrado: 'profundidad_labrado',
@@ -66,13 +67,13 @@ const DISPONIBLE = `(p.activo AND ml.activo AND (NOT p.reencauchada OR (p.precio
 
 /** Ficha técnica del modelo (alias `ml`). La comparten todas sus referencias. */
 export const SELECCION_FICHA = `
-  ml.uso, ml.posicion, ml.labrado, ml.construccion, ml.sin_camara AS "sinCamara",
+  ml.uso, ml.labrado, ml.construccion, ml.sin_camara AS "sinCamara",
   ml.garantia_meses AS "garantiaMeses", ml.pais_origen AS "paisOrigen", ml.recauchable,
-  ml.fuente_ficha AS "fuenteFicha"`;
+  ml.fuente_ficha AS "fuenteFicha", ml.ficha_pdf AS "fichaPdf"`;
 
 /** Datos propios de la referencia (alias `p`). Ancho, perfil y rin salen de la medida. */
 export const SELECCION_REFERENCIA = `
-  p.indice_carga AS "indiceCarga", p.lonas, p.profundidad_labrado::float8 AS "profundidadLabrado",
+  p.posicion, p.indice_carga AS "indiceCarga", p.lonas, p.profundidad_labrado::float8 AS "profundidadLabrado",
   p.peso_kg::float8 AS "pesoKg", p.codigo_fabricante AS "codigoFabricante",
   p.ancho::float8 AS ancho, p.perfil::float8 AS perfil, p.rin::float8 AS rin`;
 
@@ -102,7 +103,7 @@ const DESDE = `
   LEFT JOIN reencauche_llanta rl ON rl.producto_id = p.id`;
 
 /** Orden de las referencias de un modelo: por rin, ancho y perfil. */
-const ORDEN_MEDIDA = 'p.rin NULLS LAST, p.ancho NULLS LAST, p.perfil NULLS LAST, p.medidas, p.id';
+const ORDEN_MEDIDA = 'p.posicion NULLS LAST, p.rin NULLS LAST, p.ancho NULLS LAST, p.perfil NULLS LAST, p.medidas, p.id';
 
 /**
  * Catálogo con búsqueda, filtros y paginación → { filas, total }.
@@ -178,8 +179,8 @@ export async function imagenes(productoId) {
 export async function crear(db, p) {
   const { rows } = await db.query(
     `INSERT INTO producto (modelo_id, nombre, descripcion, categoria_id, marca_id, medidas, tipo_vehiculo_id, precio_venta,
-                           indice_carga, lonas, profundidad_labrado, peso_kg, codigo_fabricante)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12) RETURNING id`,
+                           indice_carga, lonas, profundidad_labrado, peso_kg, codigo_fabricante, posicion)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13) RETURNING id`,
     [
       p.modeloId ?? null,
       p.nombre ?? null,
@@ -193,6 +194,7 @@ export async function crear(db, p) {
       p.profundidadLabrado ?? null,
       p.pesoKg ?? null,
       p.codigoFabricante ?? null,
+      p.posicion ?? null,
     ],
   );
   return rows[0].id;
