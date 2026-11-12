@@ -21,6 +21,8 @@ export {
   tiposVehiculoService,
   serviciosService,
   productosService,
+  modelosService,
+  referenciasService,
   catalogoPublicoService,
 } from './catalogos.service';
 export { clientesService, clientesSeleccionablesService, proveedoresService, tercerosService } from './contactos.service';

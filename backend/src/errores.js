@@ -67,6 +67,9 @@ const MENSAJES_UNICOS = {
   // Cuentas: el mensaje no revela qué dato ya existe
   usuario_correo_unico: 'No pudimos guardar el usuario. Revisa los datos e inténtalo de nuevo.',
   producto_codigo_key: 'Ya existe un producto con ese código.',
+  // Catálogo por modelos (migración 0040)
+  modelo_llanta_marca_nombre_unico: 'Ya existe un producto con esa marca y nombre.',
+  producto_referencia_unica: 'Esa medida ya está registrada para este producto.',
   cliente_documento_unico: 'Ya existe un cliente con ese tipo y número de documento.',
   proveedor_documento_unico: 'Ya existe un proveedor con ese tipo y número de documento.',
   tercero_documento_unico: 'Ya existe un tercero con ese tipo y número de documento.',

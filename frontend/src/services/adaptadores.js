@@ -80,6 +80,8 @@ export const categoriaHaciaApi = (v) => ({
   descripcion: vacioANull(v.descripcion),
   color: v.color || '#FBBF24',
   activo: activoDesdeEstado(v.estado),
+  // Datos del producto que no aplican a la categoría (claves de la API)
+  ...(v.camposOcultosClaves ? { camposOcultos: v.camposOcultosClaves } : {}),
 });
 
 export const marcaHaciaApi = (v) => ({ nombre: v.nombre, activo: activoDesdeEstado(v.estado) });
@@ -95,6 +97,118 @@ export const productoDesdeApi = (f) => ({
   foto: esImagen(f.foto) ? f.foto : '',
   imagenes: esImagen(f.foto) ? [f.foto] : [],
 });
+
+// ---- Modelos de llanta y referencias (medidas) ------------------------------
+//
+// Un modelo es la llanta (marca, nombre, ficha técnica y foto); cada
+// referencia es una medida que se vende (un producto con su código ML-…).
+
+/** true → 'Sí', false → 'No', sin dato → '' (para los selects de la ficha). */
+export const siNoDesdeApi = (valor) => (valor === true ? 'Sí' : valor === false ? 'No' : '');
+/** 'Sí' → true, 'No' → false, vacío → null */
+export const siNoHaciaApi = (valor) => (valor === 'Sí' ? true : valor === 'No' ? false : null);
+
+/** Número escrito a mano (acepta coma decimal) → número o null. */
+export const numeroONull = (valor) => {
+  const texto = String(valor ?? '').trim().replace(',', '.');
+  return texto === '' ? null : Number(texto);
+};
+
+/** Texto de un número para un campo del formulario (16.5 → '16.5', null → ''). */
+const numeroATexto = (valor) => (valor === null || valor === undefined ? '' : String(valor));
+
+/** Referencia (medida) de un modelo: un producto con sus datos propios. */
+export const referenciaDesdeApi = (f) => ({
+  ...productoDesdeApi(f),
+  posicion: f.posicion ?? '',
+  indiceCarga: f.indiceCarga ?? '',
+  lonas: numeroATexto(f.lonas),
+  profundidadLabrado: numeroATexto(f.profundidadLabrado),
+  pesoKg: numeroATexto(f.pesoKg),
+  codigoFabricante: f.codigoFabricante ?? '',
+  // Valores numéricos tal como llegan (para mostrarlos)
+  lonasValor: f.lonas ?? null,
+  profundidadValor: f.profundidadLabrado ?? null,
+  pesoValor: f.pesoKg ?? null,
+});
+
+/**
+ * Fila de la tabla de medidas del panel → cuerpo de la API. Las que ya
+ * existen llevan su `id`; las nuevas no.
+ */
+export const medidaTablaHaciaApi = (f) => ({
+  ...(f.id ? { id: f.id } : {}),
+  medidas: String(f.medidas ?? '').replace(/\s+/g, '').toUpperCase(),
+  posicion: vacioANull(f.posicion),
+  indiceCarga: vacioANull(f.indiceCarga),
+  lonas: numeroONull(f.lonas),
+  profundidadLabrado: numeroONull(f.profundidadLabrado),
+  pesoKg: numeroONull(f.pesoKg),
+  codigoFabricante: vacioANull(f.codigoFabricante),
+  activo: f.activo !== false,
+});
+
+/** Formulario de una medida → cuerpo de la API. `fila` solo existe al editar. */
+export const referenciaHaciaApi = (v, fila) => ({
+  ...(fila ? { activo: activoDesdeEstado(v.estado) } : {}),
+  medidas: v.medidas,
+  posicion: vacioANull(v.posicion),
+  indiceCarga: vacioANull(v.indiceCarga),
+  lonas: numeroONull(v.lonas),
+  profundidadLabrado: numeroONull(v.profundidadLabrado),
+  pesoKg: numeroONull(v.pesoKg),
+  codigoFabricante: vacioANull(v.codigoFabricante),
+});
+
+export const modeloDesdeApi = (f) => ({
+  ...f,
+  estado: estadoActivo(f.activo),
+  tipoVehiculo: f.tipoVehiculo ?? '',
+  descripcion: f.descripcion ?? '',
+  uso: f.uso ?? '',
+  posiciones: f.posiciones ?? '',
+  labrado: f.labrado ?? '',
+  construccion: f.construccion ?? '',
+  sinCamara: siNoDesdeApi(f.sinCamara),
+  recauchable: siNoDesdeApi(f.recauchable),
+  garantiaMeses: numeroATexto(f.garantiaMeses),
+  paisOrigen: f.paisOrigen ?? '',
+  fuenteFicha: f.fuenteFicha ?? '',
+  fichaPdf: f.fichaPdf ?? '',
+  foto: esImagen(f.foto) ? f.foto : '',
+  imagenes: esImagen(f.foto) ? [f.foto] : [],
+  // El listado trae solo el conteo (totalReferencias); el detalle, las medidas
+  referencias: Array.isArray(f.referencias) ? f.referencias.map(referenciaDesdeApi) : [],
+});
+
+/**
+ * Formulario del modelo → cuerpo de la API. Al crear puede llevar la primera
+ * medida (`medidas` y sus datos); al editar viaja el estado.
+ */
+export function modeloHaciaApi(v, fila, { categorias = [], marcas = [], tipos = [] } = {}) {
+  const primeraMedida = !fila && String(v.medidas ?? '').trim() ? [referenciaHaciaApi(v, null)] : undefined;
+  return {
+    ...(fila ? { activo: activoDesdeEstado(v.estado) } : {}),
+    nombre: v.nombre,
+    descripcion: vacioANull(v.descripcion),
+    categoriaId: idPorNombre(categorias, v.categoria),
+    marcaId: idPorNombre(marcas, v.marca),
+    tipoVehiculoId: idPorNombre(tipos, v.tipoVehiculo),
+    uso: vacioANull(v.uso),
+    labrado: vacioANull(v.labrado),
+    construccion: vacioANull(v.construccion),
+    sinCamara: siNoHaciaApi(v.sinCamara),
+    garantiaMeses: numeroONull(v.garantiaMeses),
+    paisOrigen: vacioANull(v.paisOrigen),
+    recauchable: siNoHaciaApi(v.recauchable),
+    fuenteFicha: vacioANull(v.fuenteFicha),
+    // El PDF solo se envía si cambió (pesa)
+    fichaPdf: imagenCambiada(v.fichaPdf, fila?.fichaPdf),
+    // La foto solo se envía si cambió (las imágenes pesan)
+    foto: imagenCambiada(v.foto, fila?.foto),
+    ...(primeraMedida ? { referencias: primeraMedida } : {}),
+  };
+}
 
 // ---- Seguridad --------------------------------------------------------------
 

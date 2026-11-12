@@ -29,6 +29,7 @@ import { rutasCotizaciones } from './routes/cotizaciones.routes.js';
 import { rutasDashboard } from './routes/dashboard.routes.js';
 import { rutasEmpresa } from './routes/empresa.routes.js';
 import { rutasCatalogo } from './routes/catalogo.routes.js';
+import { rutasModelos } from './routes/modelos.routes.js';
 import { rutasNotificaciones } from './routes/notificaciones.routes.js';
 import { rutasPortal } from './routes/portal.routes.js';
 import { rutasProductos } from './routes/productos.routes.js';
@@ -135,6 +136,7 @@ export function crearApp() {
   app.use('/api/tipos-vehiculo', rutasTiposVehiculo);
   app.use('/api/servicios', rutasServicios);
   app.use('/api/productos', rutasProductos);
+  app.use('/api/modelos', rutasModelos);
   app.use('/api/catalogo', rutasCatalogo);
 
   // ---- Contactos ----

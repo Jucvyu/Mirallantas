@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Check, ImagePlus, Lock, Pipette, TriangleAlert, X } from 'lucide-react';
+import { Check, ExternalLink, FilePlus2, FileText, ImagePlus, Lock, Pipette, TriangleAlert, X } from 'lucide-react';
 import Badge from '../Badge';
 import RecorteCircular from '../RecorteCircular';
 import MatrizPrivilegios from './MatrizPrivilegios';
@@ -8,7 +8,7 @@ import SelectCampo from '../SelectCampo';
 import { useReferencias } from '../../../hooks/useReferencias';
 import Etiquetas from './Etiquetas';
 import { hoyISO } from '../../../utils/formato';
-import { leerImagen, TIPOS_IMAGEN } from '../../../utils/imagenes';
+import { abrirPdf, leerImagen, leerPdf, TIPOS_IMAGEN, TIPOS_PDF } from '../../../utils/imagenes';
 import { maximoDe } from '../../../utils/validaciones';
 import {
   BORDER_ERR,
@@ -49,7 +49,7 @@ function toList(value) {
  *   soloLectura: el campo se ve pero no se puede cambiar (p. ej. el código
  *   de un producto, que no cambia una vez asignado)
  *   type: text | email | tel | number | password | date | money | textarea |
- *         select | buscador | checkboxes | etiquetas | image | avatar | color | switch
+ *         select | buscador | checkboxes | etiquetas | image | avatar | color | switch | pdf
  *   date: por defecto no admite fechas posteriores a hoy; con `futura: true`
  *   es al revés (de hoy en adelante), p. ej. para agendar una revisión
  *   etiquetas: lista corta escrita a mano (medidas compatibles); con
@@ -70,7 +70,7 @@ const ENCENDIDO = 'Sí';
 const APAGADO = 'No';
 
 /** Tipos que ya se ven bien sin editar: no se muestran como un texto de solo lectura. */
-const TIPOS_CON_VISTA_PROPIA = ['image', 'avatar', 'switch', 'color', 'checkboxes', 'privilegios'];
+const TIPOS_CON_VISTA_PROPIA = ['image', 'avatar', 'switch', 'color', 'checkboxes', 'privilegios', 'pdf'];
 
 /** A partir de cuántas opciones el selector incorpora barra de búsqueda. */
 const MINIMO_PARA_BUSCAR = 15;
@@ -111,7 +111,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    leerImagen(file)
+    (type === 'pdf' ? leerPdf : leerImagen)(file)
       .then((dataUrl) => {
         setErrorArchivo('');
         // La foto de perfil primero se recorta en círculo
@@ -360,6 +360,49 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             </button>
           )}
           <input ref={fileInput} type="file" accept={TIPOS_IMAGEN} className="hidden" onChange={handleFile} />
+        </div>
+      ) : type === 'pdf' ? (
+        // ---- Documento PDF (ficha técnica del fabricante) ----
+        <div>
+          {value ? (
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 dark:border-white/10">
+              <FileText size={20} className="shrink-0 text-red-500" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                {value.startsWith('data:') ? 'PDF listo para guardar' : 'Ficha técnica en PDF'}
+              </span>
+              <button
+                type="button"
+                onClick={() => abrirPdf(value)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-400/10 dark:text-amber-400"
+              >
+                <ExternalLink size={13} aria-hidden="true" /> Ver
+              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => onChange(key, '')}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-500"
+                  aria-label="Quitar el PDF"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ) : readOnly ? (
+            <div className={`${INPUT} ${BORDER_OK} cursor-default`}>Sin PDF</div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-4 text-slate-400 hover:border-amber-400 hover:text-amber-500 ${
+                error ? 'border-red-400' : 'border-slate-200 dark:border-white/10'
+              }`}
+            >
+              <FilePlus2 size={20} strokeWidth={1.5} />
+              <span className="text-xs font-medium">{placeholder ?? 'Subir PDF (máximo 5 MB)'}</span>
+            </button>
+          )}
+          <input ref={fileInput} type="file" accept={TIPOS_PDF} className="hidden" onChange={handleFile} />
         </div>
       ) : type === 'privilegios' ? (
         // Roles: módulos × privilegios (ver, crear, editar, eliminar)

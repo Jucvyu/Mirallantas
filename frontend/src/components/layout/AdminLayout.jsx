@@ -65,8 +65,11 @@ const perfilSections = [
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
-  // El detalle de una solicitud (/admin/reencauches/REE-…) lleva el título de su módulo
-  const title = TITLES[pathname] ?? (pathname.startsWith('/admin/reencauches/') ? 'Revisiones' : 'Dashboard');
+  // El detalle de una solicitud (/admin/reencauches/REE-…) o de un producto
+  // (/admin/productos/12) lleva el título de su módulo
+  const title =
+    TITLES[pathname] ??
+    (pathname.startsWith('/admin/reencauches/') ? 'Revisiones' : pathname.startsWith('/admin/productos/') ? 'Productos' : 'Dashboard');
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
