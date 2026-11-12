@@ -261,7 +261,9 @@ function MedidasDelModelo({ modelo, onNueva, onEditar, onEstado }) {
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Lonas · labrado
                 <span className="block font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                  {dato(r.lonasValor, ' PR')} · {dato(r.profundidadValor?.toLocaleString('es-CO'), ' mm')}
+                  {r.lonasValor || r.profundidadValor
+                    ? `${dato(r.lonasValor, ' PR')} · ${dato(r.profundidadValor?.toLocaleString('es-CO'), ' mm')}`
+                    : '—'}
                 </span>
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">

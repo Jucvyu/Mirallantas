@@ -156,7 +156,8 @@ export const modeloDesdeApi = (f) => ({
   fuenteFicha: f.fuenteFicha ?? '',
   foto: esImagen(f.foto) ? f.foto : '',
   imagenes: esImagen(f.foto) ? [f.foto] : [],
-  referencias: (f.referencias ?? []).map(referenciaDesdeApi),
+  // El listado trae solo el conteo (totalReferencias); el detalle, las medidas
+  referencias: Array.isArray(f.referencias) ? f.referencias.map(referenciaDesdeApi) : [],
 });
 
 /**

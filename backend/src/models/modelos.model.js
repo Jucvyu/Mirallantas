@@ -41,7 +41,7 @@ const SELECCION = `
   ml.uso, ml.posicion, ml.labrado, ml.construccion, ml.sin_camara AS "sinCamara",
   ml.garantia_meses AS "garantiaMeses", ml.pais_origen AS "paisOrigen", ml.recauchable,
   ml.fuente_ficha AS "fuenteFicha", ml.activo, ml.creado_en AS "creadoEn",
-  (SELECT count(*)::int FROM producto p WHERE p.modelo_id = ml.id) AS referencias,
+  (SELECT count(*)::int FROM producto p WHERE p.modelo_id = ml.id) AS "totalReferencias",
   (SELECT count(*)::int FROM producto p WHERE p.modelo_id = ml.id AND p.activo) AS "referenciasActivas",
   -- Las llantas reencauchadas (unidades únicas) cuelgan de su propio modelo
   EXISTS (SELECT 1 FROM producto p WHERE p.modelo_id = ml.id AND p.reencauchada) AS "deReencauchadas",

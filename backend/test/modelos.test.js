@@ -106,7 +106,8 @@ describe('Crear y listar modelos', () => {
     const r = await e.api('/modelos?porPagina=100', { token: t.admin });
     assert.equal(r.estado, 200);
     const fila = r.cuerpo.datos.find((m) => m.id === t.modelo.id);
-    assert.equal(fila.referencias, 2);
+    assert.equal(fila.totalReferencias, 2);
+    assert.equal(fila.referenciasActivas, 2);
     assert.equal(fila.marca, 'Michelin');
     const busqueda = await e.api('/modelos?q=MI-123456', { token: t.admin });
     assert.deepEqual(busqueda.cuerpo.datos.map((m) => m.id), [t.modelo.id]);
