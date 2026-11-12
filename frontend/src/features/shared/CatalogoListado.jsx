@@ -39,8 +39,14 @@ function resumenVariantes(referencias) {
   return { texto, posiciones };
 }
 
+/**
+ * Ruta del detalle: el producto (modelo) con todas sus medidas, o la llanta
+ * reencauchada, que es una unidad única con su propia página.
+ */
+const rutaDetalle = (base, p) => (p.reencauchada ? `${base}/unidad/${p.id}` : `${base}/${p.modeloId}`);
+
 /** Tarjeta de un producto: igual de alta que todas, sin ficha técnica. */
-function Tarjeta({ grupo, indice, enlace, accion }) {
+function Tarjeta({ grupo, indice, base }) {
   const p = grupo.base;
   const { texto, posiciones } = resumenVariantes(grupo.referencias);
   const contenido = (
@@ -79,13 +85,9 @@ function Tarjeta({ grupo, indice, enlace, accion }) {
         </div>
 
         <div className="mt-auto pt-4">
-          {p.reencauchada ? (
-            accion(p)
-          ) : (
-            <span className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-400 py-2 text-xs font-bold text-amber-700 transition-colors group-hover:bg-amber-400 group-hover:text-slate-900 dark:text-amber-400">
-              Ver producto <ArrowRight size={14} aria-hidden="true" />
-            </span>
-          )}
+          <span className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-400 py-2 text-xs font-bold text-amber-700 transition-colors group-hover:bg-amber-400 group-hover:text-slate-900 dark:text-amber-400">
+            Ver producto <ArrowRight size={14} aria-hidden="true" />
+          </span>
         </div>
       </div>
     </>
@@ -94,17 +96,13 @@ function Tarjeta({ grupo, indice, enlace, accion }) {
   return (
     // Lista larga: vidrio sin desenfoque (más barato con muchas tarjetas)
     <LiquidGlass as="article" variante="pastel" blur={false} inclinacion={4} indice={Math.min(indice, 8)} className="group flex h-full flex-col overflow-hidden">
-      {p.reencauchada ? (
-        contenido
-      ) : (
-        <Link
-          to={enlace(p.modeloId)}
-          aria-label={`Ver ${p.marca} ${p.nombre}`}
-          className="flex h-full flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-        >
-          {contenido}
-        </Link>
-      )}
+      <Link
+        to={rutaDetalle(base, p)}
+        aria-label={p.reencauchada ? `Ver ${p.descripcion || p.nombre}` : `Ver ${p.marca} ${p.nombre}`}
+        className="flex h-full flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+      >
+        {contenido}
+      </Link>
     </LiquidGlass>
   );
 }
@@ -116,16 +114,15 @@ function Tarjeta({ grupo, indice, enlace, accion }) {
  *
  * Una tarjeta por producto (modelo), todas del mismo alto. Al tocarla se
  * abre su página de detalle, donde se elige posición y medida y se ve la
- * ficha técnica. La llanta reencauchada (unidad única) se pide desde la
- * misma tarjeta.
+ * ficha técnica. La llanta reencauchada (unidad única, precio fijo) tiene
+ * su propia tarjeta y su propia página.
  *
  *   productos   referencias ya cargadas (solo las que se venden), forma plana de la API
- *   enlace(id)  ruta del detalle de un producto (p. ej. /catalogo/12)
- *   accion(p)   pie de la tarjeta de una llanta reencauchada (agregar, iniciar sesión…)
+ *   base        ruta del catálogo: '/catalogo' o '/portal/catalogo' (el detalle cuelga de ahí)
  *   columnas    clases de la grilla
  *   limite      (opcional) cuántas tarjetas mostrar antes de "Ver más"
  */
-export default function CatalogoListado({ productos, cargando, error, enlace, accion, columnas, limite }) {
+export default function CatalogoListado({ productos, cargando, error, base, columnas, limite }) {
   const [query, setQuery] = useState('');
   const [mostrar, setMostrar] = useState(limite);
   // Cada filtro guarda un arreglo: se pueden marcar varias opciones
@@ -206,7 +203,7 @@ export default function CatalogoListado({ productos, cargando, error, enlace, ac
             </div>
           ))}
         {visibles.map((g, i) => (
-          <Tarjeta key={g.clave} grupo={g} indice={i} enlace={enlace} accion={accion} />
+          <Tarjeta key={g.clave} grupo={g} indice={i} base={base} />
         ))}
       </div>
 

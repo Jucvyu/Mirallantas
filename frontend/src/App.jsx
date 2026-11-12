@@ -87,6 +87,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/catalogo" element={<CatalogoPublicoPage />} />
             <Route path="/catalogo/:modeloId" element={<DetalleProductoPublicoPage />} />
+            <Route path="/catalogo/unidad/:productoId" element={<DetalleProductoPublicoPage />} />
             <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
             <Route path="/cuenta-inactiva" element={<CuentaInactivaPage />} />
 
@@ -125,6 +126,7 @@ export default function App() {
               <Route index element={<ClientHomePage />} />
               <Route path="catalogo" element={<ConPermiso modulo="Catálogo (portal)"><CatalogoPage /></ConPermiso>} />
               <Route path="catalogo/:modeloId" element={<ConPermiso modulo="Catálogo (portal)"><DetalleProductoPage /></ConPermiso>} />
+              <Route path="catalogo/unidad/:productoId" element={<ConPermiso modulo="Catálogo (portal)"><DetalleProductoPage /></ConPermiso>} />
               <Route path="pedidos" element={<ConPermiso modulo="Mis cotizaciones"><ClientPedidosPage /></ConPermiso>} />
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
               <Route path="reencauche" element={<ConPermiso modulo="Mis reencauches"><ReencauchePortalPage /></ConPermiso>} />

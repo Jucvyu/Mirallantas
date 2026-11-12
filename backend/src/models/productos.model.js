@@ -109,7 +109,7 @@ const ORDEN_MEDIDA = 'p.posicion NULLS LAST, p.rin NULLS LAST, p.ancho NULLS LAS
  * Catálogo con búsqueda, filtros y paginación → { filas, total }.
  * `soloActivos` = true limita a los productos que se están vendiendo.
  */
-export async function listar({ q, pagina, porPagina, activo, soloActivos, categoriaId, marcaId, tipoVehiculoId, modeloId }) {
+export async function listar({ q, pagina, porPagina, activo, soloActivos, categoriaId, marcaId, tipoVehiculoId, modeloId, id }) {
   const condiciones = [];
   const valores = [];
   // `armar` recibe el marcador ($1, $2…) asignado al valor
@@ -132,6 +132,7 @@ export async function listar({ q, pagina, porPagina, activo, soloActivos, catego
   if (marcaId) agregar(marcaId, (p) => `p.marca_id = ${p}`);
   if (tipoVehiculoId) agregar(tipoVehiculoId, (p) => `p.tipo_vehiculo_id = ${p}`);
   if (modeloId) agregar(modeloId, (p) => `p.modelo_id = ${p}`);
+  if (id) agregar(id, (p) => `p.id = ${p}`);
 
   const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
   const total = await query(`SELECT COUNT(*)::int AS n ${DESDE} ${where}`, valores);

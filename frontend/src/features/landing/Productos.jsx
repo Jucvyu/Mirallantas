@@ -1,8 +1,4 @@
-import { FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useRecurso } from '../../hooks/useRecurso';
-import { puedeAbrir } from '../../permisos';
 import { catalogoPublicoService } from '../../services';
 import CatalogoListado from '../shared/CatalogoListado';
 import Revelar from './Revelar';
@@ -13,24 +9,11 @@ import Revelar from './Revelar';
  * Usa el mismo servicio y el mismo listado que el catálogo público
  * (/api/catalogo: solo productos activos, sin precios), con búsqueda,
  * filtros, esqueletos y manejo de error. Muestra 8 llantas y "Ver más".
- * "Cotizar" lleva al portal (o al login si no hay sesión), igual que en
- * el catálogo público.
+ * Cada tarjeta abre el detalle del producto, igual que en el catálogo
+ * público.
  */
 export default function Productos() {
   const productos = useRecurso(catalogoPublicoService);
-  const { usuario } = useAuth();
-  const destino = usuario && puedeAbrir(usuario, '/portal/catalogo') ? '/portal/catalogo' : '/login';
-
-  const accion = () => (
-    <Link
-      to={destino}
-      state={destino === '/login' ? { desde: '/portal/catalogo' } : undefined}
-      className="ml-pulsable flex w-full items-center justify-center gap-1.5 rounded-full bg-amber-400 py-2.5 text-xs font-bold text-slate-900 hover:bg-amber-300"
-    >
-      <FileText size={14} aria-hidden="true" /> Cotizar
-    </Link>
-  );
-
   return (
     <section id="productos" aria-labelledby="productos-titulo" className="scroll-mt-24 py-20">
       <div className="mx-auto max-w-7xl px-6 sm:px-10">
@@ -47,8 +30,7 @@ export default function Productos() {
             productos={productos.filas}
             cargando={productos.cargando}
             error={productos.error}
-            accion={accion}
-            enlace={(id) => `/catalogo/${id}`}
+            base="/catalogo"
             limite={8}
             columnas="sm:grid-cols-2 lg:grid-cols-4"
           />

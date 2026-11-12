@@ -9,15 +9,18 @@ import { catalogoPublicoService } from '../../services';
 import DetalleProducto from '../shared/DetalleProducto';
 
 /**
- * Detalle público de un producto (/catalogo/:modeloId), sin sesión: se ven
- * las posiciones, las medidas y la ficha técnica. Para cotizar hay que
+ * Detalle público de un producto (/catalogo/:modeloId) o de una llanta
+ * reencauchada (/catalogo/unidad/:productoId), sin sesión: se ven las
+ * posiciones, las medidas, el precio fijo de la reencauchada y la ficha
+ * técnica. Para cotizar hay que
  * iniciar sesión; al entrar se vuelve a este mismo producto en el portal.
  */
 export default function DetalleProductoPublicoPage() {
-  const { modeloId } = useParams();
-  const { referencias, cargando, error } = useMedidasDeProducto(catalogoPublicoService, modeloId);
+  const { modeloId, productoId } = useParams();
+  const { referencias, cargando, error } = useMedidasDeProducto(catalogoPublicoService, { modeloId, productoId });
   const { usuario } = useAuth();
-  const enPortal = `/portal/catalogo/${modeloId}`;
+  // Al iniciar sesión se vuelve a este mismo producto, ya en el portal
+  const enPortal = productoId ? `/portal/catalogo/unidad/${productoId}` : `/portal/catalogo/${modeloId}`;
   const conSesion = usuario && puedeAbrir(usuario, '/portal/catalogo');
 
   const accion = () => (

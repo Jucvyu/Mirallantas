@@ -302,6 +302,21 @@ describe('Fotos y llantas reencauchadas', () => {
     assert.equal((await e.db.query('SELECT count(*)::int AS n FROM imagen_por_borrar WHERE url = $1', [url])).rows[0].n, 1);
   });
 
+  test('la página de una reencauchada pide solo esa unidad (con su precio)', async () => {
+    const { rows } = await e.db.query(
+      `INSERT INTO producto (nombre, descripcion, categoria_id, marca_id, medidas, precio_venta, reencauchada)
+       VALUES ('Llanta reencauchada', 'Reencauche banda C · ID REE-X-9',
+               (SELECT id FROM categoria WHERE nombre = 'Reencauchadas'), (SELECT id FROM marca WHERE nombre = 'Sin marca'),
+               '11R22.5', 480000, TRUE)
+       RETURNING id`,
+    );
+    const r = await e.api(`/catalogo?id=${rows[0].id}`);
+    assert.equal(r.estado, 200);
+    assert.equal(r.cuerpo.total, 1);
+    assert.equal(r.cuerpo.datos[0].precioVenta, 480000);
+    assert.equal(r.cuerpo.datos[0].reencauchada, true);
+  });
+
   test('las reencauchadas no se agrupan: misma medida y descripción propia', async () => {
     const valores = async (descripcion) =>
       (

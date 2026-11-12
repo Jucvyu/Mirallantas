@@ -5,7 +5,7 @@ import AvisoError from '../../components/base/AvisoError';
 import Skeleton from '../../components/base/Skeleton';
 import TireThumb from '../../components/base/TireThumb';
 import { abrirPdf } from '../../utils/imagenes';
-import { COLUMNAS_MEDIDAS, datosFicha, descargarFichaTecnica, filaMedida } from '../../utils/fichaTecnicaPdf';
+import { COLUMNAS_MEDIDAS, datosFicha, descargarFichaTecnica, filaMedida, tituloDe } from '../../utils/fichaTecnicaPdf';
 
 /** Las medidas sin posición cargada se agrupan aquí. */
 const SIN_POSICION = 'Sin especificar';
@@ -55,6 +55,9 @@ const numero = (v, unidad) => (v === null || v === undefined || v === '' ? '—'
  * botón para cotizarla. Abajo, la ficha técnica con todas las medidas, el
  * PDF del fabricante (si se subió) y la ficha en PDF armada con los datos.
  *
+ * La llanta reencauchada usa la misma página: es una sola unidad con precio
+ * fijo, así que no hay posición ni medida que elegir.
+ *
  *   referencias  medidas a la venta del producto (forma plana de la API)
  *   volver       { a: '/catalogo', texto: 'Catálogo' } para la miga de pan
  *   accion(r)    pie de la compra para la medida elegida (carro, iniciar sesión…)
@@ -74,6 +77,10 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
   const deLaPosicion = referencias.filter((r) => posicionDe(r) === posicionActual);
   const elegida = deLaPosicion.find((r) => r.id === elegidaId) ?? deLaPosicion[0];
   const producto = referencias[0];
+  // La llanta reencauchada: una unidad con precio fijo
+  const unica = Boolean(producto?.reencauchada);
+  // Sin posiciones cargadas no se muestra ese selector
+  const sinPosiciones = posiciones.length === 1 && posiciones[0] === SIN_POSICION;
 
   if (cargando && !producto) {
     return (
@@ -132,9 +139,7 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
           {volver.texto}
         </Link>
         <ChevronRight size={14} aria-hidden="true" />
-        <span className="font-semibold text-slate-800 dark:text-slate-200">
-          {producto.marca} {producto.nombre}
-        </span>
+        <span className="font-semibold text-slate-800 dark:text-slate-200">{tituloDe(producto)}</span>
       </nav>
 
       <AvisoError mensaje={error} />
@@ -155,17 +160,29 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
 
         {/* Elección y compra */}
         <div>
-          <p className="text-sm font-bold tracking-wide text-amber-700 dark:text-amber-400">{producto.marca.toUpperCase()}</p>
-          <h1 className="mt-1 text-3xl font-extrabold leading-tight text-slate-900 dark:text-white sm:text-4xl">{producto.nombre}</h1>
+          <p className="text-sm font-bold tracking-wide text-amber-700 dark:text-amber-400">
+            {unica ? 'LLANTA REENCAUCHADA' : producto.marca.toUpperCase()}
+          </p>
+          <h1 className="mt-1 text-3xl font-extrabold leading-tight text-slate-900 dark:text-white sm:text-4xl">
+            {unica ? producto.descripcion || producto.nombre : producto.nombre}
+          </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            {producto.categoria}
+            {unica ? 'Única unidad, revisada y lista para rodar' : producto.categoria}
             {producto.tipoVehiculo && producto.tipoVehiculo !== producto.categoria ? ` · ${producto.tipoVehiculo}` : ''}
           </p>
-          {producto.descripcion && (
+          {/* Precio fijo de la reencauchada (las demás se cotizan) */}
+          {unica && elegida.precioVentaValor > 0 && (
+            <p className="mt-5 text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">
+              $ {Number(elegida.precioVentaValor).toLocaleString('es-CO')}
+              <span className="ml-2 align-middle text-sm font-semibold text-slate-500 dark:text-slate-400">precio fijo</span>
+            </p>
+          )}
+          {producto.descripcion && !unica && (
             <p className="mt-4 max-w-prose text-base leading-relaxed text-slate-600 dark:text-slate-300">{producto.descripcion}</p>
           )}
 
           <div className="mt-7 space-y-6 border-t border-slate-200 pt-6 dark:border-white/10">
+            {!sinPosiciones && (
             <fieldset>
               <legend className="text-sm font-bold text-slate-900 dark:text-white">
                 Posición {posiciones.length === 1 && <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">· {posicionActual}</span>}
@@ -180,11 +197,13 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
                 </div>
               )}
             </fieldset>
+            )}
 
             <fieldset>
               <legend className="text-sm font-bold text-slate-900 dark:text-white">
                 Medida <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">· {elegida.medidas}</span>
               </legend>
+              {deLaPosicion.length > 1 && (
               <div className="mt-2.5 flex flex-wrap gap-2">
                 {deLaPosicion.map((r) => (
                   <Opcion key={r.id} activa={r.id === elegida.id} onClick={() => elegir(r)}>
@@ -193,11 +212,17 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
                   </Opcion>
                 ))}
               </div>
+              )}
             </fieldset>
 
             <div className="rounded-xl bg-slate-50 p-4 dark:bg-white/[0.04]">
               <Datos
-                filas={[
+                filas={unica ? [
+                  ['Código', elegida.codigo],
+                  ['Medida', elegida.medidas],
+                  ['Rin', elegida.rin ? `${Number(elegida.rin).toLocaleString('es-CO')}"` : '—'],
+                  ['Tipo de vehículo', elegida.tipoVehiculo || 'Uso general'],
+                ] : [
                   ['Código', elegida.codigo],
                   ['Índice de carga', elegida.indiceCarga || '—'],
                   ['Lonas', elegida.lonas ? `${elegida.lonas} PR` : '—'],
@@ -209,7 +234,9 @@ export default function DetalleProducto({ referencias, cargando, error, volver, 
             </div>
 
             <div>{accion(elegida)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">El precio se confirma en la cotización.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {unica ? 'Es una sola unidad: queda apartada para quien la pida primero.' : 'El precio se confirma en la cotización.'}
+            </p>
           </div>
         </div>
       </div>

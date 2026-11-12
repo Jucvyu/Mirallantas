@@ -82,6 +82,11 @@ export const productosService = {
     return (await traerTodo(`/productos?modeloId=${encodeURIComponent(modeloId)}`)).map(productoDesdeApi);
   },
 
+  /** Un solo producto (la llanta reencauchada, que es una unidad única). */
+  async unidad(productoId) {
+    return (await traerTodo(`/productos?id=${encodeURIComponent(productoId)}`)).map(productoDesdeApi);
+  },
+
   /** Medidas registradas en el catálogo, sin repetir (buscador de medidas). */
   async medidas() {
     const { datos } = await api('/productos/medidas');
@@ -150,5 +155,10 @@ export const catalogoPublicoService = {
   /** Medidas a la venta de un producto, para su página de detalle pública. */
   async deModelo(modeloId) {
     return (await traerTodo(`/catalogo?modeloId=${encodeURIComponent(modeloId)}`)).map(productoDesdeApi);
+  },
+
+  /** Una llanta reencauchada (unidad única), para su página de detalle pública. */
+  async unidad(productoId) {
+    return (await traerTodo(`/catalogo?id=${encodeURIComponent(productoId)}`)).map(productoDesdeApi);
   },
 };

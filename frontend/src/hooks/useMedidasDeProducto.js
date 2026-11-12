@@ -2,54 +2,60 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAlCambiar } from './useAlCambiar';
 
 /**
- * Lo que se puede pedir. El catálogo público ya llega filtrado (no trae
- * `activo` ni `disponible`); el portal y el personal sí los traen.
+ * ¿Se puede pedir? El catálogo público ya llega filtrado (no trae `activo`
+ * ni `disponible`); el portal y el personal sí los traen.
  */
-const sePuedePedir = (r) => !r.reencauchada && r.disponible !== false && (r.disponible === true || r.activo !== false);
+const sePuedePedir = (r) => r.disponible !== false && (r.disponible === true || r.activo !== false);
 
 /**
- * Medidas (referencias) de un producto para su página de detalle.
+ * Medidas (referencias) que muestra la página de detalle de un producto.
  *
- *   const { referencias, cargando, error } = useMedidasDeProducto(productosService, modeloId);
+ *   useMedidasDeProducto(productosService, { modeloId })    → las medidas del modelo
+ *   useMedidasDeProducto(productosService, { productoId })  → una llanta reencauchada (unidad única)
  *
- * `servicio.deModelo(id)` las trae; solo se usan las que se pueden pedir.
- * Se vuelven a pedir cuando la API avisa un cambio (tiempo real).
+ * `servicio.deModelo(id)` o `servicio.unidad(id)` las traen; solo se usan las
+ * que se pueden pedir. Se vuelven a pedir cuando la API avisa un cambio.
  */
-export function useMedidasDeProducto(servicio, modeloId) {
+export function useMedidasDeProducto(servicio, { modeloId, productoId }) {
   const [referencias, setReferencias] = useState([]);
-  // Producto del que ya llegaron los datos: mientras no sea este, se está cargando
+  // Lo que ya llegó: mientras no sea lo que se pide, se está cargando
   const [cargadoDe, setCargadoDe] = useState(null);
   const [error, setError] = useState('');
+  const clave = productoId ? `u${productoId}` : `m${modeloId}`;
 
-  const cargar = useCallback(async () => {
+  const pedir = useCallback(async () => {
+    const filas = productoId ? await servicio.unidad(productoId) : await servicio.deModelo(modeloId);
+    // La reencauchada tiene su propia página: no se mezcla con las medidas del modelo
+    return filas.filter((r) => sePuedePedir(r) && (productoId ? r.reencauchada : !r.reencauchada));
+  }, [servicio, modeloId, productoId]);
+
+  const recargar = useCallback(async () => {
     try {
-      const filas = await servicio.deModelo(modeloId);
-      setReferencias(filas.filter(sePuedePedir));
+      setReferencias(await pedir());
       setError('');
     } catch (e) {
       setError(e.message);
     }
-  }, [servicio, modeloId]);
+  }, [pedir]);
 
   useEffect(() => {
     let vigente = true;
-    servicio
-      .deModelo(modeloId)
+    pedir()
       .then((filas) => {
         if (!vigente) return;
-        setReferencias(filas.filter(sePuedePedir));
+        setReferencias(filas);
         setError('');
       })
       .catch((e) => vigente && setError(e.message))
-      .finally(() => vigente && setCargadoDe(modeloId));
+      .finally(() => vigente && setCargadoDe(clave));
     return () => {
       vigente = false;
     };
-  }, [servicio, modeloId]);
+  }, [pedir, clave]);
 
-  useAlCambiar(cargar);
+  useAlCambiar(recargar);
 
-  const cargando = cargadoDe !== modeloId;
-  // Al pasar a otro producto no se muestran las medidas del anterior
+  const cargando = cargadoDe !== clave;
+  // Al pasar a otro producto no se muestran los datos del anterior
   return { referencias: cargando ? [] : referencias, cargando, error };
 }

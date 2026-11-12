@@ -17,6 +17,8 @@ export const esquemaFiltros = esquemaListado.extend({
   marcaId: z.coerce.number().int().positive().optional(),
   tipoVehiculoId: z.coerce.number().int().positive().optional(),
   modeloId: z.coerce.number().int().positive().optional(),
+  // Un solo producto (p. ej. la página de una llanta reencauchada, que es única)
+  id: z.coerce.number().int().positive().optional(),
 });
 
 // ---- Campos de una referencia (una medida de un modelo) ----------------------

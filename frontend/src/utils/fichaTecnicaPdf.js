@@ -12,7 +12,8 @@ const conUnidad = (v, unidad) => (v === null || v === undefined || v === '' ? '�
 /** Filas etiqueta / valor de la ficha del producto (solo las que tienen dato). */
 export function datosFicha(p) {
   return [
-    ['Marca', p.marca],
+    ['Condición', p.reencauchada ? 'Reencauchada · única unidad' : null],
+    ['Marca', p.reencauchada ? null : p.marca],
     ['Categoría', p.categoria],
     ['Tipo de vehículo', p.tipoVehiculo || null],
     ['Construcción', p.construccion],
@@ -24,6 +25,9 @@ export function datosFicha(p) {
     ['País de origen', p.paisOrigen],
   ].filter(([, valor]) => valor);
 }
+
+/** Nombre que se muestra: la reencauchada se reconoce por su descripción. */
+export const tituloDe = (p) => (p.reencauchada ? p.descripcion || p.nombre : `${p.marca} ${p.nombre}`);
 
 /** Columnas y filas de la tabla de medidas. */
 export const COLUMNAS_MEDIDAS = ['Medida', 'Posición', 'Índice de carga', 'Lonas', 'Labrado', 'Peso', 'Código'];
@@ -41,7 +45,7 @@ export const filaMedida = (r) => [
 export async function descargarFichaTecnica(producto, referencias) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const titulo = `${producto.marca} ${producto.nombre}`;
+  const titulo = tituloDe(producto);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
@@ -52,7 +56,7 @@ export async function descargarFichaTecnica(producto, referencias) {
   doc.text(titulo, 40, 70);
 
   let y = 84;
-  if (producto.descripcion) {
+  if (producto.descripcion && !producto.reencauchada) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(71, 85, 105);
