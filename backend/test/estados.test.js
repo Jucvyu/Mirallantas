@@ -134,6 +134,8 @@ describe('Estado Inactivo', () => {
     // Se deja como estaba para las demás pruebas
     await e.api(`/categorias/${id}/estado`, { metodo: 'PATCH', token: t.admin, cuerpo: { activo: true } });
     await e.db.query('UPDATE producto SET activo = TRUE WHERE categoria_id = $1', [id]);
+    // Desde 0040 también se desactivan sus modelos: se reactivan igual
+    await e.db.query('UPDATE modelo_llanta SET activo = TRUE WHERE categoria_id = $1', [id]);
   });
 
   test('un crédito inactivo no recibe abonos', async () => {

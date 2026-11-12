@@ -7,7 +7,13 @@ import { enviarDato, enviarLista } from './respuesta.view.js';
  * con precio fijo, que sí lo muestra.
  */
 
-const PUBLICOS = ['id', 'codigo', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto'];
+const PUBLICOS = [
+  'id', 'codigo', 'modeloId', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto',
+  // Datos de la referencia (sin el código del fabricante, que es interno)
+  'indiceCarga', 'lonas', 'profundidadLabrado', 'pesoKg', 'ancho', 'perfil', 'rin',
+  // Ficha técnica del modelo (sin la fuente de donde se copió)
+  'uso', 'posicion', 'labrado', 'construccion', 'sinCamara', 'garantiaMeses', 'paisOrigen', 'recauchable',
+];
 
 /** Lo que solo lleva la llanta reencauchada (su precio fijo). */
 const DE_REENCAUCHADA = ['reencauchada', 'precioVenta'];

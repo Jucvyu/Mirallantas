@@ -190,7 +190,12 @@ describe('Productos', () => {
     const r = await e.api('/catalogo?porPagina=100');
     assert.equal(r.estado, 200);
     assert.ok(r.cuerpo.datos.length > 0);
-    const permitidos = ['id', 'codigo', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto'];
+    const permitidos = [
+      'id', 'codigo', 'modeloId', 'nombre', 'descripcion', 'medidas', 'categoria', 'colorCategoria', 'marca', 'tipoVehiculo', 'foto',
+      // Referencia y ficha técnica del modelo (migración 0040), sin código del fabricante ni fuente
+      'indiceCarga', 'lonas', 'profundidadLabrado', 'pesoKg', 'ancho', 'perfil', 'rin',
+      'uso', 'posicion', 'labrado', 'construccion', 'sinCamara', 'garantiaMeses', 'paisOrigen', 'recauchable',
+    ];
     assert.ok(r.cuerpo.datos.every((p) => Object.keys(p).every((c) => permitidos.includes(c))));
     const { rows } = await e.db.query('SELECT COUNT(*)::int AS n FROM producto WHERE activo');
     assert.equal(r.cuerpo.total, rows[0].n, 'solo los activos');

@@ -2,6 +2,7 @@ import { enTransaccion } from '../db.js';
 import { HttpError, noEncontrado } from '../errores.js';
 import { clienteDeSesion } from '../middleware/auth.js';
 import { aPares } from '../models/listado.model.js';
+import * as modelosModel from '../models/modelos.model.js';
 import * as productosModel from '../models/productos.model.js';
 import { enviarCatalogo, enviarCatalogoPublico, enviarProducto } from '../views/productos.view.js';
 import { enviarDato } from '../views/respuesta.view.js';
@@ -14,6 +15,12 @@ import { vencerNoPagadas } from './reencauches.controller.js';
  * El código lo genera la base al crear (ML-000001, ML-000002…) y no cambia
  * al editar. El catálogo y la gestión de productos no manejan precios: el
  * precio de venta se define en cada cotización formal.
+ *
+ * Cada producto es una referencia (una medida) de un modelo de llanta. Al
+ * editar, los campos del modelo (nombre, descripción, categoría, marca, tipo
+ * de vehículo) cambian el modelo y con él todas sus medidas; los demás
+ * cambian solo esta referencia. La gestión por modelos está en
+ * modelos.controller.js.
  */
 
 /** GET /productos — el portal solo ve los activos, pida lo que pida. */
@@ -55,11 +62,15 @@ export async function obtener(req, res) {
   enviarProducto(res, { ...producto, imagenes });
 }
 
-/** POST /productos */
+/** POST /productos — con `modeloId` agrega una medida a ese modelo. */
 export async function crear(req, res) {
   const { foto, ...producto } = req.validado.body;
-  await exigirActivo('categoria', producto.categoriaId);
-  await exigirActivo('marca', producto.marcaId);
+  if (producto.modeloId) {
+    if (!(await modelosModel.buscarPorId(producto.modeloId))) throw new HttpError(422, 'El producto seleccionado no existe.');
+  } else {
+    await exigirActivo('categoria', producto.categoriaId);
+    await exigirActivo('marca', producto.marcaId);
+  }
   const id = await enTransaccion(async (db) => {
     const nuevoId = await productosModel.crear(db, producto);
     await productosModel.guardarFoto(db, nuevoId, foto);
@@ -88,8 +99,26 @@ export async function actualizar(req, res) {
     throw new HttpError(422, 'Ponle el precio de venta a la llanta reencauchada antes de activarla.');
   }
 
+  // Campos del modelo: solo los que de verdad cambian
+  const delModelo = Object.fromEntries(
+    Object.entries(cambios).filter(([campo, valor]) => campo in productosModel.COLUMNAS_MODELO && valor !== actual[campo]),
+  );
+  // La reencauchada es una unidad única: su descripción y su vehículo son
+  // suyos (van a la referencia); nombre, marca y categoría no se cambian
+  let columnasReferencia = productosModel.COLUMNAS_REFERENCIA;
+  if (actual.reencauchada) {
+    if (['nombre', 'categoriaId', 'marcaId'].some((campo) => campo in delModelo)) {
+      throw new HttpError(422, 'La llanta reencauchada conserva su nombre, marca y categoría.');
+    }
+    delete delModelo.descripcion;
+    delete delModelo.tipoVehiculoId;
+    columnasReferencia = { ...columnasReferencia, descripcion: 'descripcion', tipoVehiculoId: 'tipo_vehiculo_id' };
+  }
+
   await enTransaccion(async (db) => {
-    await productosModel.actualizar(db, id, aPares(cambios, productosModel.COLUMNAS_EDITABLES));
+    // El modelo cambia y la base copia el cambio a todas sus medidas
+    await modelosModel.actualizar(db, actual.modeloId, aPares(delModelo, productosModel.COLUMNAS_MODELO));
+    await productosModel.actualizar(db, id, aPares(cambios, columnasReferencia));
     await productosModel.guardarFoto(db, id, foto);
   });
   enviarProducto(res, await productosModel.buscarPorId(id));
