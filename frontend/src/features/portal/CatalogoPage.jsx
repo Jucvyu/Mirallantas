@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Check, Minus, Plus, ShoppingCart } from 'lucide-react';
 import { BORDER_OK, INPUT, soloDigitos } from '../../components/base/formStyles';
 import { maximoDe, useCart } from '../../context/CartContext';
@@ -15,14 +16,17 @@ const acotar = (n, maximo) => Math.min(maximo, Math.max(1, Number(n) || 1));
  * cantidad en cada tarjeta y la agrega a su carro de cotización, que se ve
  * a la derecha. El precio se confirma después en la cotización formal.
  *
- * Cada tarjeta es una llanta (modelo) con selector de medida: `accion(p)`
- * recibe la medida elegida (la referencia), que es lo que va al carro.
+ * Cada tarjeta es una llanta (modelo) y abre su página de detalle, donde se
+ * elige posición y medida y esa referencia va al carro. La llanta
+ * reencauchada (unidad única) se agrega desde su propia tarjeta (`accion`).
  */
 export default function CatalogoPage() {
   // Cantidad elegida en cada tarjeta (por defecto 1)
   const [cantidades, setCantidades] = useState({});
   const [added, setAdded] = useState(null);
-  const [carroAbierto, setCarroAbierto] = useState(false);
+  // Desde el detalle de un producto, "Ver mi carro" llega con el carro abierto
+  const { state } = useLocation();
+  const [carroAbierto, setCarroAbierto] = useState(Boolean(state?.abrirCarro));
   const cart = useCart();
 
   // A un cliente la API solo le envía los productos activos; si mira el
@@ -137,6 +141,7 @@ export default function CatalogoPage() {
           cargando={productos.cargando}
           error={productos.error}
           accion={accion}
+          enlace={(id) => `/portal/catalogo/${id}`}
           columnas={carroAbierto ? 'sm:grid-cols-2 xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}
         />
       </div>

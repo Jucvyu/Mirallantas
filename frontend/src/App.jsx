@@ -40,6 +40,8 @@ const ClientLayout = lazy(() => import('./components/layout/ClientLayout'));
 const ClientHomePage = lazy(() => import('./features/portal/ClientHomePage'));
 const CatalogoPage = lazy(() => import('./features/portal/CatalogoPage'));
 const CatalogoPublicoPage = lazy(() => import('./features/landing/CatalogoPublicoPage'));
+const DetalleProductoPublicoPage = lazy(() => import('./features/landing/DetalleProductoPublicoPage'));
+const DetalleProductoPage = lazy(() => import('./features/portal/DetalleProductoPage'));
 const ClientPedidosPage = lazy(() => import('./features/portal/ClientPedidosPage'));
 const CarteraPage = lazy(() => import('./features/portal/CarteraPage'));
 
@@ -84,6 +86,7 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/catalogo" element={<CatalogoPublicoPage />} />
+            <Route path="/catalogo/:modeloId" element={<DetalleProductoPublicoPage />} />
             <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
             <Route path="/cuenta-inactiva" element={<CuentaInactivaPage />} />
 
@@ -121,6 +124,7 @@ export default function App() {
             >
               <Route index element={<ClientHomePage />} />
               <Route path="catalogo" element={<ConPermiso modulo="Catálogo (portal)"><CatalogoPage /></ConPermiso>} />
+              <Route path="catalogo/:modeloId" element={<ConPermiso modulo="Catálogo (portal)"><DetalleProductoPage /></ConPermiso>} />
               <Route path="pedidos" element={<ConPermiso modulo="Mis cotizaciones"><ClientPedidosPage /></ConPermiso>} />
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
               <Route path="reencauche" element={<ConPermiso modulo="Mis reencauches"><ReencauchePortalPage /></ConPermiso>} />

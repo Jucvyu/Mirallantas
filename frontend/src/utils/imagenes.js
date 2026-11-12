@@ -33,3 +33,47 @@ export function leerImagen(archivo) {
     lector.readAsDataURL(archivo);
   });
 }
+
+// ---- PDF (ficha técnica del fabricante) -------------------------------------
+
+/** Formato aceptado para la ficha técnica. Va en el `accept` del input. */
+export const TIPOS_PDF = 'application/pdf';
+
+/** Tamaño máximo del PDF: 5 MB. */
+const MAXIMO_BYTES_PDF = 5 * 1024 * 1024;
+
+/** Lee un PDF del <input type="file"> y devuelve su data URL (o falla con un mensaje). */
+export function leerPdf(archivo) {
+  return new Promise((resolver, rechazar) => {
+    if (archivo.type !== TIPOS_PDF) {
+      rechazar(new Error('El archivo debe ser un PDF.'));
+      return;
+    }
+    if (archivo.size > MAXIMO_BYTES_PDF) {
+      rechazar(new Error('El PDF es demasiado grande (máximo 5 MB).'));
+      return;
+    }
+    const lector = new FileReader();
+    lector.onload = () => resolver(lector.result);
+    lector.onerror = () => rechazar(new Error('No se pudo leer el PDF.'));
+    lector.readAsDataURL(archivo);
+  });
+}
+
+/**
+ * Abre un PDF en otra pestaña. Si es una data URL (desarrollo, o recién
+ * elegido en el formulario) se convierte en un archivo temporal: los
+ * navegadores no dejan abrir data URLs directamente.
+ */
+export function abrirPdf(direccion) {
+  if (!direccion) return;
+  if (!direccion.startsWith('data:')) {
+    window.open(direccion, '_blank', 'noopener');
+    return;
+  }
+  const base64 = direccion.split(',')[1] ?? '';
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const enlace = URL.createObjectURL(new Blob([bytes], { type: TIPOS_PDF }));
+  window.open(enlace, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(enlace), 60_000);
+}

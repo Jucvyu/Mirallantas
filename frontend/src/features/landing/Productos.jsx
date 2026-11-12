@@ -48,6 +48,7 @@ export default function Productos() {
             cargando={productos.cargando}
             error={productos.error}
             accion={accion}
+            enlace={(id) => `/catalogo/${id}`}
             limite={8}
             columnas="sm:grid-cols-2 lg:grid-cols-4"
           />

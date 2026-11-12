@@ -118,6 +118,7 @@ const numeroATexto = (valor) => (valor === null || valor === undefined ? '' : St
 /** Referencia (medida) de un modelo: un producto con sus datos propios. */
 export const referenciaDesdeApi = (f) => ({
   ...productoDesdeApi(f),
+  posicion: f.posicion ?? '',
   indiceCarga: f.indiceCarga ?? '',
   lonas: numeroATexto(f.lonas),
   profundidadLabrado: numeroATexto(f.profundidadLabrado),
@@ -133,6 +134,7 @@ export const referenciaDesdeApi = (f) => ({
 export const referenciaHaciaApi = (v, fila) => ({
   ...(fila ? { activo: activoDesdeEstado(v.estado) } : {}),
   medidas: v.medidas,
+  posicion: vacioANull(v.posicion),
   indiceCarga: vacioANull(v.indiceCarga),
   lonas: numeroONull(v.lonas),
   profundidadLabrado: numeroONull(v.profundidadLabrado),
@@ -146,7 +148,7 @@ export const modeloDesdeApi = (f) => ({
   tipoVehiculo: f.tipoVehiculo ?? '',
   descripcion: f.descripcion ?? '',
   uso: f.uso ?? '',
-  posicion: f.posicion ?? '',
+  posiciones: f.posiciones ?? '',
   labrado: f.labrado ?? '',
   construccion: f.construccion ?? '',
   sinCamara: siNoDesdeApi(f.sinCamara),
@@ -154,6 +156,7 @@ export const modeloDesdeApi = (f) => ({
   garantiaMeses: numeroATexto(f.garantiaMeses),
   paisOrigen: f.paisOrigen ?? '',
   fuenteFicha: f.fuenteFicha ?? '',
+  fichaPdf: f.fichaPdf ?? '',
   foto: esImagen(f.foto) ? f.foto : '',
   imagenes: esImagen(f.foto) ? [f.foto] : [],
   // El listado trae solo el conteo (totalReferencias); el detalle, las medidas
@@ -174,7 +177,6 @@ export function modeloHaciaApi(v, fila, { categorias = [], marcas = [], tipos = 
     marcaId: idPorNombre(marcas, v.marca),
     tipoVehiculoId: idPorNombre(tipos, v.tipoVehiculo),
     uso: vacioANull(v.uso),
-    posicion: vacioANull(v.posicion),
     labrado: vacioANull(v.labrado),
     construccion: vacioANull(v.construccion),
     sinCamara: siNoHaciaApi(v.sinCamara),
@@ -182,6 +184,8 @@ export function modeloHaciaApi(v, fila, { categorias = [], marcas = [], tipos = 
     paisOrigen: vacioANull(v.paisOrigen),
     recauchable: siNoHaciaApi(v.recauchable),
     fuenteFicha: vacioANull(v.fuenteFicha),
+    // El PDF solo se envía si cambió (pesa)
+    fichaPdf: imagenCambiada(v.fichaPdf, fila?.fichaPdf),
     // La foto solo se envía si cambió (las imágenes pesan)
     foto: imagenCambiada(v.foto, fila?.foto),
     ...(primeraMedida ? { referencias: primeraMedida } : {}),

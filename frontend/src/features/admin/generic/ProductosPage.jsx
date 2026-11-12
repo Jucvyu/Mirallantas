@@ -69,6 +69,13 @@ function camposMedida(medidas, { requerida }) {
       placeholderBusqueda: 'Escribe la medida, p. ej. 295/80R22.5',
       hint: 'Busca una medida existente o escribe una nueva.',
     },
+    {
+      key: 'posicion',
+      label: 'Posición',
+      type: 'select',
+      options: POSICIONES,
+      hint: 'El cliente elige primero la posición y luego la medida.',
+    },
     { key: 'indiceCarga', label: 'Índice de carga', placeholder: 'p. ej. 152/148', max: 7, validar: validarIndiceCarga },
     { key: 'lonas', label: 'Lonas (PR)', type: 'number', placeholder: 'p. ej. 16', validar: validarLonas },
     { key: 'profundidadLabrado', label: 'Profundidad del labrado (mm)', placeholder: 'p. ej. 16,5', max: 5, validar: validarProfundidad },
@@ -95,7 +102,6 @@ function seccionesModelo({ categorias, marcas, tipos, medidas }) {
       title: 'Ficha técnica',
       fields: [
         { key: 'uso', label: 'Uso', placeholder: 'p. ej. Regional, urbano, mixto' },
-        { key: 'posicion', label: 'Posición', type: 'select', options: POSICIONES },
         { key: 'labrado', label: 'Labrado', placeholder: 'p. ej. Rayado, de tacos', max: 60 },
         { key: 'construccion', label: 'Construcción', type: 'select', options: CONSTRUCCIONES },
         { key: 'sinCamara', label: 'Sin cámara (tubeless)', type: 'select', options: SI_NO },
@@ -109,6 +115,13 @@ function seccionesModelo({ categorias, marcas, tipos, medidas }) {
           max: 300,
           placeholder: 'Página del fabricante o del proveedor de donde se copió',
           hint: 'Solo la ve el personal: no sale en el catálogo.',
+        },
+        {
+          key: 'fichaPdf',
+          label: 'Ficha técnica del fabricante (PDF)',
+          type: 'pdf',
+          span: 2,
+          placeholder: 'Sube el PDF de la ficha (máximo 5 MB). El cliente lo puede abrir desde el producto.',
         },
       ],
     },
@@ -249,7 +262,10 @@ function MedidasDelModelo({ modelo, onNueva, onEditar, onEstado }) {
               className="grid items-center gap-x-5 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))_auto]"
             >
               <div className="min-w-0">
-                <p className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">{r.medidas}</p>
+                <p className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+                  {r.medidas}
+                  {r.posicion && <span className="ml-2 font-normal text-slate-500 dark:text-slate-400">{r.posicion}</span>}
+                </p>
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   {r.codigo}
                   {r.codigoFabricante ? ` · Fab. ${r.codigoFabricante}` : ''}

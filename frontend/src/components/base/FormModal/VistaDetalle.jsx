@@ -1,4 +1,6 @@
+import { ExternalLink } from 'lucide-react';
 import Badge from '../Badge';
+import { abrirPdf } from '../../../utils/imagenes';
 import { DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../Detalle';
 import Field from './Field';
 
@@ -22,6 +24,18 @@ function valorDe(campo, valor) {
           </span>
         ))}
       </span>
+    );
+  }
+  if (type === 'pdf') {
+    if (!valor) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => abrirPdf(valor)}
+        className="inline-flex items-center gap-1 font-semibold text-amber-700 hover:underline dark:text-amber-400"
+      >
+        <ExternalLink size={13} aria-hidden="true" /> Ver PDF
+      </button>
     );
   }
   if (type === 'color') {

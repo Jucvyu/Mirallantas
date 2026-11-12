@@ -77,6 +77,11 @@ export const productosService = {
     return (await productosBase.listar()).filter((p) => p.disponible ?? p.activo);
   },
 
+  /** Medidas (referencias) de un producto, para su página de detalle. */
+  async deModelo(modeloId) {
+    return (await traerTodo(`/productos?modeloId=${encodeURIComponent(modeloId)}`)).map(productoDesdeApi);
+  },
+
   /** Medidas registradas en el catálogo, sin repetir (buscador de medidas). */
   async medidas() {
     const { datos } = await api('/productos/medidas');
@@ -140,5 +145,10 @@ export const modelosService = {
 export const catalogoPublicoService = {
   async listar() {
     return (await traerTodo('/catalogo')).map(productoDesdeApi);
+  },
+
+  /** Medidas a la venta de un producto, para su página de detalle pública. */
+  async deModelo(modeloId) {
+    return (await traerTodo(`/catalogo?modeloId=${encodeURIComponent(modeloId)}`)).map(productoDesdeApi);
   },
 };
