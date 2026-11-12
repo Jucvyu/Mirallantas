@@ -95,9 +95,18 @@ export async function restaurarRespaldo(connectionString, respaldo) {
     for (const tabla of orden) {
       const filas = respaldo.tablas[tabla] ?? [];
       if (filas.length) {
+        // Las columnas generadas (p. ej. producto.ancho, sacada de la medida)
+        // no se insertan: la base las vuelve a calcular
+        const { rows: columnas } = await db.query(
+          `SELECT quote_ident(attname) AS nombre FROM pg_attribute
+            WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped AND attgenerated = ''
+            ORDER BY attnum`,
+          [tabla],
+        );
+        const lista = columnas.map((c) => c.nombre).join(', ');
         await db.query(
-          `INSERT INTO ${tabla} OVERRIDING SYSTEM VALUE
-           SELECT * FROM json_populate_recordset(NULL::${tabla}, $1)`,
+          `INSERT INTO ${tabla} (${lista}) OVERRIDING SYSTEM VALUE
+           SELECT ${lista} FROM json_populate_recordset(NULL::${tabla}, $1)`,
           [JSON.stringify(filas)],
         );
       }
