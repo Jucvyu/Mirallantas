@@ -39,6 +39,13 @@ export default function LandingNavbar() {
               {s.label}
             </a>
           ))}
+          {/* Página propia, no una sección del inicio */}
+          <Link
+            to="/licencias"
+            className="rounded-full px-3.5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-white/60 hover:text-brand-blue dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            Licencias
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -79,6 +86,13 @@ export default function LandingNavbar() {
               {s.label}
             </a>
           ))}
+          <Link
+            to="/licencias"
+            onClick={() => setAbierto(false)}
+            className="block rounded-xl px-4 py-3 text-base font-semibold text-slate-800 hover:bg-white/60 dark:text-slate-100 dark:hover:bg-white/10"
+          >
+            Licencias
+          </Link>
         </nav>
       )}
     </header>

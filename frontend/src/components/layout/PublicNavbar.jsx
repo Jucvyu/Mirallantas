@@ -35,6 +35,19 @@ export default function PublicNavbar() {
               {link.label}
             </a>
           ))}
+          {/* Página propia (no una sección del inicio) */}
+          <NavLink
+            to="/licencias"
+            className={({ isActive }) =>
+              `text-sm font-medium ${
+                isActive
+                  ? 'text-amber-500 dark:text-amber-400'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+              }`
+            }
+          >
+            Licencias
+          </NavLink>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">

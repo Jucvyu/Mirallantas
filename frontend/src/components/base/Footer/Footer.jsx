@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: 'Catálogo de llantas', href: '/#productos' },
   { label: 'Servicio de reencauche', href: '/#servicios' },
   { label: 'Sobre nosotros', href: '/#nosotros' },
+  { label: 'Licencias', href: '/licencias' },
   { label: 'Portal de clientes', href: '/login', highlight: true },
 ];
 
@@ -86,7 +87,12 @@ export default function Footer() {
         {/* Barra inferior */}
         <div className="mt-12 flex flex-col items-center gap-3 border-t border-slate-200 pt-6 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:justify-between">
           <p>© {year} MiraLlantas. Todos los derechos reservados.</p>
-          <p>Proyecto ADSO SENA · React y Tailwind CSS</p>
+          <p>
+            Proyecto ADSO SENA · React y Tailwind CSS ·{' '}
+            <a href="/licencias" className="underline-offset-2 hover:text-brand-gold-600 hover:underline dark:hover:text-brand-gold-400">
+              Licencias
+            </a>
+          </p>
         </div>
       </div>
     </footer>

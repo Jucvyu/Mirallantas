@@ -41,6 +41,8 @@ const ClientLayout = lazy(() => import('./components/layout/ClientLayout'));
 const ClientHomePage = lazy(() => import('./features/portal/ClientHomePage'));
 const CatalogoPage = lazy(() => import('./features/portal/CatalogoPage'));
 const CatalogoPublicoPage = lazy(() => import('./features/landing/CatalogoPublicoPage'));
+const LicenciasPage = lazy(() => import('./features/legal/LicenciasPage'));
+const LicenciasPanelPage = lazy(() => import('./features/legal/LicenciasPanelPage'));
 const DetalleProductoPublicoPage = lazy(() => import('./features/landing/DetalleProductoPublicoPage'));
 const DetalleProductoPage = lazy(() => import('./features/portal/DetalleProductoPage'));
 const ClientPedidosPage = lazy(() => import('./features/portal/ClientPedidosPage'));
@@ -91,6 +93,7 @@ export default function App() {
             <Route path="/catalogo" element={<CatalogoPublicoPage />} />
             <Route path="/catalogo/:modeloId" element={<DetalleProductoPublicoPage />} />
             <Route path="/catalogo/unidad/:productoId" element={<DetalleProductoPublicoPage />} />
+            <Route path="/licencias" element={<LicenciasPage />} />
             <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
             <Route path="/cuenta-inactiva" element={<CuentaInactivaPage />} />
 
@@ -114,6 +117,8 @@ export default function App() {
               {PAGINAS_ADMIN.map(({ ruta, permiso, pagina }) => (
                 <Route key={ruta} path={ruta} element={<ConPermiso modulo={permiso}>{pagina}</ConPermiso>} />
               ))}
+              {/* Licencias del software: cualquier persona del panel puede verlas */}
+              <Route path="licencias" element={<LicenciasPanelPage />} />
               <Route path="*" element={<NoEncontradaPage compacta inicio="/admin" />} />
             </Route>
 

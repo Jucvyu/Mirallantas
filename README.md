@@ -682,3 +682,76 @@ puertos 25, 465 y 587.
 Estos puntos del plan de mejoras esperan una decisión del equipo antes de implementarse:
 
 - Estados de cotización que permiten comprar (hoy: "Aprobada" y "En proceso").
+
+## Licencias
+
+Todo el software que usa MiraLlantas tiene licencia libre y permite su uso académico y comercial.
+El detalle, con los enlaces originales de cada tecnología y de cada licencia, está en la página
+**/licencias** (enlazada desde el menú de inicio, el pie de página y, dentro del panel, al final
+del menú lateral). Sus datos viven en `frontend/src/features/legal/licencias.js`: si cambias una
+dependencia, actualízala allí y en esta tabla. El código de MiraLlantas no declara una licencia
+propia.
+
+### Licencias que aparecen
+
+| Licencia | Qué permite | Condición | Texto oficial |
+|---|---|---|---|
+| MIT | Usar, copiar, modificar, distribuir y vender | Conservar el copyright y la licencia | [opensource.org](https://opensource.org/license/mit) |
+| ISC | Lo mismo que MIT, con texto más corto | Conservar el copyright y el permiso | [opensource.org](https://opensource.org/license/isc-license-txt) |
+| BSD-3-Clause | Uso y redistribución libres | Conservar el copyright; no usar el nombre de los autores para promocionar | [opensource.org](https://opensource.org/license/bsd-3-clause) |
+| Apache-2.0 | Uso libre, con concesión de patentes | Conservar avisos e indicar cambios | [apache.org](https://www.apache.org/licenses/LICENSE-2.0) |
+| MPL-2.0 | Combinar con código propio sin abrirlo | Compartir solo los cambios a los archivos de la librería | [mozilla.org](https://www.mozilla.org/en-US/MPL/2.0/) |
+| PostgreSQL | Uso libre para cualquier fin | Conservar el copyright | [postgresql.org](https://www.postgresql.org/about/licence/) |
+| SIL OFL 1.1 | Usar e incrustar fuentes gratis | No vender la fuente sola | [openfontlicense.org](https://openfontlicense.org/open-font-license-official-text/) |
+
+### Tecnologías
+
+| Tecnología | Versión | Licencia | Dónde |
+|---|---|---|---|
+| Node.js | 22 | MIT | Plataforma |
+| PostgreSQL (con `embedded-postgres` en local y pruebas) | 18 | PostgreSQL | Plataforma |
+| Plus Jakarta Sans, Archivo (Google Fonts) | — | SIL OFL 1.1 | Plataforma |
+| react / react-dom | 19.2.8 | MIT | Frontend |
+| react-router-dom | 7.18.3 | MIT | Frontend |
+| recharts | 3.10.1 | MIT | Frontend |
+| lucide-react | 1.39.0 | ISC | Frontend |
+| react-icons | 5.7.0 | MIT | Frontend |
+| three / @react-three/fiber / @react-three/drei | 0.186.1 / 9.8.1 / 10.7.9 | MIT | Frontend |
+| @dnd-kit/core, sortable, utilities | 6.3.1 / 10.0.0 / 3.2.2 | MIT | Frontend |
+| jspdf / jspdf-autotable | 4.2.1 / 5.0.8 | MIT | Frontend |
+| qrcode | 1.5.4 | MIT | Frontend |
+| fflate | 0.8.3 | MIT | Frontend |
+| express | 5.3.0 | MIT | Backend |
+| pg | 8.23.1 | MIT | Backend y scripts |
+| zod | 4.6.7 | MIT | Backend |
+| jsonwebtoken | 9.0.3 | MIT | Backend |
+| bcryptjs | 3.0.3 | BSD-3-Clause | Backend y scripts |
+| helmet | 8.3.0 | MIT | Backend |
+| cors | 2.8.6 | MIT | Backend |
+| compression | 1.8.2 | MIT | Backend |
+| express-rate-limit | 8.7.1 | MIT | Backend |
+| pdfkit | 0.20.2 | MIT | Backend |
+| cloudinary (SDK) | 2.11.0 | MIT | Backend |
+| vite / @vitejs/plugin-react | 8.2.2 / 6.1.1 | MIT | Desarrollo |
+| tailwindcss | 3.4.19 | MIT | Desarrollo |
+| postcss / autoprefixer | 8.5.26 / 10.5.4 | MIT | Desarrollo |
+| oxlint | 1.81.0 | MIT | Desarrollo |
+| @types/react / @types/react-dom | 19.2.18 / 19.2.5 | MIT | Desarrollo |
+| embedded-postgres | 18.4.0-beta.17 | MIT | Desarrollo |
+
+### Dependencias internas
+
+| Carpeta | Paquetes | Licencias |
+|---|---|---|
+| frontend | 305 | MIT 245 · ISC 29 · MPL-2.0 12 · Apache-2.0 9 · BSD-3-Clause 3 · otras 7 |
+| backend | 139 | MIT 125 · ISC 7 · BSD-3-Clause 3 · Apache-2.0 2 · 0BSD 1 · sin dato 1 |
+| database | 25 | MIT 22 · ISC 2 · BSD-3-Clause 1 |
+
+Casos para tener en cuenta: `lightningcss` (MPL-2.0, solo al compilar con Vite), `dompurify`
+(MPL-2.0 o Apache-2.0), `pako` (MIT y Zlib), `victory-vendor` (MIT e ISC), `rgbcolor` (MIT con
+archivo propio) y `webgl-constants` / `png-js` (sin licencia en su ficha de npm).
+
+### Servicios externos
+
+Cloudinary, Brevo, Cloudflare Turnstile, Google Identity, Vercel, Render y Supabase no son software
+con licencia: se usan bajo los términos de servicio de cada proveedor (enlazados en /licencias).

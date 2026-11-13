@@ -16,6 +16,7 @@ import {
   LogOut,
   Package,
   PanelLeft,
+  Scale,
   Receipt,
   Shield,
   ShoppingBag,
@@ -377,6 +378,21 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
             <LogOut size={15} />
             {!collapsed && 'Salir'}
           </button>
+
+          {/* Licencias del software: al final y en tono apagado, para no competir con el menú */}
+          <NavLink
+            to="/admin/licencias"
+            onClick={onCloseMobile}
+            title={collapsed ? 'Licencias' : 'Licencias del software'}
+            className={({ isActive }) =>
+              `mt-1 flex items-center gap-2 rounded-md px-2.5 py-1 text-[11px] transition-colors ${
+                isActive ? 'text-amber-400/80' : 'text-slate-600 hover:text-slate-400'
+              }`
+            }
+          >
+            <Scale size={12} className="shrink-0" />
+            {!collapsed && <span className="truncate">Licencias</span>}
+          </NavLink>
         </div>
       </aside>
     </>

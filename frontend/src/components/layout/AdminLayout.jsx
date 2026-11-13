@@ -10,6 +10,7 @@ import { AYUDA_PASSWORD, CAMPO_PASSWORD_ACTUAL, validarPerfil } from '../../feat
 
 const TITLES = {
   '/admin': 'Dashboard',
+  '/admin/licencias': 'Licencias',
   '/admin/roles': 'Roles y permisos',
   '/admin/usuarios': 'Usuarios',
   '/admin/proveedores': 'Proveedores',
