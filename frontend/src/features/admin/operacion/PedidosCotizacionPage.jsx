@@ -18,7 +18,7 @@ import {
 } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { cotizacionesService, proveedoresService, ventasService } from '../../../services';
-import EstadoEntrega from '../shared/EstadoEntrega';
+import EstadoEntrega from './EstadoEntrega';
 import NuevoPedidoModal from './NuevoPedidoModal';
 import PagosCotizacionModal from './PagosCotizacionModal';
 import ComprobanteVentaModal from '../../shared/ComprobanteVentaModal';

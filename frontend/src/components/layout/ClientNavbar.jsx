@@ -8,6 +8,7 @@ import { permisoDeRuta, primerModuloAdmin } from '../../permisos';
 import ThemeToggle from '../base/ThemeToggle';
 import PerfilMenu from './PerfilMenu';
 import NotificacionesMenu from './NotificacionesMenu';
+import BotonCarro from '../../features/portal/BotonCarro';
 import { useAvisosPorModulo } from '../../hooks/useAvisosPorModulo';
 import { notificacionesService } from '../../services';
 
@@ -87,6 +88,8 @@ export default function ClientNavbar({ profile, onEditarPerfil, onSeguridad }) {
             </Link>
           )}
           <ThemeToggle />
+          {/* Carro de cotización: fijo en la barra, solo si puede usar el catálogo */}
+          {links.some((l) => l.to === '/portal/catalogo') && <BotonCarro />}
           {/* Avisos del asesor (pagos, abonos, créditos) */}
           {/* Si llega un aviso nuevo, se recargan los datos del portal */}
           <NotificacionesMenu onNuevas={recargar} />

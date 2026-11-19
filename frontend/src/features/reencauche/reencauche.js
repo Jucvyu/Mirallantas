@@ -57,7 +57,7 @@ export const terminada = (s) =>
   s.estado === 'Aceptada' && s.llantas.length > 0 && s.enProceso === 0;
 
 /** Pasos que ve el cliente, en orden. */
-export const PASOS = ['Solicitud', 'Revisión gratis', 'Cotización', 'Reencauchadora', 'Entrega y pago'];
+export const PASOS = ['Solicitud', 'Aprobación de revisión', 'Cotización', 'Reencauchadora', 'Entrega y pago'];
 
 /** Paso actual de una solicitud (5 = todo terminado). */
 export function pasoActual(s) {

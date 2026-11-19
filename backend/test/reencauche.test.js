@@ -14,6 +14,8 @@ const t = {};
 
 /** Hoy en AAAA-MM-DD (el entorno de pruebas corre en la zona del negocio). */
 const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+/** Mañana en Bogotá: desde el portal la revisión se pide con un día de margen. */
+const manana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(Date.now() + 86_400_000));
 
 before(async () => {
   e = await levantarEntorno();
@@ -108,7 +110,7 @@ describe('Solicitud y revisión', () => {
     cantidad: 3,
     lugar: 'Cliente',
     direccion: 'Cra 5 #10-22, Pereira',
-    fechaPreferida: hoy(),
+    fechaPreferida: manana(),
     notas: 'Son las de tracción del camión.',
   });
 
@@ -121,6 +123,10 @@ describe('Solicitud y revisión', () => {
   test('la dirección se pide si la revisión es donde el cliente, y la fecha no puede ser pasada', async () => {
     assert.equal((await solicitar({ ...pedido(), direccion: '' })).estado, 422);
     assert.equal((await solicitar({ ...pedido(), fechaPreferida: '2020-01-01' })).estado, 422);
+    // Desde el portal, la fecha que prefiere el cliente es desde mañana
+    const paraHoy = await solicitar({ ...pedido(), fechaPreferida: hoy() });
+    assert.equal(paraHoy.estado, 422);
+    assert.match(paraHoy.cuerpo.detalles[0].mensaje, /desde mañana/);
   });
 
   test('el cliente pide el reencauche y el asesor recibe el aviso', async () => {
@@ -288,7 +294,7 @@ describe('Órdenes y cobro al entregar', () => {
     const portal = await e.api('/portal/bandas', { token: t.luis });
     assert.ok(!portal.cuerpo.datos.some((b) => b.id === t.banda.id));
     // Inactiva, ya no se pide
-    const pedido = await solicitar({ bandaId: t.banda.id, medida: '11R22.5', cantidad: 1, lugar: 'Local', fechaPreferida: hoy() });
+    const pedido = await solicitar({ bandaId: t.banda.id, medida: '11R22.5', cantidad: 1, lugar: 'Local', fechaPreferida: manana() });
     assert.equal(pedido.estado, 422);
     await e.api(`/bandas/${t.banda.id}/estado`, { metodo: 'PATCH', token: t.admin, cuerpo: { activo: true } });
   });

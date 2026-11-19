@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Ban, ClipboardCheck, Eye, HandCoins, Pencil, Save, Trash2, Wrench } from 'lucide-react';
-import BotonAccion from '../../../components/base/BotonAccion';
-import { usePrivilegio } from '../../../hooks/usePrivilegio';
-import MotivoModal from '../../../components/base/MotivoModal';
+import BotonAccion from '../../../../components/base/BotonAccion';
+import { usePrivilegio } from '../../../../hooks/usePrivilegio';
+import MotivoModal from '../../../../components/base/MotivoModal';
 import RevisionCarcasaModal from './RevisionCarcasaModal';
 import DetalleSolicitudServicioModal from './DetalleSolicitudServicioModal';
-import AvisoError from '../../../components/base/AvisoError';
-import Badge from '../../../components/base/Badge';
-import StatusSelect from '../../../components/base/StatusSelect';
-import { BORDER_OK, INPUT, formatoMiles } from '../../../components/base/formStyles';
-import { estadosServicio, FLUJO_ESTADOS_SERVICIO, GANANCIA_SUGERIDA, ventaSugerida } from '../../../constantes';
-import { parseCOP } from '../../../utils/formato';
+import AvisoError from '../../../../components/base/AvisoError';
+import Badge from '../../../../components/base/Badge';
+import StatusSelect from '../../../../components/base/StatusSelect';
+import { BORDER_OK, INPUT, formatoMiles } from '../../../../components/base/formStyles';
+import { estadosServicio, FLUJO_ESTADOS_SERVICIO, GANANCIA_SUGERIDA, ventaSugerida } from '../../../../constantes';
+import { parseCOP } from '../../../../utils/formato';
 import { TONO_PAGO } from './tonosPago';
 
 /**

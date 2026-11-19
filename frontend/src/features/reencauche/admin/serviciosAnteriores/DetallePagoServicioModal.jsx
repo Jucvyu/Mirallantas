@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Check, HandCoins, ReceiptText, X } from 'lucide-react';
-import AvisoError from '../../../components/base/AvisoError';
-import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../../components/base/Detalle';
-import Modal from '../../../components/base/Modal';
-import { BORDER_OK, INPUT } from '../../../components/base/formStyles';
-import { useEnvio } from '../../../hooks/useEnvio';
-import { solicitudesServicioService } from '../../../services';
+import AvisoError from '../../../../components/base/AvisoError';
+import { DetalleAviso, DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../../../../components/base/Detalle';
+import Modal from '../../../../components/base/Modal';
+import { BORDER_OK, INPUT } from '../../../../components/base/formStyles';
+import { useEnvio } from '../../../../hooks/useEnvio';
+import { solicitudesServicioService } from '../../../../services';
 import { TONO_PAGO } from './tonosPago';
-import { MAX_TEXTO } from '../../../utils/validaciones';
+import { MAX_TEXTO } from '../../../../utils/validaciones';
 
 /**
  * Pago de un servicio de reencauche (módulo Solicitudes de servicio).

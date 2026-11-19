@@ -13,12 +13,13 @@ import { levantarEntorno } from './entorno.js';
 let e;
 const t = {};
 const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+const manana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(Date.now() + 86_400_000));
 
 const post = (ruta, cuerpo, token = t.admin) => e.api(ruta, { metodo: 'POST', token, cuerpo });
 
 /** Una llanta reencauchada "Lista para entregar" → la orden. */
 async function llantaLista() {
-  const r = await post('/portal/reencauches', { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 1, lugar: 'Local', fechaPreferida: hoy() }, t.luis);
+  const r = await post('/portal/reencauches', { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 1, lugar: 'Local', fechaPreferida: manana() }, t.luis);
   const numero = r.cuerpo.datos.numero;
   await post(`/reencauches/${numero}/agenda`, { fechaRevision: hoy() });
   await post(`/reencauches/${numero}/revision`, {

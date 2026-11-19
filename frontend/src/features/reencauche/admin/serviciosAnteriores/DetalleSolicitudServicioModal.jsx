@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ClipboardCheck, ExternalLink, Wrench } from 'lucide-react';
-import Badge from '../../../components/base/Badge';
-import Modal from '../../../components/base/Modal';
+import Badge from '../../../../components/base/Badge';
+import Modal from '../../../../components/base/Modal';
 
 /**
  * Detalle de una solicitud de reencauche para el personal: las fotos de la

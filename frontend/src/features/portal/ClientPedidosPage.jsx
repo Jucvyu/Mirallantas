@@ -101,6 +101,58 @@ function SinDato() {
   return <span className="text-xs text-slate-400 dark:text-slate-500">—</span>;
 }
 
+/** Cuántas líneas se ven en la tarjeta; el resto queda en "Ver detalle completo". */
+const LINEAS_VISIBLES = 4;
+
+/**
+ * Llantas (y servicios) de la cotización dentro de su tarjeta: nombre,
+ * medida y cantidad y, cuando ya tiene precios, el valor unitario y el
+ * subtotal. Mientras es solicitud, el precio dice "Por confirmar".
+ */
+function LineasDeCotizacion({ cotizacion: c }) {
+  const conPrecio = c.etapa !== 'Solicitud';
+  const visibles = c.detalle.slice(0, LINEAS_VISIBLES);
+  const ocultas = c.detalle.length - visibles.length;
+  return (
+    <div className="mt-3">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <Package size={12} /> {c.items} {c.items === 1 ? 'llanta' : 'llantas'}
+      </p>
+      <ul className="mt-1.5 divide-y divide-slate-200/70 rounded-lg border border-slate-200/80 bg-white/50 dark:divide-white/5 dark:border-white/10 dark:bg-white/[0.02]">
+        {visibles.map((l, i) => (
+          <li key={l.lineaId ?? i} className="flex items-start justify-between gap-3 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-100" title={l.nombre}>
+                {l.nombre}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {[l.medida, `${l.cantidad} und.`, l.codigo].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              {conPrecio && l.precioUnitarioValor > 0 ? (
+                <>
+                  <p className="text-xs font-bold tabular-nums text-slate-900 dark:text-white">{l.subtotal}</p>
+                  <p className="text-[10px] tabular-nums text-slate-500 dark:text-slate-400">{l.unitario} c/u</p>
+                </>
+              ) : (
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                  {l.tipo === 'servicio' ? 'En el servicio' : 'Por confirmar'}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {ocultas > 0 && (
+        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+          y {ocultas} {ocultas === 1 ? 'línea más' : 'líneas más'} en el detalle completo
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function ClientPedidosPage() {
   const { usuario } = useAuth();
   const nombre = usuario.nombre;
@@ -281,10 +333,11 @@ export default function ClientPedidosPage() {
                 </p>
               </div>
 
+              {/* ---- Qué pidió: cada llanta con su medida, cantidad y precio,
+                   sin tener que abrir el detalle ---- */}
+              <LineasDeCotizacion cotizacion={c} />
+
               <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <Package size={13} /> {c.items} {c.items === 1 ? 'llanta' : 'llantas'}
-              </p>
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <CreditCard size={13} /> {c.metodoPago || 'Se elige al aceptar la cotización'}
               </p>
               {/* Una sola línea (la dirección completa queda en el título) */}
@@ -293,7 +346,9 @@ export default function ClientPedidosPage() {
                 className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
               >
                 <MapPin size={13} className="shrink-0" />
-                <span className="truncate">{c.direccionEntrega || 'Sin dirección'}</span>
+                <span className="truncate">
+                  {c.modoEntrega === 'Recoge' ? 'Recoges en nuestro local' : c.direccionEntrega || 'Sin dirección'}
+                </span>
               </p>
 
               <div className="mt-4 flex items-end justify-between border-t border-slate-200/70 pt-4 dark:border-white/5">

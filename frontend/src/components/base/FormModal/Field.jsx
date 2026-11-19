@@ -50,6 +50,8 @@ function toList(value) {
  *   de un producto, que no cambia una vez asignado)
  *   type: text | email | tel | number | password | date | money | textarea |
  *         select | buscador | checkboxes | etiquetas | image | avatar | color | switch | pdf
+ *   desactivado (lo pone FormModal con `deshabilitadoSi`): se ve apagado, sin
+ *   valor y con su explicación debajo
  *   date: por defecto no admite fechas posteriores a hoy; con `futura: true`
  *   es al revés (de hoy en adelante), p. ej. para agendar una revisión
  *   etiquetas: lista corta escrita a mano (medidas compatibles); con
@@ -133,7 +135,11 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     if (type === 'documento') return onChange(key, bruto.replace(/[^0-9A-Za-z-]/g, '').toUpperCase().slice(0, 15));
     // Las fechas que registran algo ya pasado no pueden ser posteriores a hoy
     // (tampoco si se escriben a mano); las que agendan algo, anteriores
-    if (type === 'date' && field.futura) return onChange(key, bruto && bruto < hoyISO() ? hoyISO() : bruto);
+    // `minimo` (AAAA-MM-DD) sube el límite inferior, p. ej. desde mañana
+    if (type === 'date' && field.futura) {
+      const desde = field.minimo ?? hoyISO();
+      return onChange(key, bruto && bruto < desde ? desde : bruto);
+    }
     if (type === 'date') return onChange(key, bruto > hoyISO() ? hoyISO() : bruto);
     return onChange(key, bruto);
   };
@@ -157,6 +163,31 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
 
   // Dato que no se puede cambiar en este formulario: se lee como texto y no
   // se disfraza de campo editable
+  // Campo que no aplica con los valores actuales (p. ej. la dirección cuando
+  // la revisión es en el local): apagado, sin valor y con su explicación
+  if (mode !== 'view' && field.desactivado) {
+    return (
+      <div className={field.span === 2 ? 'sm:col-span-2' : ''}>
+        <label htmlFor={id} className={`${LABEL} opacity-60`}>
+          {label}
+        </label>
+        <input
+          id={id}
+          disabled
+          value=""
+          placeholder={field.placeholderDesactivado ?? 'No aplica'}
+          aria-describedby={hint ? `${id}-ayuda` : undefined}
+          className={`${INPUT} ${BORDER_OK} cursor-not-allowed opacity-50`}
+        />
+        {hint && (
+          <p id={`${id}-ayuda`} className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {hint}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (mode !== 'view' && field.soloLectura && !TIPOS_CON_VISTA_PROPIA.includes(type)) {
     const texto = options.find((o) => o?.valor === value)?.etiqueta ?? value;
     return (
@@ -514,7 +545,7 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
             maxLength={['money', 'number', 'date'].includes(type) ? undefined : maximoDe(field)}
             inputMode={esNumerico ? 'numeric' : undefined}
             max={type === 'date' && !field.futura ? hoyISO() : undefined}
-            min={type === 'date' && field.futura ? hoyISO() : undefined}
+            min={type === 'date' && field.futura ? (field.minimo ?? hoyISO()) : undefined}
             readOnly={readOnly}
             value={value ?? ''}
             placeholder={placeholder}

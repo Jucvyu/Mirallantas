@@ -14,7 +14,13 @@ const VENTA = {
     co.numero AS cotizacion,
     cr.numero AS credito,
     v.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
-    v.tercero_id AS "terceroId", te.nombre_razon_social AS tercero`,
+    v.tercero_id AS "terceroId", te.nombre_razon_social AS tercero,
+    -- Lo vendido, lo cobrado y lo que falta. De contado coinciden; a crédito
+    -- la venta vale lo cobrado (abonos confirmados) y el resto es el saldo
+    -- del crédito, hasta completar el monto pactado.
+    COALESCE(cr.monto_total, v.total) AS "totalVendido",
+    v.total AS cobrado,
+    COALESCE(cr.saldo_pendiente, 0) AS saldo`,
   desde: `
     FROM venta v
     JOIN cliente cl ON cl.id = v.cliente_id

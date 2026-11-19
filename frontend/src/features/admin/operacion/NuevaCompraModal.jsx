@@ -15,7 +15,7 @@ import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { comprasService, productosService } from '../../../services';
 import { formatCOP as pesos, parseCOP, fechaISO } from '../../../utils/formato';
-import SelectorCotizaciones from '../shared/SelectorCotizaciones';
+import SelectorCotizaciones from './SelectorCotizaciones';
 import ProductoAdicionalModal from './ProductoAdicionalModal';
 
 /**

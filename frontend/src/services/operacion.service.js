@@ -127,13 +127,17 @@ export const cotizacionesService = {
    * va aquí: se pide en su propia pantalla.
    *   datos: { direccion, productos, claveIdempotencia }
    */
-  crearDesdePortal({ direccion, productos, claveIdempotencia }) {
+  crearDesdePortal({ modoEntrega = 'Despacho', direccion, telefono, fechaRequerida, observaciones, productos, claveIdempotencia }) {
     return api('/cotizaciones', {
       // Si el envío se repite, la API devuelve la misma solicitud
       cabecerasExtra: conClave(claveIdempotencia),
       metodo: 'POST',
       cuerpo: {
-        direccionEntrega: direccion,
+        modoEntrega,
+        direccionEntrega: modoEntrega === 'Recoge' ? null : direccion,
+        telefonoContacto: telefono ?? null,
+        fechaRequerida: fechaRequerida ?? null,
+        observaciones: observaciones ?? null,
         lineas: productos.map((p) => ({ tipo: 'producto', productoId: p.id, cantidad: p.cantidad })),
       },
     });

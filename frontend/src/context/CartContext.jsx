@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext(null);
 
@@ -24,10 +25,43 @@ const acotar = (n, maximo = CANTIDAD_MAXIMA) => Math.min(maximo, Math.max(1, Mat
  * que ya está en el carro suma cantidad en vez de repetirse.
  *
  * Vive en el ClientLayout, así que sobrevive mientras el cliente navega
- * entre el catálogo y el resto del portal.
+ * entre el catálogo y el resto del portal. Además se guarda en el navegador
+ * (por usuario), así no se pierde al recargar la página ni al volver otro
+ * día; si el navegador no deja guardar, sigue funcionando en memoria.
  */
+const claveDe = (usuarioId) => `mirallantas.carro.${usuarioId}`;
+
+/** Productos guardados del usuario, o [] si no hay o no se pueden leer. */
+function leerGuardado(usuarioId) {
+  if (!usuarioId) return [];
+  try {
+    const lista = JSON.parse(localStorage.getItem(claveDe(usuarioId)) ?? '[]');
+    return Array.isArray(lista) ? lista.filter((p) => p && p.id && p.cantidad > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }) {
-  const [productos, setProductos] = useState([]);
+  const usuarioId = useAuth().usuario?.id ?? null;
+  const [productos, setProductos] = useState(() => leerGuardado(usuarioId));
+  // Si cambia el usuario (otra sesión en el mismo navegador), se carga su carro
+  const [duenio, setDuenio] = useState(usuarioId);
+  if (duenio !== usuarioId) {
+    setDuenio(usuarioId);
+    setProductos(leerGuardado(usuarioId));
+  }
+
+  // Cada cambio del carro se guarda
+  useEffect(() => {
+    if (!usuarioId) return;
+    try {
+      if (productos.length) localStorage.setItem(claveDe(usuarioId), JSON.stringify(productos));
+      else localStorage.removeItem(claveDe(usuarioId));
+    } catch {
+      // Navegador sin almacenamiento (modo privado estricto): queda en memoria
+    }
+  }, [productos, usuarioId]);
   const [servicios, setServicios] = useState([]);
 
   const addProducto = useCallback((producto, cantidad = 1) => {
@@ -46,6 +80,13 @@ export function CartProvider({ children }) {
           medidas: producto.medidas,
           categoria: producto.categoria,
           foto: producto.foto,
+          // Para que el carro muestre de qué variante se trata
+          modeloId: producto.modeloId ?? null,
+          posicion: producto.posicion ?? '',
+          indiceCarga: producto.indiceCarga ?? '',
+          tipoVehiculo: producto.tipoVehiculo ?? '',
+          descripcion: producto.reencauchada ? producto.descripcion ?? '' : '',
+          precioFijo: producto.reencauchada ? producto.precioVentaValor ?? null : null,
           reencauchada: Boolean(producto.reencauchada),
           maximo: maximoDe(producto),
           cantidad: acotar(cantidad, maximoDe(producto)),

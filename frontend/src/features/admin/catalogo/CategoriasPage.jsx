@@ -5,7 +5,7 @@ import DataTable from '../../../components/base/DataTable';
 import { estadosActivo } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { categoriasService, productosService } from '../../../services';
-import { CAMPOS_OCULTABLES, ocultosATexto, textoAOcultos } from '../productos/camposProducto';
+import { CAMPOS_OCULTABLES, ocultosATexto, textoAOcultos } from './camposProducto';
 
 /** Las casillas guardan etiquetas; la API, las claves de los datos. */
 const conOcultos = (valores) => ({ ...valores, camposOcultosClaves: textoAOcultos(valores.camposOcultosTexto) });

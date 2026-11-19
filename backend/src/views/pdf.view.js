@@ -251,7 +251,8 @@ export function enviarPdfCotizacion(res, { empresa, cotizacion, cliente, lineas 
     `A crédito se paga una cuota inicial de al menos el ${CUOTA_INICIAL_PORCENTAJE} % del total; el saldo se financia con el interés del plazo elegido.`,
   ];
   if (servicios > 0) condiciones.push('Los servicios de reencauche se facturan y pagan aparte de las llantas.');
-  if (cotizacion.direccionEntrega) condiciones.push(`Despacho a: ${cotizacion.direccionEntrega}.`);
+  if (cotizacion.modoEntrega === 'Recoge') condiciones.push('El cliente recoge el pedido en nuestro local.');
+  else if (cotizacion.direccionEntrega) condiciones.push(`Despacho a: ${cotizacion.direccionEntrega}.`);
   nota(doc, 'Condiciones comerciales', condiciones);
 
   pie(doc, 'Documento generado por MiraLlantas. No es una factura electrónica');

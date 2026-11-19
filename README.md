@@ -531,8 +531,23 @@ demasiados intentos). Un Administrador sin doble factor recibe 403 con `"codigo"
     │   ├── context/                 (sesión, portal, crédito, carrito, tema)
     │   ├── components/
     │   │   ├── base/                (DataTable, FormModal, Modal, RutaProtegida…)
+    │   │   ├── estado/              (avisos de conexión y errores inesperados)
     │   │   └── layout/              (panel y portal)
-    │   ├── features/                (una carpeta por pantalla)
+    │   ├── features/                (pantallas, agrupadas como el menú)
+    │   │   ├── admin/
+    │   │   │   ├── dashboard/       (tablero)
+    │   │   │   ├── configuracion/   (roles y usuarios)
+    │   │   │   ├── catalogo/        (productos con sus medidas, categorías y marcas)
+    │   │   │   ├── contactos/       (proveedores y terceros)
+    │   │   │   ├── operacion/       (pedidos-cotización, ventas y compras)
+    │   │   │   └── cartera/         (créditos, solicitudes de crédito y abonos)
+    │   │   ├── reencauche/          (revisiones, órdenes y bandas; admin/ y portal/)
+    │   │   │   └── admin/serviciosAnteriores/  (flujo anterior de reencauche)
+    │   │   ├── portal/              (catálogo, carro, cotizaciones y cartera del cliente)
+    │   │   ├── landing/             (página pública y catálogo público)
+    │   │   ├── auth/                (inicio de sesión, recuperación, errores de acceso)
+    │   │   ├── legal/               (licencias)
+    │   │   └── shared/              (lo que usan el panel y el portal: detalle de producto, comprobantes…)
     │   ├── constantes.js, permisos.js
     │   └── App.jsx                  (rutas)
     ├── public/, index.html

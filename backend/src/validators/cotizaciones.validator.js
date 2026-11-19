@@ -9,10 +9,29 @@ import {
   metodoPago,
   objetoEstricto,
   pesosPositivos,
+  hoyNegocio,
+  telefono,
   texto,
   textoExplicado,
   textoExplicadoOpcional,
+  textoOpcional,
 } from './comunes.validator.js';
+
+/** Cómo recibe el cliente el pedido: se le despacha o lo recoge en el local. */
+export const MODOS_ENTREGA = ['Despacho', 'Recoge'];
+
+/** Días desde hoy (zona del negocio) hasta una fecha AAAA-MM-DD. */
+const diasHasta = (valor) => (Date.parse(`${valor}T00:00:00Z`) - Date.parse(`${hoyNegocio()}T00:00:00Z`)) / 86_400_000;
+
+/** Para cuándo necesita el cliente las llantas: de hoy en adelante, hasta 6 meses. */
+const fechaRequerida = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD.')
+  .refine((v) => diasHasta(v) >= 0, { error: 'La fecha no puede ser anterior a hoy.' })
+  .refine((v) => diasHasta(v) <= 183, { error: 'Elige una fecha dentro de los próximos 6 meses.' });
+
+/** Vacío o null → null (campos opcionales que llegan de un formulario). */
+const opcional = (esquema) => z.preprocess((v) => (v === '' ? null : v), esquema.nullable()).optional();
 
 /** POST /portal/cotizaciones/:numero/cancelar — el motivo es obligatorio. */
 export const esquemaCancelacionCliente = z.object({
@@ -50,12 +69,21 @@ export const esquemaNueva = z.object({
   // El asesor elige el cliente; para el portal es el cliente en sesión
   clienteId: idRelacion.optional(),
   proveedorId: idRelacion.nullable().optional(),
-  direccionEntrega: texto(80),
+  // Despacho a una dirección (la de siempre) o recoge en el local (sin dirección)
+  modoEntrega: z.enum(MODOS_ENTREGA, { error: 'Elige si te lo despachamos o lo recoges.' }).default('Despacho'),
+  direccionEntrega: textoOpcional(80),
+  telefonoContacto: opcional(telefono),
+  fechaRequerida: opcional(fechaRequerida),
+  observaciones: textoOpcional(300),
   lineas: z
     // Solo llantas: el reencauche ya no va en la cotización, se pide en
     // Reencauche (revisión gratis y órdenes por llanta)
     .array(lineaSoloLlanta, { error: 'Agrega al menos una llanta.' })
     .min(1, 'Agrega al menos una llanta.'),
+}).superRefine((d, ctx) => {
+  if (d.modoEntrega === 'Despacho' && !d.direccionEntrega) {
+    ctx.addIssue({ code: 'custom', path: ['direccionEntrega'], message: 'Escribe a dónde te despachamos el pedido.' });
+  }
 });
 
 /** Un proveedor dentro del reparto de una llanta: su cantidad y su precio de compra. */

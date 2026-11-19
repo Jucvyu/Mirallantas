@@ -13,6 +13,8 @@ export async function cotizaciones(clienteId) {
     `SELECT c.id, c.numero, c.fecha, c.metodo_pago AS "metodoPago", c.plazo_dias AS "plazoDias",
             c.subtotal, c.interes, c.total, c.cuota_inicial AS "cuotaInicial", c.confirmado,
             c.estado, c.estado_entrega AS "estadoEntrega", c.direccion_entrega AS "direccionEntrega",
+            c.modo_entrega AS "modoEntrega", c.telefono_contacto AS "telefonoContacto",
+            c.fecha_requerida AS "fechaRequerida", c.observaciones,
             c.motivo_cancelacion AS "motivoCancelacion", ${CAMPOS_ETAPA},
             (SELECT v.numero FROM venta v WHERE v.cotizacion_id = c.id) AS venta,
             ${SUBCONSULTA_ESTADO} AS "pagoEstado",
