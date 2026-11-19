@@ -38,6 +38,15 @@ const fechaRevision = z
     error: `La revisión se agenda con máximo ${DIAS_MAXIMOS_REVISION} días de anticipación.`,
   });
 
+/**
+ * Fecha que prefiere el cliente del portal: desde mañana. La revisión se
+ * agenda con al menos un día de margen para llamarlo y organizarla (el
+ * asesor, en el local, sí puede registrarla para hoy).
+ */
+const fechaPreferidaPortal = fechaRevision.refine((valor) => diasDesdeHoy(valor) >= 1, {
+  error: 'Elige una fecha desde mañana: necesitamos un día para agendar la revisión.',
+});
+
 const llantas = z.coerce
   .number()
   .int('La cantidad de llantas debe ser un número entero.')
@@ -97,8 +106,10 @@ const conDireccion = (datos, ctx) => {
   }
 };
 
-/** POST /portal/reencauches — lo pide el cliente desde el portal. */
-export const esquemaSolicitudPortal = z.object(camposSolicitud).superRefine(conDireccion);
+/** POST /portal/reencauches — lo pide el cliente desde el portal (la fecha, desde mañana). */
+export const esquemaSolicitudPortal = z
+  .object({ ...camposSolicitud, fechaPreferida: fechaPreferidaPortal })
+  .superRefine(conDireccion);
 
 /** POST /reencauches — lo registra el asesor para un cliente. */
 export const esquemaSolicitudPersonal = z

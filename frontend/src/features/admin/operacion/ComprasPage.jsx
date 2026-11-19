@@ -7,7 +7,7 @@ import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import { estadosCompra, estadosEntrega, FLUJO_ESTADOS_COMPRA } from '../../../constantes';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { comprasService } from '../../../services';
-import EstadoEntrega from '../shared/EstadoEntrega';
+import EstadoEntrega from './EstadoEntrega';
 import NuevaCompraModal from './NuevaCompraModal';
 
 // Tabla `compra` (+ `compra_detalle`). Cada compra abastece las llantas de

@@ -348,6 +348,13 @@ export const ventaDesdeApi = (f) => ({
   total: formatCOP(f.total),
   interes: formatCOP(f.interes),
   cuotaInicial: formatCOP(f.cuotaInicial),
+  // Vendido, cobrado y saldo (a crédito difieren; de contado coinciden)
+  totalVendidoValor: f.totalVendido ?? f.total ?? 0,
+  cobradoValor: f.cobrado ?? f.total ?? 0,
+  saldoValor: f.saldo ?? 0,
+  totalVendido: formatCOP(f.totalVendido ?? f.total),
+  cobrado: formatCOP(f.cobrado ?? f.total),
+  saldo: formatCOP(f.saldo ?? 0),
   cotizacion: f.cotizacion ?? '',
   proveedor: f.proveedor ?? '',
   tercero: f.tercero ?? '',

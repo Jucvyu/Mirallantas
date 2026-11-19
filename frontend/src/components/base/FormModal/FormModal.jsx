@@ -36,6 +36,9 @@ const MODE_META = {
  * sections: [{ title, fields: [ ...ver Field.jsx ] }]
  * Campo con `soloSi: (values) => boolean`: solo aparece (y se valida) cuando
  *   la función devuelve true.
+ * Campo con `deshabilitadoSi: (values) => texto`: si devuelve un texto, el
+ *   campo se ve desactivado (sin valor, con ese texto como explicación) y no
+ *   se valida; p. ej. la dirección cuando la revisión es en el local.
  * mode: 'create' | 'edit' | 'view' (en "view" los datos se leen como texto,
  *   ver VistaDetalle). `resumen` = { titulo, estado } encabeza el detalle y la
  *   edición, para saber qué registro se está viendo o cambiando
@@ -95,9 +98,15 @@ export default function FormModal({
   // (p. ej. el precio fijo, que solo lo lleva la llanta reencauchada)
   const visible = (f) => !f.soloSi || f.soloSi(values);
 
+  /** El campo tal como se ve con estos valores: desactivado si `deshabilitadoSi` lo pide. */
+  const efectivo = (f) => {
+    const motivo = f.deshabilitadoSi?.(values);
+    return motivo ? { ...f, soloLectura: true, hint: motivo, desactivado: true } : f;
+  };
+
   // Un campo de solo lectura no se le pide al usuario, aunque sea obligatorio
   const camposEditables =
-    mode === 'view' ? [] : sections.flatMap((s) => s.fields.filter((f) => !f.soloLectura && visible(f)));
+    mode === 'view' ? [] : sections.flatMap((s) => s.fields.map(efectivo).filter((f) => !f.soloLectura && visible(f)));
 
   /** Todos los errores del formulario con estos valores. */
   const erroresDe = (vals) => {
@@ -236,12 +245,13 @@ export default function FormModal({
                 <h4 className="mb-4 text-sm font-semibold text-slate-800 dark:text-slate-100">{section.title}</h4>
               )}
               <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                {campos.map((field) => (
+                {campos.map(efectivo).map((field) => (
                   <Field
                     key={field.key}
                     field={field}
-                    value={values[field.key]}
-                    error={errors[field.key]}
+                    // Un campo desactivado no muestra valor: no aplica en este caso
+                    value={field.desactivado ? '' : values[field.key]}
+                    error={field.desactivado ? undefined : errors[field.key]}
                     onChange={handleChange}
                     onBlur={tocar}
                     mode="edit"

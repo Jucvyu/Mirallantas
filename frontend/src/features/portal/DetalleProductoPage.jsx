@@ -25,7 +25,7 @@ export default function DetalleProductoPage() {
     const maximo = maximoDe(r);
     const enCarro = cart.productos.find((x) => x.id === r.id);
     const verCarro = (
-      <Link to="/portal/catalogo" state={{ abrirCarro: true }} className="font-bold text-amber-700 hover:underline dark:text-amber-400">
+      <Link to="/portal/carro" className="font-bold text-amber-700 hover:underline dark:text-amber-400">
         Ver mi carro
       </Link>
     );

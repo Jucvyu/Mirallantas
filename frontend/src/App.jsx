@@ -16,27 +16,27 @@ import LimiteDeErrores from './components/estado/LimiteDeErrores';
 // vez (así la página de inicio y el login cargan mucho más rápido).
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout'));
 const DashboardPage = lazy(() => import('./features/admin/dashboard/DashboardPage'));
-const RolesPage = lazy(() => import('./features/admin/roles/RolesPage'));
-const UsuariosPage = lazy(() => import('./features/admin/usuarios/UsuariosPage'));
-const ProveedoresPage = lazy(() => import('./features/admin/proveedores/ProveedoresPage'));
-const TercerosPage = lazy(() => import('./features/admin/terceros/TercerosPage'));
-const ProductosPage = lazy(() => import('./features/admin/generic/ProductosPage'));
-const ProductoAdminPage = lazy(() => import('./features/admin/productos/ProductoAdminPage'));
-const CategoriasPage = lazy(() => import('./features/admin/generic/CategoriasPage'));
-const MarcasPage = lazy(() => import('./features/admin/generic/MarcasPage'));
-const PedidosCotizacionPage = lazy(() => import('./features/admin/generic/PedidosCotizacionPage'));
-const VentasPage = lazy(() => import('./features/admin/generic/VentasPage'));
-const ComprasPage = lazy(() => import('./features/admin/generic/ComprasPage'));
-const SolicitudesServicioPage = lazy(() => import('./features/admin/generic/SolicitudesServicioPage'));
+const RolesPage = lazy(() => import('./features/admin/configuracion/RolesPage'));
+const UsuariosPage = lazy(() => import('./features/admin/configuracion/UsuariosPage'));
+const ProveedoresPage = lazy(() => import('./features/admin/contactos/ProveedoresPage'));
+const TercerosPage = lazy(() => import('./features/admin/contactos/TercerosPage'));
+const ProductosPage = lazy(() => import('./features/admin/catalogo/ProductosPage'));
+const ProductoAdminPage = lazy(() => import('./features/admin/catalogo/ProductoAdminPage'));
+const CategoriasPage = lazy(() => import('./features/admin/catalogo/CategoriasPage'));
+const MarcasPage = lazy(() => import('./features/admin/catalogo/MarcasPage'));
+const PedidosCotizacionPage = lazy(() => import('./features/admin/operacion/PedidosCotizacionPage'));
+const VentasPage = lazy(() => import('./features/admin/operacion/VentasPage'));
+const ComprasPage = lazy(() => import('./features/admin/operacion/ComprasPage'));
+const SolicitudesServicioPage = lazy(() => import('./features/reencauche/admin/serviciosAnteriores/SolicitudesServicioPage'));
 // Reencauche por banda
 const BandasPage = lazy(() => import('./features/reencauche/admin/BandasPage'));
 const RevisionesPage = lazy(() => import('./features/reencauche/admin/RevisionesPage'));
 const ReencaucheDetallePage = lazy(() => import('./features/reencauche/admin/ReencaucheDetallePage'));
 const OrdenesReencauchePage = lazy(() => import('./features/reencauche/admin/OrdenesReencauchePage'));
 const ReencauchePortalPage = lazy(() => import('./features/reencauche/portal/ReencauchePortalPage'));
-const CreditosPage = lazy(() => import('./features/admin/generic/CreditosPage'));
-const SolicitudesCreditoPage = lazy(() => import('./features/admin/generic/SolicitudesCreditoPage'));
-const AbonosPage = lazy(() => import('./features/admin/generic/AbonosPage'));
+const CreditosPage = lazy(() => import('./features/admin/cartera/CreditosPage'));
+const SolicitudesCreditoPage = lazy(() => import('./features/admin/cartera/SolicitudesCreditoPage'));
+const AbonosPage = lazy(() => import('./features/admin/cartera/AbonosPage'));
 const ClientLayout = lazy(() => import('./components/layout/ClientLayout'));
 const ClientHomePage = lazy(() => import('./features/portal/ClientHomePage'));
 const CatalogoPage = lazy(() => import('./features/portal/CatalogoPage'));
@@ -45,6 +45,7 @@ const LicenciasPage = lazy(() => import('./features/legal/LicenciasPage'));
 const LicenciasPanelPage = lazy(() => import('./features/legal/LicenciasPanelPage'));
 const DetalleProductoPublicoPage = lazy(() => import('./features/landing/DetalleProductoPublicoPage'));
 const DetalleProductoPage = lazy(() => import('./features/portal/DetalleProductoPage'));
+const CarroPage = lazy(() => import('./features/portal/CarroPage'));
 const ClientPedidosPage = lazy(() => import('./features/portal/ClientPedidosPage'));
 const CarteraPage = lazy(() => import('./features/portal/CarteraPage'));
 
@@ -135,6 +136,7 @@ export default function App() {
               <Route path="catalogo" element={<ConPermiso modulo="Catálogo (portal)"><CatalogoPage /></ConPermiso>} />
               <Route path="catalogo/:modeloId" element={<ConPermiso modulo="Catálogo (portal)"><DetalleProductoPage /></ConPermiso>} />
               <Route path="catalogo/unidad/:productoId" element={<ConPermiso modulo="Catálogo (portal)"><DetalleProductoPage /></ConPermiso>} />
+              <Route path="carro" element={<ConPermiso modulo="Catálogo (portal)"><CarroPage /></ConPermiso>} />
               <Route path="pedidos" element={<ConPermiso modulo="Mis cotizaciones"><ClientPedidosPage /></ConPermiso>} />
               <Route path="cartera" element={<ConPermiso modulo="Mi cartera"><CarteraPage /></ConPermiso>} />
               <Route path="reencauche" element={<ConPermiso modulo="Mis reencauches"><ReencauchePortalPage /></ConPermiso>} />

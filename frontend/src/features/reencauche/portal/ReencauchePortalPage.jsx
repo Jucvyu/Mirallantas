@@ -42,15 +42,29 @@ function PedirModal({ banda, medidaSugerida, direccion, onPedir, onClose }) {
       ],
     },
     {
-      title: 'Revisión gratis',
+      title: 'Aprobación de revisión',
       fields: [
         { key: 'lugar', label: 'Dónde las revisamos', type: 'select', required: true, options: [LUGAR_LOCAL, LUGAR_MI_DIRECCION] },
-        { key: 'fechaPreferida', label: 'Fecha que prefieres', type: 'date', futura: true, required: true },
+        {
+          key: 'fechaPreferida',
+          label: 'Fecha que prefieres',
+          type: 'date',
+          futura: true,
+          // Desde mañana: necesitamos un día para llamarte y agendarla
+          minimo: manana(),
+          required: true,
+          hint: 'Desde mañana. Te llamamos para confirmarla.',
+          validar: (v) => (v && v < manana() ? 'Elige una fecha desde mañana' : ''),
+        },
         {
           key: 'direccion',
           label: 'Tu dirección',
           span: 2,
-          placeholder: 'Solo si la revisión es en tu dirección',
+          placeholder: 'Dónde revisamos tus llantas',
+          // En el local no hace falta dirección: el campo se apaga
+          deshabilitadoSi: (valores) =>
+            valores.lugar === LUGAR_LOCAL ? 'No hace falta: la revisión es en nuestro local.' : '',
+          placeholderDesactivado: 'Revisión en el local',
           validar: (v, valores) =>
             valores.lugar === LUGAR_MI_DIRECCION && !String(v ?? '').trim() ? 'Escribe dónde revisamos las llantas' : '',
         },
@@ -108,7 +122,7 @@ function BandaCard({ banda, onPedir }) {
       </dl>
 
       <div className="mt-3 flex-1">
-        <p className="text-xs text-slate-400 dark:text-slate-500">Para llantas</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">Medidas para llantas</p>
         <div className="mt-1 flex flex-wrap gap-1">
           {banda.medidas.map((m) => (
             <span

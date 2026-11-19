@@ -49,7 +49,7 @@ const columns = [
       </div>
     ),
   },
-  { key: 'medidasTexto', label: 'Para llantas', render: (b) => <Medidas lista={b.medidas} /> },
+  { key: 'medidasTexto', label: 'Medidas para llantas', render: (b) => <Medidas lista={b.medidas} /> },
   { key: 'precio', label: 'Precio banda', render: (b) => <span className="tabular-nums">$ {b.precio}</span> },
   { key: 'estado', label: 'Estado' },
 ];

@@ -117,7 +117,13 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
             !esCotizacion && { etiqueta: 'Tercero', valor: cotizacion.tercero },
             !esCotizacion && cotizacion.metodoPago === 'Crédito' && { etiqueta: 'Interés', valor: cotizacion.interes },
             !esCotizacion && cotizacion.metodoPago === 'Crédito' && { etiqueta: 'Cuota inicial', valor: cotizacion.cuotaInicial },
-            (esCotizacion || cotizacion.direccionEntrega) && { etiqueta: 'Dirección de despacho', valor: cotizacion.direccionEntrega, ancho: true },
+            // Cómo la recibe el cliente y lo que dejó en su solicitud
+            esCotizacion && cotizacion.modoEntrega === 'Recoge'
+              ? { etiqueta: 'Entrega', valor: 'Recoge en el local', ancho: true }
+              : (esCotizacion || cotizacion.direccionEntrega) && { etiqueta: 'Dirección de despacho', valor: cotizacion.direccionEntrega, ancho: true },
+            esCotizacion && cotizacion.telefonoContacto && { etiqueta: 'Teléfono de contacto', valor: cotizacion.telefonoContacto },
+            esCotizacion && cotizacion.fechaRequerida && { etiqueta: 'La necesita para', valor: fechaCorta(cotizacion.fechaRequerida) },
+            esCotizacion && cotizacion.observaciones && { etiqueta: 'Observaciones del cliente', valor: cotizacion.observaciones, ancho: true },
           ]}
         />
 

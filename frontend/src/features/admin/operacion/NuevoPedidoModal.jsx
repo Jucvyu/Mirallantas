@@ -11,7 +11,7 @@ import { useRecurso } from '../../../hooks/useRecurso';
 import { clientesSeleccionablesService } from '../../../services';
 import { opcionesClientes } from '../../../utils/opciones';
 import ResumenCliente from '../../../components/base/ResumenCliente';
-import SelectorProductosModal from '../shared/SelectorProductosModal';
+import SelectorProductosModal from './SelectorProductosModal';
 
 /** Cantidad máxima de una línea (la API también la limita). */
 const CANTIDAD_MAXIMA = 999;

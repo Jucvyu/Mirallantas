@@ -29,6 +29,8 @@ const COTIZACION = {
     c.subtotal, c.interes, c.total, c.cuota_inicial AS "cuotaInicial",
     c.cuota_inicial_medio AS "cuotaInicialMedio", c.confirmado,
     c.estado, c.estado_entrega AS "estadoEntrega", c.direccion_entrega AS "direccionEntrega",
+    c.modo_entrega AS "modoEntrega", c.telefono_contacto AS "telefonoContacto",
+    c.fecha_requerida AS "fechaRequerida", c.observaciones,
     c.motivo_cancelacion AS "motivoCancelacion", ${CAMPOS_ETAPA},
     c.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
     cl.tipo_documento AS "clienteTipoDocumento", cl.numero_documento AS "clienteDocumento",
@@ -196,16 +198,22 @@ export async function fila(db, id) {
 export async function crear(db, c) {
   const { rows } = await db.query(
     `INSERT INTO cotizacion (numero, cliente_id, proveedor_id, metodo_pago, confirmado,
-                             direccion_entrega, clave_idempotencia)
-     VALUES (siguiente_numero('PED'), $1, $2, $3, $4, $5, $6)
+                             direccion_entrega, clave_idempotencia,
+                             modo_entrega, telefono_contacto, fecha_requerida, observaciones)
+     VALUES (siguiente_numero('PED'), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id, numero`,
     [
       c.clienteId,
       c.proveedorId ?? null,
       c.metodoPago ?? null,
       c.confirmado,
-      c.direccionEntrega,
+      // Si lo recoge en el local no hay dirección de despacho
+      c.modoEntrega === 'Recoge' ? null : c.direccionEntrega,
       c.claveIdempotencia ?? null,
+      c.modoEntrega ?? 'Despacho',
+      c.telefonoContacto ?? null,
+      c.fechaRequerida ?? null,
+      c.observaciones ?? null,
     ],
   );
   return rows[0];

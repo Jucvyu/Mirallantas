@@ -16,7 +16,7 @@ import {
   referenciasService,
   tiposVehiculoService,
 } from '../../../services';
-import { camposBasicos } from '../productos/camposProducto';
+import { camposBasicos } from './camposProducto';
 
 // Catálogo por productos (modelos de llanta) y sus medidas.
 //

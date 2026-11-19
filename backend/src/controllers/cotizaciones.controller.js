@@ -209,6 +209,10 @@ export async function crear(req, res) {
       metodoPago: conProductos ? null : 'Contado',
       confirmado: !conProductos,
       direccionEntrega: datos.direccionEntrega,
+      modoEntrega: datos.modoEntrega,
+      telefonoContacto: datos.telefonoContacto,
+      fechaRequerida: datos.fechaRequerida,
+      observaciones: datos.observaciones,
       claveIdempotencia: clave,
     });
 
