@@ -90,14 +90,37 @@ export const esquemaCambioBanda = objetoEstricto(
 
 // ---- Solicitud ----------------------------------------------------------------
 
+/** Una línea de la solicitud: la banda, la medida de esas llantas y cuántas. */
+const itemSolicitud = z.object({ bandaId: idRelacion, medida, cantidad: llantas });
+
+/**
+ * Las líneas pedidas (como un carro). Entre todas, hasta
+ * LLANTAS_POR_REENCAUCHE llantas por solicitud.
+ */
+const items = z
+  .array(itemSolicitud, { error: 'Agrega al menos una banda con sus llantas.' })
+  .min(1, 'Agrega al menos una banda con sus llantas.')
+  .max(10, 'Una solicitud admite hasta 10 bandas distintas.')
+  .refine((lista) => lista.reduce((s, i) => s + i.cantidad, 0) <= LLANTAS_POR_REENCAUCHE, {
+    error: `Cada solicitud admite hasta ${LLANTAS_POR_REENCAUCHE} llantas en total.`,
+  });
+
 const camposSolicitud = {
-  bandaId: idRelacion,
-  medida,
-  cantidad: llantas,
+  items,
   lugar: z.enum(['Local', 'Cliente'], { error: 'Elige dónde revisamos las llantas.' }),
   direccion: textoOpcional(200),
   fechaPreferida: fechaRevision,
   notas: textoOpcional(500),
+};
+
+/**
+ * Admite también la forma de una sola banda ({ bandaId, medida, cantidad }),
+ * que pasa a ser la única línea.
+ */
+const conItems = (datos) => {
+  if (!datos || typeof datos !== 'object' || datos.items !== undefined || datos.bandaId === undefined) return datos;
+  const { bandaId, medida: m, cantidad, ...resto } = datos;
+  return { ...resto, items: [{ bandaId, medida: m, cantidad }] };
 };
 
 const conDireccion = (datos, ctx) => {
@@ -107,14 +130,16 @@ const conDireccion = (datos, ctx) => {
 };
 
 /** POST /portal/reencauches — lo pide el cliente desde el portal (la fecha, desde mañana). */
-export const esquemaSolicitudPortal = z
-  .object({ ...camposSolicitud, fechaPreferida: fechaPreferidaPortal })
-  .superRefine(conDireccion);
+export const esquemaSolicitudPortal = z.preprocess(
+  conItems,
+  z.object({ ...camposSolicitud, fechaPreferida: fechaPreferidaPortal }).superRefine(conDireccion),
+);
 
 /** POST /reencauches — lo registra el asesor para un cliente. */
-export const esquemaSolicitudPersonal = z
-  .object({ clienteId: idRelacion, ...camposSolicitud })
-  .superRefine(conDireccion);
+export const esquemaSolicitudPersonal = z.preprocess(
+  conItems,
+  z.object({ clienteId: idRelacion, ...camposSolicitud }).superRefine(conDireccion),
+);
 
 /** GET /reencauches */
 export const esquemaListadoReencauches = listadoCon(['estado']);
@@ -125,8 +150,10 @@ export const esquemaAgenda = z.object({ fechaRevision });
 /** POST /reencauches/:numero/cancelar (el asesor siempre da el motivo) */
 export const esquemaCancelacion = z.object({ motivo: texto(300) });
 
-/** POST /portal/reencauches/:numero/cancelar (el cliente puede no darlo) */
-export const esquemaCancelacionCliente = z.object({ motivo: textoOpcional(300) });
+/** POST /portal/reencauches/:numero/cancelar (el cliente también da el motivo) */
+export const esquemaCancelacionCliente = z.object({
+  motivo: z.string({ error: 'Cuéntanos por qué cancelas la solicitud.' }).trim().min(3, 'Cuéntanos por qué cancelas la solicitud.').max(300),
+});
 
 /** POST /reencauches/:numero/respuesta y /portal/reencauches/:numero/respuesta */
 export const esquemaRespuesta = z.object({ acepta: z.boolean({ error: 'Indica si se acepta la cotización.' }) });

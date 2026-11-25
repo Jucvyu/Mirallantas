@@ -14,27 +14,25 @@ export { errorPassword };
 /** Texto de ayuda que se muestra bajo el campo de contraseña. */
 export const AYUDA_PASSWORD = 'Mínimo 10 caracteres, con letras y números.';
 
-/** Campo "Contraseña actual" del perfil: confirma los cambios sensibles. */
+/**
+ * Campo "Contraseña actual" del perfil: confirma el cambio de correo.
+ * La contraseña no se cambia desde el perfil: solo si se olvida, con
+ * "¿Olvidaste tu contraseña?" en el inicio de sesión.
+ */
 export const CAMPO_PASSWORD_ACTUAL = {
   key: 'passwordActual',
   label: 'Contraseña actual',
   type: 'password',
   span: 2,
-  placeholder: 'Solo si cambias la contraseña o el correo',
+  placeholder: 'Solo si cambias el correo',
+  hint: '¿Olvidaste tu contraseña? Cámbiala desde el inicio de sesión.',
 };
 
-/**
- * Validación del perfil propio: la contraseña nueva debe ser robusta y,
- * para cambiarla o cambiar el correo, hay que escribir la actual.
- */
+/** Validación del perfil propio: para cambiar el correo hay que escribir la contraseña actual. */
 export const validarPerfil = (perfil) => (valores) => {
   const errores = {};
-  if (valores.password) {
-    const problema = errorPassword(valores.password);
-    if (problema) errores.password = problema;
-  }
   const cambiaCorreo = valores.correo && valores.correo.trim().toLowerCase() !== perfil.correo;
-  if ((valores.password || cambiaCorreo) && !valores.passwordActual) {
+  if (cambiaCorreo && !valores.passwordActual) {
     errores.passwordActual = 'Escribe tu contraseña actual para confirmar el cambio.';
   }
   return errores;

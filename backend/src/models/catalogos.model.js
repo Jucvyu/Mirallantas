@@ -159,7 +159,8 @@ export const clientes = crearModeloCatalogo({
 
 export const proveedores = crearModeloCatalogo({
   tabla: 'proveedor',
-  campos: CAMPOS_EMPRESA_EXTERNA,
+  // Persona natural o jurídica (migración 0044)
+  campos: { tipoPersona: 'tipo_persona', ...CAMPOS_EMPRESA_EXTERNA },
   buscarEn: ['nombre_razon_social', 'numero_documento', 'contacto'],
   ordenarPor: 'nombre_razon_social',
 });

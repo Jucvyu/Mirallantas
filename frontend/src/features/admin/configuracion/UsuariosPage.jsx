@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import { estadosActivo, tiposDocumento } from '../../../constantes';
@@ -66,14 +68,6 @@ function seccionesFormulario(nombresRoles) {
           required: true,
           hint: 'Mínimo 10 caracteres, con letras y números.',
         },
-        {
-          key: 'password',
-          label: 'Nueva contraseña',
-          type: 'password',
-          span: 2,
-          only: 'edit',
-          placeholder: 'Déjala vacía para no cambiarla',
-        },
       ],
     },
   ];
@@ -88,6 +82,15 @@ export default function UsuariosPage() {
   const { usuario: yo } = useAuth();
   // Ni el administrador principal ni uno mismo se desactivan o eliminan
   const protegido = (fila) => fila.principal || fila.id === yo?.id;
+  // Desactivar saca a la persona del sistema: se confirma antes
+  const [desactivando, setDesactivando] = useState(null);
+  const cambiarEstado = (fila, estado) => {
+    if (estado === 'Inactivo') {
+      setDesactivando(fila);
+      return Promise.resolve();
+    }
+    return usuarios.ejecutar(() => usuariosService.cambiarEstado(fila, estado));
+  };
 
   return (
     <div>
@@ -109,7 +112,7 @@ export default function UsuariosPage() {
         statusKey="estado"
         statusVariant="switch"
         statusOptions={estadosActivo}
-        onStatusChange={(fila, estado) => usuarios.ejecutar(() => usuariosService.cambiarEstado(fila, estado))}
+        onStatusChange={cambiarEstado}
         canChangeStatus={(fila) => !protegido(fila)}
         newLabel="Nuevo usuario"
         formSections={seccionesFormulario(nombresRoles)}
@@ -119,6 +122,17 @@ export default function UsuariosPage() {
           { key: 'estado', label: 'Estado', options: estadosActivo },
         ]}
       />
+
+      {desactivando && (
+        <ConfirmDialog
+          title="¿Estás seguro de que quieres desactivar el estado?"
+          message="El usuario quedará inactivo: se cerrará su sesión y no podrá volver a entrar hasta que lo actives de nuevo."
+          confirmLabel="Sí, desactivar"
+          record={{ title: desactivando.nombre, subtitle: `${desactivando.correo} · ${desactivando.rol}` }}
+          onConfirm={() => usuarios.ejecutar(() => usuariosService.cambiarEstado(desactivando, 'Inactivo'))}
+          onClose={() => setDesactivando(null)}
+        />
+      )}
     </div>
   );
 }

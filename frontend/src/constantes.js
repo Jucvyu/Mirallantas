@@ -149,7 +149,7 @@ export const LLANTAS_POR_REENCAUCHE = 20;
 export const DIAS_MAXIMOS_REVISION = 60;
 
 /** Estados de la solicitud de reencauche, en el orden en que suceden. */
-export const estadosReencauche = ['Por agendar', 'Agendada', 'Cotizada', 'Aceptada', 'No aceptada', 'Sin llantas aptas', 'Cancelada'];
+export const estadosReencauche = ['Por agendar', 'Por confirmar', 'Agendada', 'Cotizada', 'Aceptada', 'No aceptada', 'Sin llantas aptas', 'Cancelada'];
 
 /** Estados de cada llanta en la reencauchadora (su orden). */
 export const estadosOrdenReencauche = ['Por enviar', 'En planta', 'Lista para entregar', 'Entregada', 'No pagada', 'Rechazada en planta'];

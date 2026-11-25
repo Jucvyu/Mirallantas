@@ -87,6 +87,8 @@ export async function actualizar(req, res) {
   await enTransaccion(async (db) => {
     await modelosModel.actualizar(db, id, aPares(cambios, modelosModel.COLUMNAS));
     await modelosModel.guardarFoto(db, id, foto);
+    // Al inactivar el producto, sus medidas también quedan inactivas
+    if (cambios.activo === false) await modelosModel.desactivarReferencias(db, id);
   });
   enviarModelo(res, await completo(id));
 }
@@ -98,8 +100,29 @@ export async function cambiarEstado(req, res) {
   const actual = await modelosModel.buscarPorId(id);
   if (!actual) throw noEncontrado('El producto');
   if (activo && !actual.activo) await exigirActivo('categoria', actual.categoriaId);
-  await enTransaccion((db) => modelosModel.actualizar(db, id, [['activo', activo]]));
+  await enTransaccion(async (db) => {
+    await modelosModel.actualizar(db, id, [['activo', activo]]);
+    // Al inactivar el producto, sus medidas también quedan inactivas
+    if (!activo) await modelosModel.desactivarReferencias(db, id);
+  });
   enviarModelo(res, await completo(id));
+}
+
+/** DELETE /modelos/:id — elimina el producto y sus medidas (409 si ya tiene movimientos). */
+export async function eliminar(req, res) {
+  const { id } = req.validado.params;
+  const actual = await modelosModel.buscarPorId(id);
+  if (!actual) throw noEncontrado('El producto');
+  if (actual.deReencauchadas) throw new HttpError(422, 'El producto de las llantas reencauchadas no se elimina.');
+  try {
+    await enTransaccion((db) => modelosModel.eliminar(db, id));
+  } catch (error) {
+    if (error.code === '23503') {
+      throw new HttpError(409, 'No se puede eliminar: alguna de sus medidas ya tiene ventas, compras o cotizaciones. Desactívalo en su lugar.');
+    }
+    throw error;
+  }
+  res.status(204).end();
 }
 
 /** Referencia del modelo, o 404 (también si es de otro modelo). */

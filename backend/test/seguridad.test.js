@@ -333,26 +333,22 @@ describe('Sesiones e inicio de sesión', () => {
     t.maria = (await login('maria@gmail.com')).cuerpo.token;
   });
 
-  test('cambiar la contraseña exige la actual y cierra las demás sesiones', async () => {
-    const sinActual = await e.api('/auth/yo', { metodo: 'PUT', token: t.maria, cuerpo: { password: 'NuevaClave2026' } });
-    assert.equal(sinActual.estado, 422);
-
-    const debil = await e.api('/auth/yo', {
-      metodo: 'PUT',
-      token: t.maria,
-      cuerpo: { password: 'corta', passwordActual: e.passwordDemo },
-    });
-    assert.equal(debil.estado, 422);
-
-    const ok = await e.api('/auth/yo', {
+  test('la contraseña no se cambia desde el perfil ni desde Usuarios: solo si se olvida', async () => {
+    // Ni con la contraseña actual se cambia desde "Mi perfil"
+    const perfil = await e.api('/auth/yo', {
       metodo: 'PUT',
       token: t.maria,
       cuerpo: { password: 'NuevaClave2026', passwordActual: e.passwordDemo },
     });
-    assert.equal(ok.estado, 200);
-    assert.ok(ok.cuerpo.token);
-    assert.equal((await e.api('/auth/yo', { token: t.maria })).estado, 401, 'la sesión anterior se cerró');
-    t.maria = ok.cuerpo.token;
+    assert.equal(perfil.estado, 422);
+    assert.match(JSON.stringify(perfil.cuerpo), /Olvidaste tu contraseña/);
+    // La sesión sigue abierta y la contraseña es la misma
+    assert.equal((await e.api('/auth/yo', { token: t.maria })).estado, 200);
+
+    // El administrador tampoco le pone otra desde Usuarios
+    const maria = (await e.db.query("SELECT id FROM usuario WHERE correo = 'maria@gmail.com'")).rows[0];
+    const usuarios = await e.api(`/usuarios/${maria.id}`, { metodo: 'PUT', token: t.admin, cuerpo: { password: 'OtraClave2026' } });
+    assert.equal(usuarios.estado, 422);
   });
 });
 

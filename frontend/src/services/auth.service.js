@@ -85,10 +85,11 @@ export const authService = {
   },
 
   /**
-   * Guarda el perfil propio. La foto solo se envía si cambió y la
-   * contraseña solo si se escribió una nueva. Cambiar la contraseña o el
-   * correo pide la contraseña actual; en ese caso la API cierra las demás
-   * sesiones y entrega un token nuevo. Devuelve el usuario actualizado.
+   * Guarda el perfil propio. La foto solo se envía si cambió. La
+   * contraseña no se cambia aquí (solo con "¿Olvidaste tu contraseña?").
+   * Cambiar el correo pide la contraseña actual; en ese caso la API cierra
+   * las demás sesiones y entrega un token nuevo. Devuelve el usuario
+   * actualizado.
    */
   async actualizarPerfil(valores, perfilActual) {
     const { token, usuario } = await api('/auth/yo', {
@@ -102,7 +103,6 @@ export const authService = {
         // La dirección solo existe en las cuentas del portal
         ...(perfilActual.clienteId ? { direccion: valores.direccion || null } : {}),
         foto: imagenCambiada(valores.foto, perfilActual.foto),
-        password: valores.password || undefined,
         passwordActual: valores.passwordActual || undefined,
       },
     });

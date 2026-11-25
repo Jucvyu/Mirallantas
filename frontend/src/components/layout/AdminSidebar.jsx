@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Banknote,
   Building2,
@@ -140,9 +140,18 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
       // Sin almacenamiento: dura lo que dure la pestaña
     }
   };
-  // Acordeón: por defecto todo desplegado; aquí solo se anotan las
-  // secciones que el usuario decidió ocultar.
-  const [cerradas, setCerradas] = useState({});
+  // Acordeón: solo una sección abierta a la vez. Arranca abierta la del
+  // módulo en pantalla; al abrir otra, la anterior se cierra.
+  const { pathname } = useLocation();
+  const seccionDeRuta = SECTIONS.find((s) => s.items.some((i) => pathname === i.to || pathname.startsWith(`${i.to}/`)))?.label ?? null;
+  const [abiertaManual, setAbiertaManual] = useState(undefined);
+  const [rutaVista, setRutaVista] = useState(pathname);
+  // Al navegar a otro módulo, se abre su sección (y se cierran las demás)
+  if (rutaVista !== pathname) {
+    setRutaVista(pathname);
+    setAbiertaManual(undefined);
+  }
+  const seccionAbierta = abiertaManual === undefined ? seccionDeRuta : abiertaManual;
   // cerrarSesion invalida el token en la API y lleva a la página de inicio
   const { tienePermiso, cerrarSesion } = useAuth();
   // Avisos nuevos por módulo, para las burbujas del menú
@@ -155,7 +164,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
   })).filter((s) => s.items.length > 0);
 
 
-  const alternarSeccion = (label) => setCerradas((prev) => ({ ...prev, [label]: !prev[label] }));
+  const alternarSeccion = (label) => setAbiertaManual(seccionAbierta === label ? null : label);
   const iniciales = profile.nombre
     .split(' ')
     .slice(0, 2)
@@ -179,7 +188,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
         onMouseLeave={automatico ? alSalir : undefined}
         className={`fixed inset-y-0 left-0 z-40 flex h-screen shrink-0 flex-col ml-glass-oscuro transition-all duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${collapsed ? 'w-[76px]' : 'w-[220px]'}`}
+        } ${collapsed ? 'w-[84px]' : 'w-[264px]'}`}
       >
         <div className="flex items-center justify-between px-4 py-5">
           {collapsed ? (
@@ -248,7 +257,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
             end={DASHBOARD.end}
             onClick={onCloseMobile}
             className={({ isActive }) =>
-              `mb-4 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+              `mb-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors ${
                 isActive
                   ? 'bg-amber-400/10 text-amber-400'
                   : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -256,7 +265,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
             }
             title={collapsed ? DASHBOARD.label : undefined}
           >
-            <DASHBOARD.icon size={16} className="shrink-0" />
+            <DASHBOARD.icon size={19} className="shrink-0" />
             {!collapsed && <span className="truncate">{DASHBOARD.label}</span>}
           </NavLink>
           )}
@@ -264,18 +273,18 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           {secciones.map((section) => {
             // Con el sidebar en modo icono no hay títulos que plegar, así
             // que el acordeón solo aplica cuando está expandido.
-            const abierta = collapsed || !cerradas[section.label];
+            const abierta = collapsed || seccionAbierta === section.label;
             return (
-            <div key={section.label} className="mb-4">
+            <div key={section.label} className="mb-3">
               {!collapsed && (
                 <button
                   type="button"
                   onClick={() => alternarSeccion(section.label)}
                   aria-expanded={abierta}
                   aria-label={`${abierta ? 'Ocultar' : 'Mostrar'} ${section.label}`}
-                  className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-2.5 py-0.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-slate-300"
+                  className="mb-1.5 flex w-full items-center justify-between gap-2 rounded px-3 py-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
                 >
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider">
+                  <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider">
                     {section.label}
                     {/* Sección plegada con avisos: un punto para no perderlos de vista */}
                     {!abierta && section.items.some(({ to }) => avisosPorRuta[to] > 0) && (
@@ -283,7 +292,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                     )}
                   </span>
                   <ChevronDown
-                    size={13}
+                    size={15}
                     className={`shrink-0 transition-transform duration-200 ${abierta ? '' : '-rotate-90'}`}
                   />
                 </button>
@@ -305,7 +314,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                       end={end}
                       onClick={onCloseMobile}
                       className={({ isActive }) =>
-                        `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+                        `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors ${
                           isActive
                             ? 'bg-amber-400/10 text-amber-400'
                             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
@@ -314,7 +323,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                       title={collapsed ? label : undefined}
                     >
                       <span className="relative shrink-0">
-                        <Icon size={16} />
+                        <Icon size={19} />
                         {/* Burbuja de avisos nuevos (como en WhatsApp); sin avisos no aparece */}
                         {avisos > 0 && collapsed && (
                           <span className="absolute -right-1.5 -top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-brand-navy-900" />

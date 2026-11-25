@@ -35,8 +35,15 @@ const camposUsuario = {
 /** Cuenta nueva: la contraseña es obligatoria. */
 export const esquemaNuevoUsuario = z.object({ ...camposUsuario, password }).superRefine(documentoSegunTipo);
 
-/** Edición: todo es opcional; la contraseña solo si se cambia. */
+/**
+ * Edición: todo es opcional. La contraseña de una cuenta no se cambia aquí:
+ * su dueño la cambia solo si la olvida ("¿Olvidaste tu contraseña?").
+ */
 export const esquemaEdicionUsuario = z
-  .object({ ...camposUsuario, password, activo: z.boolean() })
+  .object({
+    ...camposUsuario,
+    activo: z.boolean(),
+    password: z.never({ error: 'La contraseña solo la cambia su dueño con "¿Olvidaste tu contraseña?".' }),
+  })
   .partial()
   .superRefine(documentoSegunTipo);

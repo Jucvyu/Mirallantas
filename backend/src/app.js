@@ -6,8 +6,8 @@ import { config } from './config.js';
 import { query } from './db.js';
 import { HttpError, manejadorErrores } from './errores.js';
 import { limpiarImagenes } from './utils/limpiezaImagenes.js';
-import { avisarCambio, debeAvisar, recursoDe, suscribir } from './utils/tiempoReal.js';
-import { autenticar, idDeSesion } from './middleware/auth.js';
+import { avisarCambio, debeAvisar, recursoDe } from './utils/tiempoReal.js';
+import { idDeSesion } from './middleware/auth.js';
 import { limitePeticiones } from './middleware/limitePeticiones.js';
 // Cada módulo tiene sus rutas en src/routes/<modulo>.routes.js. Las rutas
 // llaman a los controladores (src/controllers), que usan los modelos
@@ -77,12 +77,8 @@ export function crearApp() {
   // texto (data URL), por eso el límite es mayor que el de 100 KB por defecto
   // (un reencauche lleva hasta 3 fotos de 3 MB, ~4 MB cada una en base64)
   // Respuestas comprimidas (gzip): los listados viajan mucho más livianos.
-  // El canal de tiempo real no se comprime: así cada aviso llega al instante.
-  app.use(
-    compression({
-      filter: (req, res) => req.path !== '/api/eventos' && compression.filter(req, res),
-    }),
-  );
+  // El tiempo real va por Socket.IO (/api/socket), fuera de Express.
+  app.use(compression());
 
   // Solo quien trae un token de sesión válido puede enviar cuerpos grandes
   // (las imágenes se suben con la sesión iniciada). Sin sesión, el login, el
@@ -110,9 +106,6 @@ export function crearApp() {
     }
     next();
   });
-
-  // Tiempo real: cada pantalla abierta escucha aquí los avisos de cambios
-  app.get('/api/eventos', autenticar, suscribir);
 
   // Salud: la usa el proveedor de hosting para saber si la API responde
   app.get('/api/salud', async (req, res) => {

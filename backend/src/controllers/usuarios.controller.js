@@ -92,7 +92,8 @@ export async function crear(req, res) {
 /** PUT /usuarios/:id */
 export async function actualizar(req, res) {
   const { id } = req.validado.params;
-  const { password, ...cambios } = req.validado.body;
+  // La contraseña no llega aquí: su dueño la cambia solo si la olvida
+  const cambios = req.validado.body;
   const actual = await usuariosModel.buscarPorId(id);
   if (!actual) throw noEncontrado('El usuario');
   if (id === req.usuario.id && cambios.activo === false) {
@@ -112,8 +113,6 @@ export async function actualizar(req, res) {
       await exigirDatosNuevos(db, datosUnicos, 'No pudimos guardar los cambios del usuario. Revisa los datos.', id);
     }
     const pares = aPares(cambios, usuariosModel.COLUMNAS);
-    // La contraseña solo cambia si se escribió una nueva
-    if (password) pares.push(['password_hash', await cifrarPassword(password)]);
     if (cambiaRol) {
       const pasaACliente = await esRolCliente(db, cambios.rolId);
       // Si pasa a rol Cliente, se liga a su ficha de cliente (portal)
@@ -126,13 +125,13 @@ export async function actualizar(req, res) {
       if (!pasaACliente && actual.clienteId) pares.push(['cliente_id', null]);
     }
     await usuariosModel.actualizar(db, id, pares);
-    // Contraseña, rol o estado nuevos: se cierran las sesiones abiertas de esa cuenta
-    if (password || cambiaRol || desactiva) await usuariosModel.subirVersionSesion(id, db);
+    // Rol o estado nuevos: se cierran las sesiones abiertas de esa cuenta
+    if (cambiaRol || desactiva) await usuariosModel.subirVersionSesion(id, db);
   });
 
   const actualizado = await usuariosModel.buscarPorId(id);
-  if (password || cambiaRol || desactiva) {
-    const que = [password && 'contraseña', cambiaRol && `rol ${actualizado.rol}`, desactiva && 'desactivado'];
+  if (cambiaRol || desactiva) {
+    const que = [cambiaRol && `rol ${actualizado.rol}`, desactiva && 'desactivado'];
     await registrarCambio(req, 'usuario_modificado', actualizado, que.filter(Boolean).join(', '));
   }
   enviarUsuario(res, actualizado);

@@ -19,6 +19,7 @@
     "migrate:down": "npm run migrate:down --prefix database",
     "migrate:status": "npm run migrate:status --prefix database",
     "admin:crear": "npm run admin:crear --prefix database --",
+    "clave:restablecer": "npm run clave:restablecer --prefix database --",
     "db:limpiar": "npm run db:limpiar --prefix database --",
     "db:eliminargestion": "npm run db:eliminargestion --prefix database --",
     "db:respaldo": "npm run db:respaldo --prefix database",

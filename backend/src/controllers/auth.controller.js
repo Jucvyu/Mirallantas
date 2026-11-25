@@ -226,16 +226,17 @@ async function exigirPasswordActual(usuario, passwordActual) {
 /**
  * PUT /auth/yo — el usuario actualiza su propio perfil.
  *
- * Cambiar la contraseña o el correo es una acción sensible: pide la
- * contraseña actual y cierra las demás sesiones (se entrega un token nuevo).
+ * La contraseña no se cambia aquí: solo si se olvida (/auth/recuperar/…).
+ * Cambiar el correo es una acción sensible: pide la contraseña actual y
+ * cierra las demás sesiones (se entrega un token nuevo).
  */
 export async function actualizarPerfil(req, res) {
-  const { password, passwordActual, direccion, foto, ...datos } = req.validado.body;
+  const { passwordActual, direccion, foto, ...datos } = req.validado.body;
   const { id, clienteId } = req.usuario;
   const actual = await usuariosModel.buscarSesion({ id });
 
   const cambiaCorreo = datos.correo !== undefined && datos.correo !== actual.correo;
-  const sensible = Boolean(password) || cambiaCorreo;
+  const sensible = cambiaCorreo;
   if (sensible) await exigirPasswordActual(actual, passwordActual);
   if (!cambiaCorreo) delete datos.correo;
 
@@ -252,8 +253,6 @@ export async function actualizarPerfil(req, res) {
     }
     const pares = aPares(datos, usuariosModel.COLUMNAS);
     if (foto !== undefined) pares.push(['foto_url', foto]);
-    // La contraseña solo cambia si se escribió una nueva
-    if (password) pares.push(['password_hash', await cifrarPassword(password)]);
     await usuariosModel.actualizar(db, id, pares);
     if (sensible) await usuariosModel.subirVersionSesion(id, db);
 
@@ -265,7 +264,7 @@ export async function actualizarPerfil(req, res) {
   if (!sensible) return vista.enviarPerfil(res, usuario);
 
   await eventos.registrar({
-    tipo: password ? 'cambio_password' : 'cambio_correo',
+    tipo: 'cambio_correo',
     gravedad: 'Alerta',
     usuarioId: id,
     correo: usuario.correo,

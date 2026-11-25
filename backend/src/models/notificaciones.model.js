@@ -1,3 +1,4 @@
+import { avisarNotificacion } from '../utils/tiempoReal.js';
 import { query } from '../db.js';
 import { POOL } from './listado.model.js';
 
@@ -13,6 +14,7 @@ export async function crear({ clienteId, titulo, mensaje, enlace = null, tipo = 
     'INSERT INTO notificacion (cliente_id, titulo, mensaje, enlace, tipo) VALUES ($1, $2, $3, $4, $5)',
     [clienteId, titulo, mensaje, enlace, tipo],
   );
+  avisarNotificacion({ clienteId }, { titulo, mensaje, enlace, tipo });
 }
 
 /** Días que dura una notificación: después se borra sola. */

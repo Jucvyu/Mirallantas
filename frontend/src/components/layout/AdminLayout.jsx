@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import AdminTopbar from './AdminTopbar';
 import { DosFactoresModal } from '../../features/auth/DosFactores';
-import { AYUDA_PASSWORD, CAMPO_PASSWORD_ACTUAL, validarPerfil } from '../../features/auth/reglasClave';
+import { CAMPO_PASSWORD_ACTUAL, validarPerfil } from '../../features/auth/reglasClave';
 
 const TITLES = {
   '/admin': 'Dashboard',
@@ -51,14 +51,6 @@ const perfilSections = [
     title: 'Acceso al sistema',
     fields: [
       { key: 'rol', label: 'Rol', only: 'view' },
-      {
-        key: 'password',
-        label: 'Nueva contraseña',
-        type: 'password',
-        placeholder: 'Déjala vacía para no cambiarla',
-        hint: AYUDA_PASSWORD,
-        span: 2,
-      },
       CAMPO_PASSWORD_ACTUAL,
     ],
   },
@@ -107,7 +99,7 @@ export default function AdminLayout() {
           initialValues={profile}
           validate={validarPerfil(profile)}
           submitLabel="Guardar perfil"
-          // El servicio de sesión guarda el perfil (foto y contraseña solo si cambiaron)
+          // El servicio de sesión guarda el perfil (la foto solo si cambió)
           onSubmit={actualizarPerfil}
           onClose={() => setPerfilOpen(false)}
         />

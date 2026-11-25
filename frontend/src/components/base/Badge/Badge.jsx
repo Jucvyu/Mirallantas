@@ -19,6 +19,8 @@ const STATUS_STYLES = {
   Vencida: 'bg-red-500/15 text-red-600 dark:text-red-400',
   // Ámbar — pendiente / en proceso
   Pendiente: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  // Fecha propuesta que espera la confirmación del cliente: amarillo bien visible
+  'Por confirmar': 'bg-yellow-300/40 text-yellow-800 ring-1 ring-yellow-400/60 dark:bg-yellow-400/20 dark:text-yellow-300',
   'En proceso': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   'En tránsito': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   'En camino': 'bg-amber-500/15 text-amber-600 dark:text-amber-400',

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { codigoActual } from '../src/utils/totp.js';
 import { levantarEntorno } from './entorno.js';
+import { conectarSocket } from './socket.js';
 
 /**
  * Ataques que se probaron contra la API (revisión de seguridad) y que ya no
@@ -133,39 +134,26 @@ describe('Bloquear la cuenta de otra persona', () => {
 describe('Tiempo real después de cerrar sesión', () => {
   test('al cerrar sesión se corta la conexión abierta', async () => {
     const token = await e.iniciarSesion('admin@mirallantas.com');
-    const abortar = new AbortController();
-    const respuesta = await fetch(`${e.base}/eventos`, { headers: { Authorization: `Bearer ${token}` }, signal: abortar.signal });
-    assert.equal(respuesta.status, 200);
-    const lector = respuesta.body.getReader();
-    await lector.read(); // "retry: 3000"
-
+    const socket = await conectarSocket(e.origen, token);
+    const cortada = new Promise((listo) => socket.once('disconnect', () => listo(true)));
     assert.equal((await e.api('/auth/salir', { metodo: 'POST', token })).estado, 204);
-    const cortada = await Promise.race([
-      (async () => {
-        for (;;) if ((await lector.read()).done) return true;
-      })(),
-      new Promise((listo) => setTimeout(() => listo(false), 3000)),
-    ]);
-    abortar.abort();
-    assert.ok(cortada, 'la conexión se cerró');
+    const resultado = await Promise.race([cortada, new Promise((listo) => setTimeout(() => listo(false), 3000))]);
+    socket.close();
+    assert.ok(resultado, 'la conexión se cerró');
+    // Con el token viejo ya no vuelve a entrar
+    await assert.rejects(conectarSocket(e.origen, token), /SESION_INVALIDA/);
   });
 });
 
 describe('Tiempo real: abrir conexiones sin límite', () => {
   test('cada usuario tiene máximo 10 conexiones abiertas', async () => {
     const token = await e.iniciarSesion('pedro.m@mirallantas.com');
-    const abortar = new AbortController();
-    const abrir = () =>
-      fetch(`${e.base}/eventos`, { headers: { Authorization: `Bearer ${token}` }, signal: abortar.signal });
+    const abiertas = [];
     try {
-      const abiertas = [];
-      for (let i = 0; i < 10; i++) abiertas.push(await abrir());
-      assert.ok(abiertas.every((r) => r.status === 200));
-      const sobra = await abrir();
-      assert.equal(sobra.status, 429);
-      await sobra.body?.cancel();
+      for (let i = 0; i < 10; i++) abiertas.push(await conectarSocket(e.origen, token));
+      await assert.rejects(conectarSocket(e.origen, token), /DEMASIADAS_PESTANAS/);
     } finally {
-      abortar.abort();
+      for (const s of abiertas) s.close();
     }
   });
 });

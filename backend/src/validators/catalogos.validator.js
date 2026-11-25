@@ -73,6 +73,32 @@ export const esquemaCliente = z.object({
   ...activo,
 });
 
+/**
+ * Proveedor: persona natural o jurídica (migración 0044). La jurídica se
+ * identifica con NIT y lleva persona de contacto.
+ */
+export const esquemaProveedor = z.object({
+  // Sin indicarlo queda como persona natural (valor por defecto en la base)
+  tipoPersona: z.enum(['Natural', 'Jurídica'], { error: 'Indica si es persona natural o jurídica.' }).optional(),
+  tipoDocumento,
+  numeroDocumento,
+  nombreRazonSocial: nombreEntidad(80),
+  contacto: textoOpcional(80),
+  ...contactoOpcional,
+  ...activo,
+});
+
+/** Reglas de la persona jurídica (si llegan los datos: al editar, puede no llegar todo). */
+export function reglasTipoPersona(datos, ctx) {
+  if (datos.tipoPersona !== 'Jurídica') return;
+  if (datos.tipoDocumento && datos.tipoDocumento !== 'NIT') {
+    ctx.addIssue({ code: 'custom', path: ['tipoDocumento'], message: 'La persona jurídica se identifica con NIT.' });
+  }
+  if ('contacto' in datos && !datos.contacto) {
+    ctx.addIssue({ code: 'custom', path: ['contacto'], message: 'Escribe la persona de contacto de la empresa.' });
+  }
+}
+
 /** Proveedores y terceros (reencauchadoras) comparten campos. */
 export const esquemaEmpresaExterna = z.object({
   tipoDocumento,

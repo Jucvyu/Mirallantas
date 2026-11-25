@@ -1,79 +1,99 @@
 /**
- * Actualización en tiempo real (Server-Sent Events).
+ * Actualización en tiempo real con Socket.IO (WebSocket, y si la red no lo
+ * deja, sondeo HTTP).
  *
- * Cada pantalla abierta mantiene una conexión a GET /api/eventos. Cuando
- * una petición cambia datos (POST, PUT, PATCH o DELETE que salió bien), se
- * avisa a todas las conexiones qué recursos cambiaron y cada pantalla vuelve
- * a pedir sus datos. El aviso no lleva datos: solo el nombre del recurso,
- * así nadie recibe información que no le toca.
+ * Cada pantalla abierta se conecta con su token de sesión. Hay dos tipos de
+ * mensaje:
+ *
+ *   'cambio'        { recursos: ['cotizaciones', …] } — una petición cambió
+ *                   datos (POST, PUT, PATCH o DELETE que salió bien) y cada
+ *                   pantalla vuelve a pedir los suyos. No lleva datos.
+ *   'notificacion'  { titulo, mensaje, tipo, enlace } — un aviso nuevo, solo
+ *                   para quien le toca: el cliente dueño (sala `cliente:id`)
+ *                   o el personal con el módulo del aviso (sala `modulo:X`).
+ *                   La campana lo muestra al instante, sin esperar la
+ *                   revisión de cada minuto.
  */
-import { HttpError } from '../errores.js';
-import { sesionVigente } from '../models/usuarios.model.js';
+import { Server } from 'socket.io';
+import { config } from '../config.js';
+import { buscarCuenta, cuentaHabilitada, sesionVigente } from '../models/usuarios.model.js';
+import { leerToken } from '../middleware/auth.js';
 
-/** Conexiones abiertas. */
-const conexiones = new Set();
-/** Conexiones abiertas de cada usuario: id → Set de respuestas. */
-const porUsuario = new Map();
 /** Pestañas abiertas a la vez por usuario (una conexión por pestaña). */
 export const MAXIMO_POR_USUARIO = 10;
 
-/** Cada cuánto se manda un latido para que los proxies no cierren la conexión. */
-const LATIDO_MS = 25_000;
+/** Cada cuánto se revisa que la sesión de cada conexión siga valiendo. */
+const REVISAR_SESION_MS = 25_000;
 /** Los cambios que llegan juntos se avisan en un solo mensaje. */
 const AGRUPAR_MS = 150;
+/**
+ * Los avisos se crean dentro de una transacción: se emiten un instante
+ * después para que, cuando la campana los pida, ya estén guardados.
+ */
+const ESPERA_AVISO_MS = 300;
+
+let io = null;
+/** Conexiones abiertas de cada usuario: id → Set de sockets. */
+const porUsuario = new Map();
 
 let pendientes = new Set();
 let temporizador = null;
 
-/** GET /api/eventos — deja abierta la conexión y la registra. */
-export function suscribir(req, res) {
-  // Máximo MAXIMO_POR_USUARIO conexiones a la vez por usuario: así nadie
-  // agota el servidor abriendo miles. La pestaña rechazada lo reintenta
-  // sola más tarde (con espera creciente).
-  const usuario = req.usuario.id;
-  const suyas = porUsuario.get(usuario) ?? new Set();
-  if (suyas.size >= MAXIMO_POR_USUARIO) {
-    throw new HttpError(429, 'Tienes demasiadas pestañas abiertas. Cierra alguna para recibir los cambios al instante.');
-  }
-
-  res.set({
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-store',
-    Connection: 'keep-alive',
-    // Sin esto, algunos proxies acumulan los mensajes en vez de enviarlos
-    'X-Accel-Buffering': 'no',
+/** Conecta Socket.IO al servidor HTTP de la API (en /api/socket). */
+export function adjuntarTiempoReal(servidor) {
+  io = new Server(servidor, {
+    path: '/api/socket',
+    cors: { origin: config.corsOrigenes, credentials: false },
+    serveClient: false,
   });
-  res.flushHeaders();
-  // El navegador reintenta a los 3 s si se corta
-  res.write('retry: 3000\n\n');
 
-  // En cada latido se revisa que la sesión siga valiendo: si la cerraron,
-  // abrieron otra en otro dispositivo, cambió la contraseña o desactivaron
-  // la cuenta, la conexión se corta (y al reconectar recibe 401).
-  const version = req.versionSesion;
-  const latido = setInterval(async () => {
+  // Solo entra quien trae un token de sesión válido de una cuenta activa
+  io.use(async (socket, next) => {
     try {
-      if (!(await sesionVigente(usuario, version))) return res.end();
+      const carga = leerToken(String(socket.handshake.auth?.token ?? ''), 'sesion');
+      const usuario = await buscarCuenta({ id: Number(carga.sub) });
+      if (!usuario || !cuentaHabilitada(usuario) || carga.ver !== usuario.version_sesion) {
+        return next(new Error('SESION_INVALIDA'));
+      }
+      const suyas = porUsuario.get(usuario.id) ?? new Set();
+      if (suyas.size >= MAXIMO_POR_USUARIO) return next(new Error('DEMASIADAS_PESTANAS'));
+      socket.data = { usuarioId: usuario.id, version: carga.ver, clienteId: usuario.cliente_id ?? null, permisos: usuario.permisos ?? [] };
+      next();
     } catch {
-      // Si la base no responde, se revisa en el próximo latido
+      next(new Error('SESION_INVALIDA'));
     }
-    res.write(': latido\n\n');
-  }, LATIDO_MS);
-  conexiones.add(res);
-  suyas.add(res);
-  porUsuario.set(usuario, suyas);
-
-  req.on('close', () => {
-    clearInterval(latido);
-    conexiones.delete(res);
-    suyas.delete(res);
-    if (!suyas.size) porUsuario.delete(usuario);
   });
+
+  io.on('connection', (socket) => {
+    const { usuarioId, version, clienteId, permisos } = socket.data;
+    const suyas = porUsuario.get(usuarioId) ?? new Set();
+    suyas.add(socket);
+    porUsuario.set(usuarioId, suyas);
+    socket.join(`usuario:${usuarioId}`);
+    if (clienteId) socket.join(`cliente:${clienteId}`);
+    else for (const modulo of permisos) socket.join(`modulo:${modulo}`);
+
+    // Si cerraron la sesión, abrieron otra o desactivaron la cuenta, se corta
+    const revision = setInterval(async () => {
+      try {
+        if (!(await sesionVigente(usuarioId, version))) socket.disconnect(true);
+      } catch {
+        // Si la base no responde, se revisa en la próxima vuelta
+      }
+    }, REVISAR_SESION_MS);
+
+    socket.on('disconnect', () => {
+      clearInterval(revision);
+      suyas.delete(socket);
+      if (!suyas.size) porUsuario.delete(usuarioId);
+    });
+  });
+  return io;
 }
 
 /** Corta al instante las conexiones de un usuario (al cerrar su sesión). */
 export function cerrarConexionesDe(usuario) {
-  for (const res of porUsuario.get(usuario) ?? []) res.end();
+  for (const socket of porUsuario.get(usuario) ?? []) socket.disconnect(true);
 }
 
 /** Avisa que cambió un recurso (p. ej. 'cotizaciones'). */
@@ -81,11 +101,22 @@ export function avisarCambio(recurso) {
   pendientes.add(recurso);
   if (temporizador) return;
   temporizador = setTimeout(() => {
-    const mensaje = `event: cambio\ndata: ${JSON.stringify({ recursos: [...pendientes] })}\n\n`;
+    const recursos = [...pendientes];
     pendientes = new Set();
     temporizador = null;
-    for (const res of conexiones) res.write(mensaje);
+    io?.emit('cambio', { recursos });
   }, AGRUPAR_MS);
+}
+
+/**
+ * Empuja un aviso nuevo a quien le toca:
+ *   avisarNotificacion({ clienteId: 4 }, aviso)       el cliente del portal
+ *   avisarNotificacion({ modulo: 'Reencauche' }, aviso) el personal con ese módulo
+ */
+export function avisarNotificacion({ clienteId, modulo }, { titulo, mensaje, tipo = 'info', enlace = null }) {
+  if (!io) return;
+  const sala = clienteId ? `cliente:${clienteId}` : `modulo:${modulo}`;
+  setTimeout(() => io?.to(sala).emit('notificacion', { titulo, mensaje, tipo, enlace }), ESPERA_AVISO_MS).unref?.();
 }
 
 /** Recurso de una ruta: /api/cotizaciones/PED-1/pago → 'cotizaciones'. */
@@ -104,7 +135,8 @@ export function debeAvisar(req, res) {
 
 /** Cierra todas las conexiones (al apagar la API, para no quedar esperándolas). */
 export function cerrarConexiones() {
-  for (const res of conexiones) res.end();
-  conexiones.clear();
+  io?.disconnectSockets(true);
+  io?.close();
+  io = null;
   porUsuario.clear();
 }

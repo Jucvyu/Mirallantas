@@ -140,3 +140,18 @@ export async function referenciaDe(db, modeloId, referenciaId) {
   ]);
   return rows[0] ?? null;
 }
+
+/** Desactiva todas las medidas (referencias) del modelo: un producto inactivo no ofrece ninguna. */
+export async function desactivarReferencias(db, modeloId) {
+  await db.query('UPDATE producto SET activo = FALSE WHERE modelo_id = $1 AND activo', [modeloId]);
+}
+
+/**
+ * Elimina el modelo con sus medidas. Si alguna medida ya tiene ventas,
+ * compras o cotizaciones, la base lo impide (409): se desactiva en su lugar.
+ */
+export async function eliminar(db, modeloId) {
+  await db.query('DELETE FROM producto WHERE modelo_id = $1', [modeloId]);
+  const { rowCount } = await db.query('DELETE FROM modelo_llanta WHERE id = $1', [modeloId]);
+  return rowCount > 0;
+}

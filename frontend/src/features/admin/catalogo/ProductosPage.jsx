@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Pencil, TriangleAlert } from 'lucide-react';
+import { Eye, Pencil, TriangleAlert } from 'lucide-react';
 import PageHeader from '../../../components/base/PageHeader';
 import DataTable from '../../../components/base/DataTable';
 import BotonAccion from '../../../components/base/BotonAccion';
@@ -207,7 +207,12 @@ export default function ProductosPage() {
         error={modelos.error || referencias.error}
         onRecargar={() => Promise.all([modelos.recargar(), referencias.recargar()])}
         onCreate={crear}
-        onStatusChange={(fila, estado) => modelos.ejecutar(() => modelosService.cambiarEstado(fila, estado))}
+        // Al inactivar el producto, la API inactiva también sus medidas
+        onStatusChange={(fila, estado) =>
+          modelos.ejecutar(() => modelosService.cambiarEstado(fila, estado)).then(referencias.recargar)
+        }
+        // Un producto con ventas, compras o cotizaciones no se borra (la API responde 409): se desactiva
+        onDelete={(fila) => modelos.eliminar(fila).then(referencias.recargar)}
         newLabel="Nuevo producto"
         formSections={[
           {
@@ -219,11 +224,14 @@ export default function ProductosPage() {
         ]}
         entityName="producto"
         exportable={false}
+        // Orden de las acciones: ver detalle, desplegar medidas, editar, eliminar
         canView={false}
-        // Un producto con ventas o compras no se borra: se desactiva
-        canDelete={false}
+        canEdit={false}
+        accionesIniciales={(fila) => (
+          <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => navigate(`/admin/productos/${fila.id}`)} />
+        )}
         rowActions={(fila) => (
-          <BotonAccion icono={Pencil} etiqueta="Abrir el producto" accion="editar" onClick={() => navigate(`/admin/productos/${fila.id}`)} />
+          <BotonAccion icono={Pencil} etiqueta="Editar" accion="editar" onClick={() => navigate(`/admin/productos/${fila.id}?pestana=general`)} />
         )}
         statusKey="estado"
         statusOptions={estadosActivo}

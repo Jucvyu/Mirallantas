@@ -62,11 +62,13 @@ export async function levantarEntorno({ variables = {} } = {}) {
   delete process.env.TURNSTILE_SECRET_KEY;
   Object.assign(process.env, variables);
   const { crearApp } = await import('../src/app.js');
+  const { adjuntarTiempoReal, cerrarConexiones } = await import('../src/utils/tiempoReal.js');
   const { pool } = await import('../src/db.js');
 
   const servidorApi = await new Promise((resolver) => {
     const s = crearApp().listen(0, () => resolver(s));
   });
+  adjuntarTiempoReal(servidorApi);
   const base = `http://localhost:${servidorApi.address().port}/api`;
 
   /** Petición a la API. Devuelve { estado, cuerpo }. */
@@ -102,11 +104,12 @@ export async function levantarEntorno({ variables = {} } = {}) {
 
   const cerrar = async () => {
     await db.end();
+    cerrarConexiones();
     await new Promise((resolver) => servidorApi.close(resolver));
     await pool.end();
     await servidorDb.stop();
     await rm(carpeta, { recursive: true, force: true });
   };
 
-  return { api, base, iniciarSesion, db, databaseUrl, passwordDemo, cerrar };
+  return { api, base, origen: base.replace(/\/api$/, ''), iniciarSesion, db, databaseUrl, passwordDemo, cerrar };
 }

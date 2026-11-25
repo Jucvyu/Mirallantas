@@ -9,7 +9,7 @@ import { CreditoProvider } from '../../context/CreditoContext';
 import { PortalProvider, usePortal } from '../../context/PortalContext';
 import ClientNavbar from './ClientNavbar';
 import { DosFactoresModal } from '../../features/auth/DosFactores';
-import { AYUDA_PASSWORD, CAMPO_PASSWORD_ACTUAL, validarPerfil } from '../../features/auth/reglasClave';
+import { CAMPO_PASSWORD_ACTUAL, validarPerfil } from '../../features/auth/reglasClave';
 
 // -------------------------------------------------------------------------
 // Perfil del cliente
@@ -38,14 +38,6 @@ const perfilSections = [
   {
     title: 'Acceso',
     fields: [
-      {
-        key: 'password',
-        label: 'Nueva contraseña',
-        type: 'password',
-        span: 2,
-        placeholder: 'Déjala vacía para no cambiarla',
-        hint: AYUDA_PASSWORD,
-      },
       CAMPO_PASSWORD_ACTUAL,
     ],
   },

@@ -1,81 +1,62 @@
 // =========================================================================
-// Actualización en tiempo real.
+// Actualización en tiempo real (Socket.IO).
 //
-// Mientras haya sesión, se mantiene abierta una conexión a /api/eventos
-// (Server-Sent Events). Cuando la API avisa que algo cambió, se dispara el
-// evento EVENTO_CAMBIO en la ventana y cada pantalla abierta vuelve a pedir
-// sus datos (ver hooks/useAlCambiar.js). Si la conexión se corta, se
-// reintenta sola, cada vez con más espera.
+// Mientras haya sesión se mantiene abierta una conexión a la API
+// (/api/socket: WebSocket, o sondeo HTTP si la red no lo deja). Llegan dos
+// tipos de mensaje:
+//
+//   'cambio'        algo cambió: se dispara EVENTO_CAMBIO en la ventana y
+//                   cada pantalla abierta vuelve a pedir sus datos (ver
+//                   hooks/useAlCambiar.js).
+//   'notificacion'  un aviso nuevo para este usuario: se dispara
+//                   EVENTO_NOTIFICACION y la campana lo muestra al instante.
+//
+// Si la conexión se corta, Socket.IO reintenta solo, cada vez con más espera.
 // =========================================================================
 
+import { io } from 'socket.io-client';
 import { URL_API } from '../config';
 import { leerToken } from './http';
 
 /** Evento de la ventana: { detail: { recursos: ['cotizaciones', …] } }. */
 export const EVENTO_CAMBIO = 'mirallantas:cambio';
+/** Evento de la ventana: { detail: { titulo, mensaje, tipo, enlace } }. */
+export const EVENTO_NOTIFICACION = 'mirallantas:notificacion';
 
-let controlador = null;
+let socket = null;
 
-/** Lee los mensajes "event: cambio" del flujo y los avisa en la ventana. */
-async function escuchar(respuesta) {
-  const lector = respuesta.body.pipeThrough(new TextDecoderStream()).getReader();
-  let resto = '';
-  for (;;) {
-    const { value, done } = await lector.read();
-    if (done) return;
-    resto += value;
-    const mensajes = resto.split('\n\n');
-    resto = mensajes.pop();
-    for (const mensaje of mensajes) {
-      const lineas = mensaje.split('\n');
-      if (!lineas.includes('event: cambio')) continue;
-      const datos = lineas.find((l) => l.startsWith('data: '));
-      try {
-        const { recursos } = JSON.parse(datos.slice(6));
-        window.dispatchEvent(new CustomEvent(EVENTO_CAMBIO, { detail: { recursos } }));
-      } catch {
-        // Mensaje incompleto: se ignora
-      }
-    }
-  }
-}
+const avisar = (nombre, detail) => window.dispatchEvent(new CustomEvent(nombre, { detail }));
 
 /** Abre la conexión (si no está abierta) y la mantiene mientras haya sesión. */
 export function conectarTiempoReal() {
-  if (controlador || !URL_API || typeof TextDecoderStream === 'undefined') return;
-  controlador = new AbortController();
-  const { signal } = controlador;
+  if (socket || !URL_API || !leerToken()) return;
+  // URL_API termina en /api: Socket.IO va al mismo servidor, en /api/socket
+  const origen = new URL(URL_API, window.location.origin);
+  socket = io(origen.origin, {
+    path: `${origen.pathname.replace(/\/$/, '')}/socket`,
+    // El token se lee en cada intento: si cambió la sesión, va el nuevo
+    auth: (cb) => cb({ token: leerToken() }),
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 30_000,
+  });
 
-  const bucle = async () => {
-    let espera = 2000;
-    while (!signal.aborted && leerToken()) {
-      try {
-        const respuesta = await fetch(`${URL_API}/eventos`, {
-          headers: { Authorization: `Bearer ${leerToken()}` },
-          signal,
-        });
-        // Sin sesión válida no se insiste: el resto de la app ya la maneja
-        if (respuesta.status === 401 || respuesta.status === 403) break;
-        if (respuesta.ok) {
-          espera = 2000;
-          // Al reconectar se recarga todo: pudo cambiar algo mientras tanto
-          window.dispatchEvent(new CustomEvent(EVENTO_CAMBIO, { detail: { recursos: ['*'] } }));
-          await escuchar(respuesta);
-        }
-      } catch {
-        // Sin conexión o se cerró la sesión: se reintenta (o se sale si se abortó)
-      }
-      if (signal.aborted) break;
-      await new Promise((listo) => setTimeout(listo, espera));
-      espera = Math.min(espera * 2, 30_000);
-    }
-    if (controlador?.signal === signal) controlador = null;
-  };
-  bucle();
+  // Al (re)conectar se recarga todo: pudo cambiar algo mientras tanto
+  socket.on('connect', () => avisar(EVENTO_CAMBIO, { recursos: ['*'] }));
+  socket.on('cambio', (datos) => avisar(EVENTO_CAMBIO, datos));
+  socket.on('notificacion', (aviso) => avisar(EVENTO_NOTIFICACION, aviso));
+  socket.on('connect_error', (error) => {
+    // Sin sesión válida no se insiste: el resto de la app ya la maneja
+    if (error?.message === 'SESION_INVALIDA' || !leerToken()) desconectarTiempoReal();
+  });
+  socket.on('disconnect', (motivo) => {
+    // La API la cortó (se cerró la sesión): solo se vuelve a intentar si aún hay token
+    if (motivo === 'io server disconnect' && leerToken()) socket?.connect();
+  });
 }
 
 /** Cierra la conexión (al cerrar sesión). */
 export function desconectarTiempoReal() {
-  controlador?.abort();
-  controlador = null;
+  socket?.removeAllListeners();
+  socket?.disconnect();
+  socket = null;
 }

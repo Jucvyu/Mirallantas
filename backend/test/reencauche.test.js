@@ -129,6 +129,71 @@ describe('Solicitud y revisión', () => {
     assert.match(paraHoy.cuerpo.detalles[0].mensaje, /desde mañana/);
   });
 
+  test('una solicitud lleva varias bandas, como un carro (la misma banda y medida se suma)', async () => {
+    const otra = await nuevaBanda({
+      nombre: 'Banda direccional 200',
+      diseno: 'Direccional',
+      tipoVehiculoId: t.camion,
+      anchoMm: 200,
+      profundidadMm: 15,
+      medidas: ['11R22.5'],
+      precio: 390000,
+    });
+    assert.equal(otra.estado, 201, JSON.stringify(otra.cuerpo));
+    const r = await solicitar({
+      items: [
+        { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 2 },
+        { bandaId: otra.cuerpo.datos.id, medida: '11R22.5', cantidad: 4 },
+        { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 1 },
+      ],
+      lugar: 'Local',
+      fechaPreferida: manana(),
+    });
+    assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
+    const s = r.cuerpo.datos;
+    assert.equal(s.cantidad, 7);
+    assert.deepEqual(
+      s.items.map((i) => [i.banda, i.medida, i.cantidad]),
+      [
+        ['Banda tracción 220', '295/80R22.5', 3],
+        ['Banda direccional 200', '11R22.5', 4],
+      ],
+    );
+    // Toda la información del cliente viaja con la solicitud
+    assert.ok(s.documentoCliente);
+    assert.ok(s.correoCliente);
+
+    // Una línea con una banda que no sirve para su medida se explica con su número
+    const mala = await solicitar({
+      items: [
+        { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 1 },
+        { bandaId: otra.cuerpo.datos.id, medida: '295/80R22.5', cantidad: 1 },
+      ],
+      lugar: 'Local',
+      fechaPreferida: manana(),
+    });
+    assert.equal(mala.estado, 422);
+    assert.match(mala.cuerpo.error, /Línea 2/);
+
+    // Entre todas las líneas, máximo 20 llantas
+    const muchas = await solicitar({
+      items: [
+        { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 15 },
+        { bandaId: otra.cuerpo.datos.id, medida: '11R22.5', cantidad: 6 },
+      ],
+      lugar: 'Local',
+      fechaPreferida: manana(),
+    });
+    assert.equal(muchas.estado, 422);
+
+    // El cliente la cancela con su motivo (sin motivo no)
+    assert.equal((await accion(`/portal/reencauches/${s.numero}/cancelar`, {}, t.luis)).estado, 422);
+    const cancelada = await accion(`/portal/reencauches/${s.numero}/cancelar`, { motivo: 'Ya las reencauché en otro lado' }, t.luis);
+    assert.equal(cancelada.estado, 200, JSON.stringify(cancelada.cuerpo));
+    assert.equal(cancelada.cuerpo.datos.estado, 'Cancelada');
+    assert.equal(cancelada.cuerpo.datos.motivoCancelacion, 'Ya las reencauché en otro lado');
+  });
+
   test('el cliente pide el reencauche y el asesor recibe el aviso', async () => {
     const r = await solicitar(pedido());
     assert.equal(r.estado, 201, JSON.stringify(r.cuerpo));
@@ -154,8 +219,32 @@ describe('Solicitud y revisión', () => {
     assert.equal(r.estado, 422);
   });
 
-  test('al agendar, el cliente recibe la fecha', async () => {
+  test('si el asesor propone otro día, queda "Por confirmar" hasta que el cliente la acepte', async () => {
     const r = await accion(`/reencauches/${t.numero}/agenda`, { fechaRevision: hoy() });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    assert.equal(r.cuerpo.datos.estado, 'Por confirmar');
+    const avisos = await e.api('/portal/notificaciones', { token: t.luis });
+    assert.ok(avisos.cuerpo.datos.notificaciones.some((n) => n.titulo.includes(`Te proponemos otra fecha · ${t.numero}`)));
+
+    // Sin la confirmación no se registra la revisión
+    const antes = await accion(`/reencauches/${t.numero}/revision`, {
+      llantas: [{ medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
+    });
+    assert.equal(antes.estado, 422);
+    assert.match(antes.cuerpo.error, /confirma/);
+
+    // Otro cliente no la confirma; el dueño sí
+    assert.equal((await accion(`/portal/reencauches/${t.numero}/fecha`, {}, t.maria)).estado, 404);
+    const confirmada = await accion(`/portal/reencauches/${t.numero}/fecha`, {}, t.luis);
+    assert.equal(confirmada.estado, 200, JSON.stringify(confirmada.cuerpo));
+    assert.equal(confirmada.cuerpo.datos.estado, 'Agendada');
+    assert.ok(confirmada.cuerpo.datos.fechaConfirmadaEn);
+    // Ya no hay nada por confirmar
+    assert.equal((await accion(`/portal/reencauches/${t.numero}/fecha`, {}, t.luis)).estado, 422);
+  });
+
+  test('si se agenda el día que pidió el cliente, queda "Agendada" de una vez', async () => {
+    const r = await accion(`/reencauches/${t.numero}/agenda`, { fechaRevision: manana() });
     assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
     assert.equal(r.cuerpo.datos.estado, 'Agendada');
     const avisos = await e.api('/portal/notificaciones', { token: t.luis });
@@ -196,7 +285,7 @@ describe('Solicitud y revisión', () => {
   });
 
   test('revisada, la solicitud ya no se cancela', async () => {
-    const r = await accion(`/portal/reencauches/${t.numero}/cancelar`, {}, t.luis);
+    const r = await accion(`/portal/reencauches/${t.numero}/cancelar`, { motivo: 'Cambié de opinión' }, t.luis);
     assert.equal(r.estado, 422);
   });
 

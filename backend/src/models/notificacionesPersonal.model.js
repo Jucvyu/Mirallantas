@@ -1,3 +1,4 @@
+import { avisarNotificacion } from '../utils/tiempoReal.js';
 import { query } from '../db.js';
 import { POOL } from './listado.model.js';
 
@@ -16,6 +17,7 @@ export async function crear({ modulo, titulo, mensaje, enlace = null, tipo = 'in
     'INSERT INTO notificacion_personal (modulo, titulo, mensaje, enlace, tipo) VALUES ($1, $2, $3, $4, $5)',
     [modulo, titulo, mensaje, enlace, tipo],
   );
+  avisarNotificacion({ modulo }, { titulo, mensaje, enlace, tipo });
 }
 
 /** Nombre del cliente, para escribirlo en el aviso. */

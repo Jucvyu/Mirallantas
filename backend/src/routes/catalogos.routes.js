@@ -23,8 +23,9 @@ import { documentoSegunTipo, esquemaId, esquemaListado } from '../validators/com
  *   lecturaLibre  si es true, cualquier usuario con sesión puede leer
  *                 (catálogos que también ve el portal del cliente)
  *   esquema       esquema Zod del cuerpo al crear (al editar, su .partial())
+ *   reglas        revisión extra entre campos (p. ej. persona jurídica → NIT)
  */
-function rutasCatalogo({ modelo, que, permiso, lecturaLibre = false, esquema }) {
+function rutasCatalogo({ modelo, que, permiso, lecturaLibre = false, esquema, reglas = () => {} }) {
   const rutas = Router();
   const controlador = crearControladorCatalogo(modelo, que);
   const lectura = lecturaLibre ? [] : [requierePermiso(permiso)];
@@ -35,8 +36,12 @@ function rutasCatalogo({ modelo, que, permiso, lecturaLibre = false, esquema }) 
   rutas.get('/', ...lectura, validar(esquemaListado, 'query'), controlador.listar);
   rutas.get('/:id', ...lectura, conId, controlador.obtener);
   // El número de documento se revisa según su tipo (clientes, proveedores, terceros)
-  rutas.post('/', escritura, validar(esquema.superRefine(documentoSegunTipo)), controlador.crear);
-  rutas.put('/:id', escritura, conId, validar(esquema.partial().superRefine(documentoSegunTipo)), controlador.actualizar);
+  const revisar = (datos, ctx) => {
+    documentoSegunTipo(datos, ctx);
+    reglas(datos, ctx);
+  };
+  rutas.post('/', escritura, validar(esquema.superRefine(revisar)), controlador.crear);
+  rutas.put('/:id', escritura, conId, validar(esquema.partial().superRefine(revisar)), controlador.actualizar);
   if (modelo.conActivo) {
     rutas.patch('/:id/estado', escritura, conId, validar(esquemas.esquemaEstado), controlador.cambiarEstado);
   }
@@ -87,7 +92,8 @@ export const rutasProveedores = rutasCatalogo({
   modelo: modelos.proveedores,
   que: 'El proveedor',
   permiso: 'Proveedores',
-  esquema: esquemas.esquemaEmpresaExterna,
+  esquema: esquemas.esquemaProveedor,
+  reglas: esquemas.reglasTipoPersona,
 });
 
 export const rutasTerceros = rutasCatalogo({

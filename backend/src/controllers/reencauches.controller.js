@@ -14,9 +14,12 @@ import { exigirActivo } from './estados.js';
 /**
  * Controlador del reencauche por banda.
  *
- *   1. El cliente (o el asesor por él) pide el reencauche: banda, medida,
- *      cantidad y dónde revisar las llantas.          → "Por agendar"
+ *   1. El cliente (o el asesor por él) pide el reencauche: una o varias
+ *      bandas (como un carro), con la medida y cuántas llantas de cada una,
+ *      y dónde revisarlas.                              → "Por agendar"
  *   2. El asesor agenda la revisión (gratis).         → "Agendada"
+ *      Si propone un día distinto al que pidió el cliente, espera a que el
+ *      cliente lo confirme.                            → "Por confirmar" → "Agendada"
  *   3. En la revisión anota cada llanta: si es apta, su banda y su valor
  *      (banda + mano de obra).                         → "Cotizada"
  *      Si ninguna sirve, la solicitud se cierra.       → "Sin llantas aptas"
@@ -70,9 +73,26 @@ async function exigirBandaCompatible(db, bandaId, medida, prefijo = '') {
   return banda;
 }
 
+/** Cada línea pedida lleva una banda activa y compatible con su medida. */
+async function exigirItemsCompatibles(db, items) {
+  const bandas = [];
+  for (const [i, item] of items.entries()) {
+    const prefijo = items.length > 1 ? `Línea ${i + 1}: ` : '';
+    bandas.push(await exigirBandaCompatible(db, item.bandaId, item.medida, prefijo));
+  }
+  return bandas;
+}
+
+/** "3 llantas 295/80R22.5 con Banda X y 2 llantas 11R22.5 con Banda Y" (para los avisos). */
+const pedidoTexto = (items, bandas) =>
+  items.map((it, i) => `${llantasTexto(it.cantidad)} ${it.medida} con ${bandas[i].nombre}`).join(' y ');
+
+/** Estados antes de la revisión: aún se agenda, se confirma la fecha o se cancela. */
+const ANTES_DE_REVISAR = ['Por agendar', 'Por confirmar', 'Agendada'];
+
 /** Solo mientras no se ha revisado se puede cancelar. */
 function exigirCancelable(actual) {
-  if (!['Por agendar', 'Agendada'].includes(actual.estado)) {
+  if (!ANTES_DE_REVISAR.includes(actual.estado)) {
     throw new HttpError(422, `La solicitud está "${actual.estado}": ya no se cancela.`);
   }
 }
@@ -126,31 +146,76 @@ export async function crear(req, res) {
   const datos = req.validado.body;
   await exigirActivo('cliente', datos.clienteId);
   const { numero } = await enTransaccion(async (db) => {
-    await exigirBandaCompatible(db, datos.bandaId, datos.medida);
+    await exigirItemsCompatibles(db, datos.items);
     return reencauchesModel.crear(db, datos);
   });
   enviarDato(res, await leer(numero), 201);
 }
 
-/** POST /reencauches/:numero/agenda — fija (o cambia) la fecha de la revisión. */
+/**
+ * POST /reencauches/:numero/agenda — fija (o cambia) la fecha de la
+ * revisión. Si es el día que pidió el cliente queda "Agendada"; si es otro,
+ * "Por confirmar" hasta que el cliente acepte la fecha.
+ */
 export async function agendar(req, res) {
   const { fechaRevision } = req.validado.body;
   await enTransaccion(async (db) => {
     const actual = await bloquear(db, req.params.numero);
-    if (!['Por agendar', 'Agendada'].includes(actual.estado)) {
+    if (!ANTES_DE_REVISAR.includes(actual.estado)) {
       throw new HttpError(422, `La solicitud está "${actual.estado}": la revisión ya no se agenda.`);
     }
+    const otroDia = fechaRevision !== actual.fecha_preferida;
+    const estado = otroDia ? 'Por confirmar' : 'Agendada';
+    validarTransicion('reencauche', actual.estado, estado);
     await reencauchesModel.actualizar(db, actual.id, [
       ['fecha_revision', fechaRevision],
-      ['estado', 'Agendada'],
+      ['estado', estado],
+      ['fecha_confirmada_en', otroDia ? null : new Date()],
     ]);
+    const donde = actual.lugar === 'Local' ? 'en el local' : 'en tu dirección';
+    await notificaciones.crear(
+      otroDia
+        ? {
+            clienteId: actual.cliente_id,
+            titulo: `Te proponemos otra fecha · ${actual.numero}`,
+            mensaje: `No pudimos el día que pediste. ¿Te sirve el ${fechaTexto(fechaRevision)} ${donde}? Confírmala en el portal.`,
+            enlace: EN_PORTAL,
+            tipo: 'alerta',
+          }
+        : {
+            clienteId: actual.cliente_id,
+            titulo: `Revisión agendada · ${actual.numero}`,
+            mensaje: `Revisamos tus llantas el ${fechaTexto(fechaRevision)} ${donde}. La revisión es gratis.`,
+            enlace: EN_PORTAL,
+          },
+      db,
+    );
+  });
+  enviarDato(res, await leer(req.params.numero));
+}
+
+/** Pasa la fecha propuesta a confirmada ("Por confirmar" → "Agendada"). */
+async function confirmarFecha(db, actual) {
+  if (actual.estado !== 'Por confirmar') {
+    throw new HttpError(422, `La solicitud está "${actual.estado}": no hay una fecha por confirmar.`);
+  }
+  validarTransicion('reencauche', actual.estado, 'Agendada');
+  await reencauchesModel.actualizar(db, actual.id, [
+    ['estado', 'Agendada'],
+    ['fecha_confirmada_en', new Date()],
+  ]);
+}
+
+/** POST /reencauches/:numero/confirmar-fecha — el cliente aceptó la fecha (por teléfono o en el local). */
+export async function confirmarFechaEnLocal(req, res) {
+  await enTransaccion(async (db) => {
+    const actual = await bloquear(db, req.params.numero);
+    await confirmarFecha(db, actual);
     await notificaciones.crear(
       {
         clienteId: actual.cliente_id,
         titulo: `Revisión agendada · ${actual.numero}`,
-        mensaje: `Revisamos tus llantas el ${fechaTexto(fechaRevision)} ${
-          actual.lugar === 'Local' ? 'en el local' : 'en tu dirección'
-        }. La revisión es gratis.`,
+        mensaje: `Quedó confirmada la revisión del ${fechaTexto(actual.fecha_revision)}. La revisión es gratis.`,
         enlace: EN_PORTAL,
       },
       db,
@@ -168,6 +233,12 @@ export async function registrarRevision(req, res) {
   await enTransaccion(async (db) => {
     const actual = await bloquear(db, req.params.numero);
     if (actual.estado === 'Por agendar') throw new HttpError(422, 'Primero agenda la revisión.');
+    if (actual.estado === 'Por confirmar') {
+      throw new HttpError(
+        422,
+        'El cliente aún no confirma la fecha de la revisión. Espera su confirmación o anótala si la aceptó por teléfono.',
+      );
+    }
     if (!['Agendada', 'Cotizada'].includes(actual.estado)) {
       throw new HttpError(422, `La solicitud está "${actual.estado}": su revisión ya no cambia.`);
     }
@@ -468,11 +539,11 @@ export async function solicitarDesdePortal(req, res) {
   const datos = { ...req.validado.body, clienteId };
   await exigirActivo('cliente', clienteId);
   const numero = await enTransaccion(async (db) => {
-    const banda = await exigirBandaCompatible(db, datos.bandaId, datos.medida);
+    const bandas = await exigirItemsCompatibles(db, datos.items);
     const creada = await reencauchesModel.crear(db, datos);
     await avisarPersonal(db, clienteId, {
       titulo: `Nueva solicitud de reencauche · ${creada.numero}`,
-      mensaje: `pidió revisar ${llantasTexto(datos.cantidad)} ${datos.medida} con ${banda.nombre}. Agenda la revisión.`,
+      mensaje: `pidió revisar ${pedidoTexto(datos.items, bandas)}. Agenda la revisión.`,
       tipo: 'alerta',
     });
     return creada.numero;
@@ -500,10 +571,25 @@ export async function responderDesdePortal(req, res) {
   enviarDato(res, await leer(req.params.numero, { clienteId }));
 }
 
-/** POST /portal/reencauches/:numero/cancelar — antes de la revisión. */
+/** POST /portal/reencauches/:numero/fecha — el cliente acepta la fecha que propuso el asesor. */
+export async function confirmarFechaDesdePortal(req, res) {
+  const clienteId = exigirCliente(req);
+  await enTransaccion(async (db) => {
+    const actual = await bloquear(db, req.params.numero, clienteId);
+    await confirmarFecha(db, actual);
+    await avisarPersonal(db, clienteId, {
+      titulo: `Fecha confirmada · ${actual.numero}`,
+      mensaje: `confirmó la revisión del ${fechaTexto(actual.fecha_revision)}.`,
+      tipo: 'exito',
+    });
+  });
+  enviarDato(res, await leer(req.params.numero, { clienteId }));
+}
+
+/** POST /portal/reencauches/:numero/cancelar — antes de la revisión, con el motivo. */
 export async function cancelarDesdePortal(req, res) {
   const clienteId = exigirCliente(req);
-  const motivo = req.validado.body.motivo ?? 'El cliente canceló la solicitud.';
+  const { motivo } = req.validado.body;
   await enTransaccion(async (db) => {
     const actual = await bloquear(db, req.params.numero, clienteId);
     exigirCancelable(actual);
@@ -511,7 +597,10 @@ export async function cancelarDesdePortal(req, res) {
       ['estado', 'Cancelada'],
       ['motivo_cancelacion', motivo],
     ]);
-    await avisarPersonal(db, clienteId, { titulo: `Solicitud cancelada · ${actual.numero}`, mensaje: 'canceló la solicitud de reencauche.' });
+    await avisarPersonal(db, clienteId, {
+      titulo: `Solicitud cancelada · ${actual.numero}`,
+      mensaje: `canceló la solicitud de reencauche. Motivo: ${motivo}`,
+    });
   });
   enviarDato(res, await leer(req.params.numero, { clienteId }));
 }

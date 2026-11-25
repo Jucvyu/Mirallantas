@@ -13,6 +13,8 @@ export const TONO_DISENO = {
 /** Tono (clave de Badge) de cada estado de la solicitud. */
 export const TONO_SOLICITUD = {
   'Por agendar': 'Pendiente',
+  // Amarillo: el asesor propuso otro día y espera que el cliente lo confirme
+  'Por confirmar': 'Por confirmar',
   Agendada: 'Neutral',
   Cotizada: 'Emitida',
   Aceptada: 'Aceptada',
@@ -61,7 +63,7 @@ export const PASOS = ['Solicitud', 'Aprobación de revisión', 'Cotización', 'R
 
 /** Paso actual de una solicitud (5 = todo terminado). */
 export function pasoActual(s) {
-  if (s.estado === 'Por agendar' || s.estado === 'Agendada') return 1;
+  if (['Por agendar', 'Por confirmar', 'Agendada'].includes(s.estado)) return 1;
   if (s.estado === 'Cotizada') return 2;
   if (s.estado !== 'Aceptada') return 2;
   if (terminada(s)) return 5;
@@ -73,6 +75,8 @@ export function estadoParaCliente(s) {
   switch (s.estado) {
     case 'Por agendar':
       return { texto: 'Por agendar revisión', tono: 'Pendiente' };
+    case 'Por confirmar':
+      return { texto: 'Confirma la fecha', tono: 'Por confirmar' };
     case 'Agendada':
       return { texto: 'Revisión agendada', tono: 'Neutral' };
     case 'Cotizada':

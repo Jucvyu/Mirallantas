@@ -5,9 +5,13 @@ import ConfirmDialog from '../base/ConfirmDialog';
 import { notificacionesService } from '../../services';
 import { fechaISO } from '../../utils/formato';
 import { useAlCambiar } from '../../hooks/useAlCambiar';
+import { EVENTO_NOTIFICACION } from '../../services/tiempoReal';
+import { codigoDeAviso } from '../../utils/avisos';
 
-/** Cada cuánto se revisa si llegaron avisos nuevos. */
+/** Cada cuánto se revisa si llegaron avisos nuevos (respaldo del tiempo real). */
 const CADA_MS = 60_000;
+/** Cuánto se ve el aviso emergente de una notificación que acaba de llegar. */
+const EMERGENTE_MS = 6000;
 
 const ICONOS = {
   exito: <CheckCircle2 size={15} className="text-emerald-500" />,
@@ -48,6 +52,22 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
   // Sube cuando la API avisa un cambio (tiempo real): se revisa enseguida
   const [aviso, setAviso] = useState(0);
   useAlCambiar(() => setAviso((n) => n + 1));
+  // Notificación que acaba de llegar por el tiempo real: se muestra emergente
+  const [emergente, setEmergente] = useState(null);
+  useEffect(() => {
+    let temporizador = null;
+    const alLlegar = (e) => {
+      setAviso((n) => n + 1);
+      setEmergente({ ...e.detail, clave: Date.now() });
+      clearTimeout(temporizador);
+      temporizador = setTimeout(() => setEmergente(null), EMERGENTE_MS);
+    };
+    window.addEventListener(EVENTO_NOTIFICACION, alLlegar);
+    return () => {
+      clearTimeout(temporizador);
+      window.removeEventListener(EVENTO_NOTIFICACION, alLlegar);
+    };
+  }, []);
   const contenedor = useRef(null);
   // Avisos sin leer en la revisión anterior (null = todavía no se ha revisado)
   const sinLeerAntes = useRef(null);
@@ -94,6 +114,13 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
     };
   }, [abierto]);
 
+  /** Lleva a la pantalla del aviso; su registro parpadea al llegar. */
+  const irA = (n) => {
+    setAbierto(false);
+    setEmergente(null);
+    if (n.enlace) navigate(n.enlace, { state: { resaltar: codigoDeAviso(n) } });
+  };
+
   const alternar = () => {
     const abrir = !abierto;
     setAbierto(abrir);
@@ -129,13 +156,34 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
         aria-label={datos.sinLeer ? `Notificaciones: ${datos.sinLeer} sin leer` : 'Notificaciones'}
         className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-amber-500 dark:border-white/10 dark:text-slate-300"
       >
-        <Bell size={15} />
+        <Bell size={15} key={emergente?.clave} className={emergente ? 'ml-campana' : ''} />
         {datos.sinLeer > 0 && (
           <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {datos.sinLeer > 9 ? '9+' : datos.sinLeer}
           </span>
         )}
       </button>
+
+      {/* Aviso emergente de lo que acaba de llegar (tiempo real) */}
+      {emergente && !abierto && (
+        <div role="status" className="ml-aparece absolute right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl ml-glass-panel border">
+          <button type="button" onClick={() => irA(emergente)} className="flex w-full gap-3 px-4 py-3 pr-9 text-left hover:bg-slate-50 dark:hover:bg-white/5">
+            <span className="mt-0.5 shrink-0">{ICONOS[emergente.tipo] ?? ICONOS.info}</span>
+            <span className="min-w-0">
+              <span className="block text-xs font-bold text-slate-800 dark:text-slate-100">{emergente.titulo}</span>
+              <span className="mt-0.5 line-clamp-2 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{emergente.mensaje}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmergente(null)}
+            aria-label="Cerrar aviso"
+            className="absolute right-2 top-2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       {abierto && (
         <div className="ml-aparece absolute right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl ml-glass-panel border">
@@ -168,10 +216,7 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setAbierto(false);
-                      if (n.enlace) navigate(n.enlace);
-                    }}
+                    onClick={() => irA(n)}
                     className={`flex w-full gap-3 px-4 py-3 pr-9 text-left hover:bg-slate-50 dark:hover:bg-white/5 ${
                       n.leida ? '' : 'bg-amber-400/5'
                     }`}

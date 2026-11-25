@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check, ExternalLink, ImageOff, Ruler, ScrollText } from 'lucide-react';
+import ConfirmDialog from '../../../components/base/ConfirmDialog';
 import AvisoError from '../../../components/base/AvisoError';
 import PageHeader from '../../../components/base/PageHeader';
 import Skeleton from '../../../components/base/Skeleton';
@@ -83,6 +84,7 @@ export default function ProductoAdminPage() {
   const [medidasExistentes, setMedidasExistentes] = useState([]);
   const { enviando, errorEnvio, enviar } = useEnvio();
   const estado = useEnvio();
+  const [confirmarInactivo, setConfirmarInactivo] = useState(false);
 
   const sucio = Boolean(modelo && valores && firma(modelo) !== firma(valores));
 
@@ -190,11 +192,19 @@ export default function ProductoAdminPage() {
     });
   };
 
-  const cambiarEstado = (nuevo) =>
+  const aplicarEstado = (nuevo) =>
     estado.enviar(async () => {
       await modelosService.cambiarEstado(modelo, nuevo);
       await cargar();
     });
+  // Al inactivar un producto con medidas a la venta, se avisa que también se inactivan
+  const cambiarEstado = (nuevo) => {
+    if (nuevo === 'Inactivo' && modelo.referencias.some((r) => r.activo)) {
+      setConfirmarInactivo(true);
+      return Promise.resolve();
+    }
+    return aplicarEstado(nuevo);
+  };
 
   const guardarMedidas = async (filas) => recibir(await modelosService.guardarReferencias(modelo, filas));
 
@@ -240,6 +250,16 @@ export default function ProductoAdminPage() {
         </div>
       </div>
       <AvisoError mensaje={estado.errorEnvio} className="mt-3" />
+      {confirmarInactivo && (
+        <ConfirmDialog
+          title="¿Inactivar el producto?"
+          message={`También se inactivarán sus ${activas} ${activas === 1 ? 'medida activa' : 'medidas activas'}: dejarán de verse en el catálogo. Si luego lo reactivas, activas cada medida en la pestaña Medidas.`}
+          confirmLabel="Inactivar"
+          record={{ title: `${modelo.marca} ${modelo.nombre}` }}
+          onConfirm={() => aplicarEstado('Inactivo')}
+          onClose={() => setConfirmarInactivo(false)}
+        />
+      )}
 
       {/* Pestañas */}
       <div role="tablist" aria-label="Secciones del producto" className="mt-6 flex gap-1 border-b border-slate-200 dark:border-white/10">

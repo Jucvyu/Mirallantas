@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, MapPin, Phone } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CalendarDays, IdCard, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
@@ -44,11 +44,14 @@ function Dato({ etiqueta, children }) {
 function Agenda({ solicitud, onGuardar }) {
   const [fecha, setFecha] = useState(solicitud.fechaRevision ?? (solicitud.fechaPreferida >= hoyISO() ? solicitud.fechaPreferida : hoyISO()));
   const { enviando, errorEnvio, enviar } = useEnvio();
-  const agendada = solicitud.estado === 'Agendada';
+  const agendada = solicitud.estado === 'Agendada' || solicitud.estado === 'Por confirmar';
   return (
     <div className="space-y-2">
       <label className="block">
         <span className={LABEL}>{agendada ? 'Cambiar la fecha' : 'Fecha de la revisión'}</span>
+        <span className="mb-1.5 block text-xs text-slate-400">
+          Si no es el {fechaCorta(solicitud.fechaPreferida)} (lo que pidió), el cliente debe confirmarla.
+        </span>
         <input
           type="date"
           value={fecha}
@@ -110,6 +113,63 @@ function Cancelar({ onCancelar }) {
           {enviando ? 'Cancelando…' : 'Cancelar'}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** La fecha propuesta espera al cliente: si la aceptó por teléfono, se anota aquí. */
+function FechaPorConfirmar({ solicitud: s, onConfirmar }) {
+  const { enviando, errorEnvio, enviar } = useEnvio();
+  return (
+    <div className="rounded-xl border border-yellow-400/70 bg-yellow-300/20 p-4 dark:border-yellow-400/40 dark:bg-yellow-400/10">
+      <p className="flex items-start gap-2 text-sm font-semibold text-yellow-900 dark:text-yellow-200">
+        <CalendarClock size={17} className="mt-0.5 shrink-0" />
+        Esperando confirmación del cliente
+      </p>
+      <p className="mt-1 text-sm text-yellow-900/80 dark:text-yellow-100/80">
+        Pidió el {fechaCorta(s.fechaPreferida)} y se le propuso el <b>{fechaCorta(s.fechaRevision)}</b>. La revisión se registra
+        cuando confirme en el portal.
+      </p>
+      <AvisoError mensaje={errorEnvio} className="mt-2" />
+      <button
+        type="button"
+        disabled={enviando}
+        onClick={() => enviar(onConfirmar)}
+        className="mt-3 w-full rounded-lg bg-yellow-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-yellow-300 disabled:opacity-60"
+      >
+        {enviando ? 'Guardando…' : 'El cliente la aceptó por teléfono'}
+      </button>
+    </div>
+  );
+}
+
+/** Lo que pidió el cliente: una fila por banda, con la medida y cuántas llantas. */
+function ItemsPedidos({ items }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[420px] text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-[11px] font-semibold text-slate-400 dark:border-white/10 dark:text-slate-500">
+            <th className="py-2 pr-3 font-semibold">Banda</th>
+            <th className="py-2 pr-3 font-semibold">Diseño</th>
+            <th className="py-2 pr-3 font-semibold">Medida</th>
+            <th className="py-2 text-right font-semibold">Llantas</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+          {items.map((i) => (
+            <tr key={`${i.bandaId}-${i.medida}`}>
+              <td className="py-2.5 pr-3 font-semibold text-slate-800 dark:text-slate-100">
+                {i.banda}
+                {i.anchoMm && <span className="ml-1.5 text-xs font-normal text-slate-400">{i.anchoMm} mm</span>}
+              </td>
+              <td className="py-2.5 pr-3">{i.diseno && <DisenoBanda diseno={i.diseno} />}</td>
+              <td className="py-2.5 pr-3 tabular-nums text-slate-600 dark:text-slate-300">{i.medida}</td>
+              <td className="py-2.5 text-right font-semibold tabular-nums text-slate-800 dark:text-slate-100">{i.cantidad}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -204,7 +264,8 @@ export default function ReencaucheDetallePage() {
 
   const s = solicitud;
   const porRevisar = s.estado === 'Agendada' || (s.estado === 'Cotizada' && corrigiendo);
-  const cancelable = s.estado === 'Por agendar' || s.estado === 'Agendada';
+  const cancelable = ['Por agendar', 'Por confirmar', 'Agendada'].includes(s.estado);
+  const confirmarFecha = tras(() => reencauchesService.confirmarFecha(s.numero));
   const revisar = tras((llantas) => reencauchesService.registrarRevision(s.numero, llantas));
 
   // ---- Lo que se trabaja en la columna principal, según el estado ----------
@@ -223,14 +284,21 @@ export default function ReencaucheDetallePage() {
           {fechaCorta(s.fechaPreferida)}, {s.lugar === 'Local' ? 'en el local' : 'en su dirección'}. Cuando revisen las
           llantas, las anotas aquí.
         </p>
-        <div className="mt-4 max-w-xs">
+        <div className="mt-4">
           <Agenda solicitud={s} onGuardar={agendar} />
         </div>
       </div>
     );
+  } else if (s.estado === 'Por confirmar') {
+    principal = (
+      <div className="space-y-4 p-5">
+        <h2 className="text-base font-bold text-slate-900 dark:text-white">Revisión de las llantas</h2>
+        <FechaPorConfirmar solicitud={s} onConfirmar={confirmarFecha} />
+      </div>
+    );
   } else if (porRevisar) {
     principal = (
-      <div className="p-5 sm:p-6">
+      <div className="p-5">
         <h2 className="text-base font-bold text-slate-900 dark:text-white">Revisión de las llantas</h2>
         <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">
           Anota cada llanta y si sirve (su ID lo asigna el sistema). A las aptas asígnales la banda según su medida y su valor.
@@ -301,7 +369,7 @@ export default function ReencaucheDetallePage() {
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">{s.numero}</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {s.cliente} · {llantasTexto(s.cantidad)} {s.medida}
+            {s.cliente} · {llantasTexto(s.cantidad)} · {s.items.length} {s.items.length === 1 ? 'banda' : 'bandas'}
           </p>
         </div>
         <Badge tone={TONO_SOLICITUD[s.estado]}>{s.estado}</Badge>
@@ -309,48 +377,99 @@ export default function ReencaucheDetallePage() {
 
       <AvisoError mensaje={error} className="mb-4" />
 
-      {/* El resumen va a la derecha solo cuando el formulario conserva su ancho
-          (desde 1280 px); antes se ubica debajo */}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className={`${PANEL} min-w-0`}>{principal}</section>
-
-        <aside className={`${PANEL} divide-y divide-slate-100 dark:divide-white/5`}>
-          <dl className="space-y-3 p-5">
-            <Dato etiqueta="Cliente">
-              <span className="font-semibold">{s.cliente}</span>
-              {s.telefonoCliente && (
-                <span className="mt-0.5 flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                  <Phone size={13} /> {s.telefonoCliente}
+      {/* Lo más importante (el cliente y lo que pidió) va a la izquierda, en
+          grande; la revisión de las llantas, a la derecha y más angosta.
+          Antes de 1280 px la revisión se ubica debajo. */}
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+        <div className="min-w-0 space-y-5">
+          <section className={PANEL}>
+            <header className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5 dark:border-white/5">
+              <UserRound size={17} className="text-amber-500" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Información del cliente</h2>
+            </header>
+            <dl className="grid gap-x-6 gap-y-4 p-5 sm:grid-cols-2">
+              <Dato etiqueta="Nombre">
+                <span className="text-base font-semibold">{s.cliente}</span>
+              </Dato>
+              <Dato etiqueta="Documento">
+                <span className="flex items-center gap-1.5">
+                  <IdCard size={14} className="text-slate-400" />
+                  {s.documentoCliente ? `${s.tipoDocumentoCliente ?? ''} ${s.documentoCliente}`.trim() : '—'}
                 </span>
-              )}
-            </Dato>
-            <Dato etiqueta="Banda pedida">
-              <span className="block">{s.banda}</span>
-              <span className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <DisenoBanda diseno={s.diseno} /> {s.anchoMm} mm
-              </span>
-            </Dato>
-            <Dato etiqueta="Llantas">
-              {llantasTexto(s.cantidad)} · {s.medida}
-            </Dato>
-            {s.notas && <Dato etiqueta="Notas del cliente">{s.notas}</Dato>}
-          </dl>
+              </Dato>
+              <Dato etiqueta="Teléfono">
+                {s.telefonoCliente ? (
+                  <a href={`tel:${s.telefonoCliente}`} className="flex items-center gap-1.5 hover:text-amber-600">
+                    <Phone size={14} className="text-slate-400" /> {s.telefonoCliente}
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </Dato>
+              <Dato etiqueta="Correo">
+                {s.correoCliente ? (
+                  <a href={`mailto:${s.correoCliente}`} className="flex items-center gap-1.5 break-all hover:text-amber-600">
+                    <Mail size={14} className="shrink-0 text-slate-400" /> {s.correoCliente}
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </Dato>
+              <Dato etiqueta="Dirección del cliente">
+                <span className="flex items-start gap-1.5">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  {s.direccionCliente || '—'}
+                </span>
+              </Dato>
+              <Dato etiqueta="Pedida el">{fechaCorta(s.creadoEn)}</Dato>
+            </dl>
+          </section>
 
-          <dl className="space-y-3 p-5">
-            <Dato etiqueta="Revisión (gratis)">
-              <span className="flex items-start gap-1.5">
-                <MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" />
-                {s.lugar === 'Local' ? 'En el local' : s.direccion}
-              </span>
-            </Dato>
-            <Dato etiqueta={s.fechaRevision ? 'Fecha agendada' : 'Fecha que prefiere'}>
-              {fechaCorta(s.fechaRevision ?? s.fechaPreferida)}
-            </Dato>
-          </dl>
+          <section className={PANEL}>
+            <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 px-5 py-3.5 dark:border-white/5">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Lo que pidió</h2>
+              <span className="text-sm tabular-nums text-slate-500 dark:text-slate-400">{llantasTexto(s.cantidad)} en total</span>
+            </header>
+            <div className="px-5 pb-4 pt-1">
+              <ItemsPedidos items={s.items} />
+            </div>
+            <dl className="grid gap-x-6 gap-y-4 border-t border-slate-100 p-5 dark:border-white/5 sm:grid-cols-2">
+              <Dato etiqueta="Revisión (gratis)">
+                <span className="flex items-start gap-1.5">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  {s.lugar === 'Local' ? 'En el local' : s.direccion}
+                </span>
+              </Dato>
+              <Dato etiqueta={s.fechaRevision ? (s.estado === 'Por confirmar' ? 'Fecha propuesta (por confirmar)' : 'Fecha agendada') : 'Fecha que prefiere'}>
+                <span className={s.estado === 'Por confirmar' ? 'rounded bg-yellow-300/40 px-1.5 py-0.5 font-semibold text-yellow-900 dark:bg-yellow-400/20 dark:text-yellow-200' : ''}>
+                  {fechaCorta(s.fechaRevision ?? s.fechaPreferida)}
+                </span>
+                {s.fechaRevision && s.fechaRevision !== s.fechaPreferida && (
+                  <span className="mt-0.5 block text-xs text-slate-400">Pidió el {fechaCorta(s.fechaPreferida)}</span>
+                )}
+              </Dato>
+              {s.notas && (
+                <div className="sm:col-span-2">
+                  <Dato etiqueta="Notas del cliente">{s.notas}</Dato>
+                </div>
+              )}
+              {s.estado === 'Cancelada' && (
+                <div className="sm:col-span-2">
+                  <Dato etiqueta="Motivo de la cancelación">
+                    <span className="text-red-600 dark:text-red-400">{s.motivoCancelacion}</span>
+                  </Dato>
+                </div>
+              )}
+            </dl>
+          </section>
+        </div>
+
+        <aside className="min-w-0 space-y-5">
+          <section className={`${PANEL} min-w-0`}>{principal}</section>
 
           {cancelable && (
-            <div className="space-y-4 p-5">
-              {s.estado === 'Agendada' && <Agenda solicitud={s} onGuardar={agendar} />}
+            <div className={`${PANEL} space-y-4 p-5`}>
+              {['Agendada', 'Por confirmar'].includes(s.estado) && <Agenda solicitud={s} onGuardar={agendar} />}
               <Cancelar onCancelar={tras((motivo) => reencauchesService.cancelar(s.numero, motivo))} />
             </div>
           )}

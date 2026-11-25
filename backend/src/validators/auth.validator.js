@@ -70,9 +70,11 @@ export const esquemaPerfil = z
     telefono: telefono.nullable(),
     direccion: textoOpcional(80),
     foto: imagen.nullable(),
-    password,
-    // Obligatoria para cambiar la contraseña o el correo
+    // Obligatoria para cambiar el correo
     passwordActual,
+    // La contraseña no se cambia desde el perfil: solo si se olvida
+    // (POST /auth/recuperar/…). Si llega, se rechaza con un aviso claro.
+    password: z.never({ error: 'La contraseña solo se cambia con "¿Olvidaste tu contraseña?".' }),
   })
   .partial()
   .superRefine(documentoSegunTipo);

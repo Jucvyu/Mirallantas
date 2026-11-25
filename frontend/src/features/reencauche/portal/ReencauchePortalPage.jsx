@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, ShoppingCart } from 'lucide-react';
 import AvisoError from '../../../components/base/AvisoError';
 import Dropdown from '../../../components/base/Dropdown';
 import EmptyState from '../../../components/base/EmptyState';
-import FormModal from '../../../components/base/FormModal';
+import Modal from '../../../components/base/Modal';
 import Skeleton from '../../../components/base/Skeleton';
 import { disenosBanda, LLANTAS_POR_REENCAUCHE } from '../../../constantes';
 import { useAuth } from '../../../context/AuthContext';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { portalReencaucheService } from '../../../services';
-import { LUGAR_LOCAL } from '../../../services/reencauche.service';
 import DisenoBanda from '../DisenoBanda';
 import PisadaBanda from '../PisadaBanda';
+import { llantasTexto } from '../reencauche';
+import SolicitudReencaucheModal from '../SolicitudReencaucheModal';
 import TarjetaReencauche from './TarjetaReencauche';
 
 /** Servicio de las bandas del portal, con la forma que espera useRecurso (fijo). */
@@ -25,77 +27,97 @@ function manana() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Formulario para pedir el reencauche con la banda elegida. */
-function PedirModal({ banda, medidaSugerida, direccion, onPedir, onClose }) {
-  const sections = [
-    {
-      title: 'Tus llantas',
-      fields: [
-        { key: 'medida', label: 'Medida de tus llantas', type: 'select', required: true, options: banda.medidas },
-        {
-          key: 'cantidad',
-          label: 'Cuántas llantas',
-          type: 'number',
-          required: true,
-          validar: (v) => (Number(v) < 1 || Number(v) > LLANTAS_POR_REENCAUCHE ? `Entre 1 y ${LLANTAS_POR_REENCAUCHE} llantas` : ''),
-        },
-      ],
-    },
-    {
-      title: 'Aprobación de revisión',
-      fields: [
-        { key: 'lugar', label: 'Dónde las revisamos', type: 'select', required: true, options: [LUGAR_LOCAL, LUGAR_MI_DIRECCION] },
-        {
-          key: 'fechaPreferida',
-          label: 'Fecha que prefieres',
-          type: 'date',
-          futura: true,
-          // Desde mañana: necesitamos un día para llamarte y agendarla
-          minimo: manana(),
-          required: true,
-          hint: 'Desde mañana. Te llamamos para confirmarla.',
-          validar: (v) => (v && v < manana() ? 'Elige una fecha desde mañana' : ''),
-        },
-        {
-          key: 'direccion',
-          label: 'Tu dirección',
-          span: 2,
-          placeholder: 'Dónde revisamos tus llantas',
-          // En el local no hace falta dirección: el campo se apaga
-          deshabilitadoSi: (valores) =>
-            valores.lugar === LUGAR_LOCAL ? 'No hace falta: la revisión es en nuestro local.' : '',
-          placeholderDesactivado: 'Revisión en el local',
-          validar: (v, valores) =>
-            valores.lugar === LUGAR_MI_DIRECCION && !String(v ?? '').trim() ? 'Escribe dónde revisamos las llantas' : '',
-        },
-        {
-          key: 'notas',
-          label: 'Algo que debamos saber (opcional)',
-          type: 'textarea',
-          span: 2,
-          placeholder: 'Ej.: son las de tracción del camión y ya tienen un reencauche.',
-        },
-      ],
-    },
-  ];
+/** Carro de reencauche de cada usuario, guardado en este navegador. */
+const claveCarro = (usuarioId) => `mirallantas.carro-reencauche.${usuarioId}`;
+function leerCarro(usuarioId) {
+  try {
+    const lista = JSON.parse(localStorage.getItem(claveCarro(usuarioId)) ?? '[]');
+    return Array.isArray(lista) ? lista.filter((i) => i && i.bandaId && i.medida && i.cantidad > 0) : [];
+  } catch {
+    return [];
+  }
+}
 
+/** Suma una línea al carro: la misma banda con la misma medida se junta. */
+function sumarAlCarro(carro, linea) {
+  const igual = carro.find((i) => i.bandaId === linea.bandaId && i.medida === linea.medida);
+  if (!igual) return [...carro, linea];
+  return carro.map((i) => (i === igual ? { ...i, cantidad: i.cantidad + linea.cantidad } : i));
+}
+
+/** Elige la medida y cuántas llantas de esta banda, y la agrega al carro. */
+function AgregarModal({ banda, medidaSugerida, libres, onAgregar, onClose }) {
+  const [medida, setMedida] = useState(banda.medidas.includes(medidaSugerida) ? medidaSugerida : banda.medidas[0]);
+  const [cantidad, setCantidad] = useState(1);
+  const maximo = Math.max(1, libres);
   return (
-    <FormModal
-      mode="create"
-      title={`Pedir reencauche · ${banda.nombre}`}
-      subtitle="Revisamos tus llantas gratis y te damos el valor. No pagas nada hasta recibirlas reencauchadas."
-      sections={sections}
-      initialValues={{
-        medida: banda.medidas.includes(medidaSugerida) ? medidaSugerida : banda.medidas[0],
-        cantidad: '1',
-        lugar: LUGAR_LOCAL,
-        fechaPreferida: manana(),
-        direccion: direccion ?? '',
-      }}
-      submitLabel="Enviar solicitud"
-      onSubmit={(valores) => onPedir({ ...valores, bandaId: banda.id })}
+    <Modal
+      title="Agregar a tu solicitud"
+      subtitle={banda.nombre}
+      icon={<ShoppingCart size={17} />}
+      size="sm"
       onClose={onClose}
-    />
+      footer={(close) => (
+        <>
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-brand-navy-800 dark:text-slate-200 dark:hover:bg-brand-navy-700"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={libres <= 0}
+            onClick={() => {
+              onAgregar({ bandaId: banda.id, medida, cantidad });
+              close();
+            }}
+            className="ml-pulsable inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2.5 text-sm font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
+          >
+            <Plus size={15} /> Agregar {llantasTexto(cantidad)}
+          </button>
+        </>
+      )}
+    >
+      <div className="space-y-4">
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200">Medida de tus llantas</span>
+          <select
+            value={medida}
+            onChange={(e) => setMedida(e.target.value)}
+            className="w-full cursor-pointer rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 dark:border-white/10 dark:bg-brand-navy-900 dark:text-slate-100"
+          >
+            {banda.medidas.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div>
+          <span className="mb-1.5 block text-[13px] font-semibold text-slate-700 dark:text-slate-200">Cuántas llantas</span>
+          <div className="flex items-center gap-2">
+            {[-1, 1].map((paso) => (
+              <button
+                key={paso}
+                type="button"
+                disabled={paso < 0 ? cantidad <= 1 : cantidad >= maximo}
+                onClick={() => setCantidad((n) => n + paso)}
+                aria-label={paso < 0 ? 'Una llanta menos' : 'Una llanta más'}
+                className={`flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-lg font-bold text-slate-600 disabled:opacity-40 dark:border-white/10 dark:text-slate-300 ${paso < 0 ? 'order-first' : 'order-last'}`}
+              >
+                {paso < 0 ? '−' : '+'}
+              </button>
+            ))}
+            <span className="min-w-[3rem] text-center text-lg font-bold tabular-nums text-slate-900 dark:text-white">{cantidad}</span>
+          </div>
+          <p className="mt-1.5 text-xs text-slate-400">
+            {libres <= 0 ? `Tu solicitud ya tiene el máximo de ${LLANTAS_POR_REENCAUCHE} llantas.` : `Puedes agregar hasta ${libres} más.`}
+          </p>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -140,7 +162,7 @@ function BandaCard({ banda, onPedir }) {
         onClick={() => onPedir(banda)}
         className="ml-pulsable mt-4 w-full rounded-lg bg-amber-400 py-2 text-sm font-bold text-slate-900 hover:bg-amber-300"
       >
-        Pedir reencauche
+        Agregar a la solicitud
       </button>
     </article>
   );
@@ -162,15 +184,28 @@ export default function ReencauchePortalPage() {
   const [diseno, setDiseno] = useState('');
   const [vehiculo, setVehiculo] = useState('');
   const [medida, setMedida] = useState('');
-  const [pedirCon, setPedirCon] = useState(null);
+  // Banda que se está agregando al carro, y si la solicitud (el carro) está abierta
+  const [agregando, setAgregando] = useState(null);
+  const [viendoCarro, setViendoCarro] = useState(false);
+  const usuarioId = usuario?.id ?? null;
+  const [carro, setCarro] = useState(() => leerCarro(usuarioId));
+  useEffect(() => {
+    try {
+      if (carro.length) localStorage.setItem(claveCarro(usuarioId), JSON.stringify(carro));
+      else localStorage.removeItem(claveCarro(usuarioId));
+    } catch {
+      // Sin almacenamiento: el carro dura lo que dure la pestaña
+    }
+  }, [carro, usuarioId]);
+  const llantasEnCarro = carro.reduce((suma, i) => suma + i.cantidad, 0);
 
   // Si ya tiene solicitudes, abre en "Mis reencauches"; si no, en el catálogo
   const vistaActual = vista ?? (mis.filas.length ? 'mis' : 'bandas');
   // Primero lo que espera una respuesta del cliente, después lo que sigue en curso
   const prioridad = (s) =>
-    s.estado === 'Cotizada' ? 0 : ['Por agendar', 'Agendada'].includes(s.estado) || (s.estado === 'Aceptada' && s.enProceso > 0) ? 1 : 2;
+    ['Cotizada', 'Por confirmar'].includes(s.estado) ? 0 : ['Por agendar', 'Agendada'].includes(s.estado) || (s.estado === 'Aceptada' && s.enProceso > 0) ? 1 : 2;
   const solicitudes = [...mis.filas].sort((a, b) => prioridad(a) - prioridad(b) || b.numero.localeCompare(a.numero));
-  const abiertas = mis.filas.filter((s) => ['Por agendar', 'Agendada', 'Cotizada'].includes(s.estado) || (s.estado === 'Aceptada' && s.enProceso > 0)).length;
+  const abiertas = mis.filas.filter((s) => ['Por agendar', 'Por confirmar', 'Agendada', 'Cotizada'].includes(s.estado) || (s.estado === 'Aceptada' && s.enProceso > 0)).length;
 
   const vehiculos = useMemo(() => [...new Set(bandas.filas.map((b) => b.tipoVehiculo))].sort(), [bandas.filas]);
   const medidas = useMemo(() => [...new Set(bandas.filas.flatMap((b) => b.medidas))].sort(), [bandas.filas]);
@@ -245,7 +280,7 @@ export default function ReencauchePortalPage() {
             {bandas.cargando &&
               Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-80 w-full rounded-xl" />)}
             {visibles.map((b) => (
-              <BandaCard key={b.id} banda={b} onPedir={setPedirCon} />
+              <BandaCard key={b.id} banda={b} onPedir={setAgregando} />
             ))}
           </div>
           {!bandas.cargando && visibles.length === 0 && (
@@ -265,7 +300,8 @@ export default function ReencauchePortalPage() {
               key={s.numero}
               solicitud={s}
               onResponder={(acepta) => mis.ejecutar(() => portalReencaucheService.responder(s.numero, acepta))}
-              onCancelar={() => mis.ejecutar(() => portalReencaucheService.cancelar(s.numero))}
+              onConfirmarFecha={() => mis.ejecutar(() => portalReencaucheService.confirmarFecha(s.numero))}
+              onCancelar={(motivo) => mis.ejecutar(() => portalReencaucheService.cancelar(s.numero, motivo))}
             />
           ))}
           {!mis.cargando && mis.filas.length === 0 && (
@@ -278,17 +314,52 @@ export default function ReencauchePortalPage() {
         </section>
       )}
 
-      {pedirCon && (
-        <PedirModal
-          banda={pedirCon}
+      {/* Carro de reencauche: se ve mientras tenga llantas */}
+      {carro.length > 0 && (
+        <div className="sticky bottom-4 z-20 mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setViendoCarro(true)}
+            className="ml-pulsable ml-aparece inline-flex items-center gap-3 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-xl shadow-slate-900/30 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+          >
+            <ShoppingCart size={17} />
+            Tu solicitud: {llantasTexto(llantasEnCarro)} · {carro.length} {carro.length === 1 ? 'banda' : 'bandas'}
+            <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-slate-900">Revisar y enviar</span>
+          </button>
+        </div>
+      )}
+
+      {agregando && (
+        <AgregarModal
+          banda={agregando}
           medidaSugerida={medida}
+          libres={LLANTAS_POR_REENCAUCHE - llantasEnCarro}
+          onAgregar={(linea) => setCarro((actual) => sumarAlCarro(actual, linea))}
+          onClose={() => setAgregando(null)}
+        />
+      )}
+
+      {viendoCarro && (
+        <SolicitudReencaucheModal
+          titulo="Tu solicitud de reencauche"
+          subtitulo="Revisamos tus llantas gratis y te damos el valor. No pagas nada hasta recibirlas reencauchadas."
+          bandas={bandas.filas}
+          itemsIniciales={carro}
           direccion={usuario?.direccion}
-          onPedir={async (valores) => {
+          fechaMinima={manana()}
+          etiquetaDondeCliente={LUGAR_MI_DIRECCION}
+          onItems={setCarro}
+          onAgregarMas={() => {
+            setViendoCarro(false);
+            setVista('bandas');
+          }}
+          onEnviar={async (valores) => {
             await portalReencaucheService.solicitar(valores);
+            setCarro([]);
             await mis.recargar();
             setVista('mis');
           }}
-          onClose={() => setPedirCon(null)}
+          onClose={() => setViendoCarro(false)}
         />
       )}
     </div>
