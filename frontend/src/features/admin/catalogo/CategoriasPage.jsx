@@ -113,9 +113,9 @@ export default function CategoriasPage() {
         newLabel="Nueva categoría"
         formSections={formSections}
         entityName="categoría"
+        // Una categoría con productos no se elimina (la API responde 409): se desactiva
+        onDelete={categorias.eliminar}
         exportable={false}
-        canView={false}
-        canDelete={false}
         filters={[{ key: 'estado', label: 'Estado', options: estadosActivo }]}
       />
 

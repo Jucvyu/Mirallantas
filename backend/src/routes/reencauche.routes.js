@@ -55,8 +55,9 @@ rutasBandas.delete('/:id', conId, bandas.eliminar);
  *   POST /ordenes/:id/entrega       entregar y cobrar
  *   POST /ordenes/:id/no-pagada     el cliente no la pagó: pasa al catálogo
  *   GET  /:numero                   una solicitud con sus llantas
- *   POST /                          registrar la solicitud de un cliente
- *   POST /:numero/agenda            agendar (o cambiar) la revisión
+ *   POST /                          registrar la solicitud de un cliente (una o varias bandas)
+ *   POST /:numero/agenda            agendar (o cambiar) la revisión; otro día que el pedido → "Por confirmar"
+ *   POST /:numero/confirmar-fecha   el cliente aceptó la fecha propuesta (por teléfono o en el local)
  *   POST /:numero/revision          lo que se encontró en cada llanta
  *   POST /:numero/respuesta         el cliente acepta o no, en el local
  *   POST /:numero/cancelar          cancelar antes de la revisión
@@ -74,6 +75,7 @@ rutasReencauches.post('/ordenes/:id/no-pagada', conId, validar(esquemaNoPagada),
 rutasReencauches.get('/:numero', controlador.obtener);
 rutasReencauches.post('/', validar(esquemaSolicitudPersonal), controlador.crear);
 rutasReencauches.post('/:numero/agenda', validar(esquemaAgenda), controlador.agendar);
+rutasReencauches.post('/:numero/confirmar-fecha', controlador.confirmarFechaEnLocal);
 rutasReencauches.post('/:numero/revision', validar(esquemaRevision), controlador.registrarRevision);
 rutasReencauches.post('/:numero/respuesta', validar(esquemaRespuesta), controlador.responderEnLocal);
 rutasReencauches.post('/:numero/cancelar', validar(esquemaCancelacion), controlador.cancelar);

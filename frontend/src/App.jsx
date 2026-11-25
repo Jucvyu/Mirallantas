@@ -10,6 +10,7 @@ import CuentaInactivaPage from './features/auth/CuentaInactivaPage';
 import AccesoDenegadoPage from './features/auth/AccesoDenegadoPage';
 import NoEncontradaPage from './features/auth/NoEncontradaPage';
 import AvisosDeConexion from './components/estado/AvisosDeConexion';
+import NavegacionArriba from './components/estado/NavegacionArriba';
 import LimiteDeErrores from './components/estado/LimiteDeErrores';
 
 // Cada pantalla del panel y del portal se descarga al abrirla por primera
@@ -83,6 +84,8 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          {/* Cada pantalla empieza arriba; lo que señala una notificación parpadea */}
+          <NavegacionArriba />
           {/* Sin internet o servidor caído: aviso encima de todo */}
           <AvisosDeConexion />
           {/* Un error al dibujar una pantalla muestra un aviso en vez de dejarla en blanco */}

@@ -139,6 +139,32 @@ h1, h2 {
 }
 
 /* --- Pantalla de carga del acceso --------------------------------------- */
+/* Campana: se mece cuando llega una notificación */
+@keyframes ml-campana {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(16deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+.ml-campana { animation: ml-campana 0.9s ease-in-out; transform-origin: 50% 10%; }
+@media (prefers-reduced-motion: reduce) { .ml-campana { animation: none; } }
+
+/* Registro señalado por una notificación: parpadea tres veces */
+@keyframes ml-parpadeo {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); background-color: transparent; }
+  15%, 50%, 85% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.85); background-color: rgba(251, 191, 36, 0.18); }
+  32%, 68% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.2); background-color: rgba(251, 191, 36, 0.04); }
+}
+.ml-parpadeo {
+  animation: ml-parpadeo 2.4s ease-in-out;
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-parpadeo { animation: none; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.85); }
+}
+
 @keyframes ml-splash-in {
   from { opacity: 0; }
   to   { opacity: 1; }

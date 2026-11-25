@@ -37,7 +37,8 @@ import { esquemaPagoServicio } from '../validators/solicitudesServicio.validator
  *   GET  /reencauches                    mis solicitudes con sus llantas
  *   POST /reencauches                    pedir un reencauche (revisión gratis)
  *   POST /reencauches/:numero/respuesta  aceptar o no la cotización (sin pagar)
- *   POST /reencauches/:numero/cancelar   cancelar antes de la revisión
+ *   POST /reencauches/:numero/fecha      aceptar la fecha de revisión que propuso el asesor
+ *   POST /reencauches/:numero/cancelar   cancelar antes de la revisión (con el motivo)
  */
 export const rutasPortal = Router();
 rutasPortal.use(autenticar);
@@ -47,6 +48,7 @@ rutasPortal.get('/bandas', conReencauche, reencauches.bandasPortal);
 rutasPortal.get('/reencauches', conReencauche, reencauches.misReencauches);
 rutasPortal.post('/reencauches', conReencauche, validar(esquemaSolicitudPortal), reencauches.solicitarDesdePortal);
 rutasPortal.post('/reencauches/:numero/respuesta', conReencauche, validar(esquemaRespuesta), reencauches.responderDesdePortal);
+rutasPortal.post('/reencauches/:numero/fecha', conReencauche, reencauches.confirmarFechaDesdePortal);
 rutasPortal.post('/reencauches/:numero/cancelar', conReencauche, validar(esquemaCancelacionReencauche), reencauches.cancelarDesdePortal);
 
 rutasPortal.get('/resumen', controlador.resumen);

@@ -2,7 +2,7 @@ import { crearApp } from './app.js';
 import { config } from './config.js';
 import { pool } from './db.js';
 import { limpiarImagenes } from './utils/limpiezaImagenes.js';
-import { cerrarConexiones } from './utils/tiempoReal.js';
+import { adjuntarTiempoReal, cerrarConexiones } from './utils/tiempoReal.js';
 import { vencerNoPagadas } from './controllers/reencauches.controller.js';
 
 /** Cada cuánto se revisan las llantas reencauchadas que el cliente no pagó. */
@@ -16,6 +16,8 @@ const servidor = crearApp().listen(config.puerto, () => {
   limpiarImagenes();
   revisarNoPagadas();
 });
+// Tiempo real (Socket.IO) en el mismo puerto, en /api/socket
+adjuntarTiempoReal(servidor);
 setInterval(revisarNoPagadas, REVISAR_NO_PAGADAS_MS).unref();
 
 // Cierre ordenado: termina las peticiones en curso y libera las conexiones

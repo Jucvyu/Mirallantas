@@ -322,9 +322,23 @@ describe('Catálogo público y cotizaciones', () => {
     const [una] = t.modelo.referencias;
     const cot = await post('/cotizaciones', { direccionEntrega: 'Calle 50 #45-12', lineas: [{ tipo: 'producto', productoId: una.id, cantidad: 1 }] }, t.maria);
     assert.equal(cot.estado, 422);
-    // Se vuelve a activar
+    // Sus medidas también quedan inactivas
+    const { rows } = await e.db.query('SELECT bool_or(activo) AS alguna FROM producto WHERE modelo_id = $1', [t.modelo.id]);
+    assert.equal(rows[0].alguna, false);
+    // Se vuelve a activar el producto y, una por una, sus medidas
     assert.equal((await patch(`/modelos/${t.modelo.id}/estado`, { activo: true })).estado, 200);
+    for (const r of t.modelo.referencias) {
+      assert.equal((await patch(`/modelos/${t.modelo.id}/referencias/${r.id}/estado`, { activo: true })).estado, 200);
+    }
     assert.ok((await e.api('/catalogo?porPagina=100')).cuerpo.datos.some((p) => p.modeloId === t.modelo.id));
+  });
+
+  test('un producto sin movimientos se elimina con sus medidas', async () => {
+    const m = await post('/modelos', modeloNuevo({ nombre: 'Para borrar', referencias: [{ medidas: '205/55R16' }] }));
+    assert.equal(m.estado, 201, JSON.stringify(m.cuerpo));
+    const r = await e.api(`/modelos/${m.cuerpo.datos.id}`, { metodo: 'DELETE', token: t.admin });
+    assert.equal(r.estado, 204);
+    assert.equal((await e.api(`/modelos/${m.cuerpo.datos.id}`, { token: t.admin })).estado, 404);
   });
 
   test('desactivar la categoría desactiva sus modelos', async () => {

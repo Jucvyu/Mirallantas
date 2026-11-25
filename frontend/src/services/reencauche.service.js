@@ -62,23 +62,33 @@ export const bandasService = conCambioDeEstado(
 
 const llantaDesdeApi = (l) => ({ ...l, valorTexto: formatCOP(l.valor) });
 
-export const reencaucheDesdeApi = (r) => ({
+/** "Banda A · 3 llantas 295/80R22.5 + Banda B · 2 llantas 11R22.5" (resumen corto de lo pedido). */
+const resumenItems = (items) =>
+  items.map((i) => `${i.banda} · ${i.cantidad} ${i.cantidad === 1 ? 'llanta' : 'llantas'} ${i.medida}`).join(' + ');
+
+export const reencaucheDesdeApi = (r) => {
+  // Las líneas pedidas (como un carro). Si no llegan, la única es la de la solicitud
+  const items = r.items?.length
+    ? r.items
+    : [{ posicion: 1, bandaId: r.bandaId, banda: r.banda, diseno: r.diseno, anchoMm: r.anchoMm, medida: r.medida, cantidad: r.cantidad }];
+  return {
   ...r,
   id: r.numero,
+  items,
+  pedidoTexto: resumenItems(items),
   direccion: r.direccion ?? '',
   notas: r.notas ?? '',
   valorTexto: formatCOP(r.valor),
   cobradoTexto: formatCOP(r.cobrado),
   llantas: (r.llantas ?? []).map(llantaDesdeApi),
-});
+  };
+};
 
-/** Formulario de solicitud → cuerpo de la API. */
+/** Formulario de solicitud → cuerpo de la API. `items`: [{ bandaId, medida, cantidad }]. */
 const solicitudHaciaApi = (v) => {
   const enLocal = v.lugar === LUGAR_LOCAL;
   return {
-    bandaId: Number(v.bandaId),
-    medida: v.medida,
-    cantidad: Number(v.cantidad),
+    items: v.items.map((i) => ({ bandaId: Number(i.bandaId), medida: i.medida, cantidad: Number(i.cantidad) })),
     lugar: enLocal ? 'Local' : 'Cliente',
     direccion: enLocal ? null : vacioANull(v.direccion),
     fechaPreferida: v.fechaPreferida,
@@ -116,6 +126,8 @@ export const reencauchesService = {
     return enviar('/reencauches', { clienteId: Number(valores.clienteId), ...solicitudHaciaApi(valores) });
   },
   agendar: (numero, fechaRevision) => enviar(ruta(numero, '/agenda'), { fechaRevision }),
+  /** El cliente aceptó por teléfono (o en el local) la fecha que se le propuso. */
+  confirmarFecha: (numero) => enviar(ruta(numero, '/confirmar-fecha')),
   registrarRevision: (numero, llantas) => enviar(ruta(numero, '/revision'), { llantas: llantas.map(llantaHaciaApi) }),
   /** El cliente responde la cotización en el local. */
   responder: (numero, acepta) => enviar(ruta(numero, '/respuesta'), { acepta }),
@@ -158,5 +170,7 @@ export const portalReencaucheService = {
   },
   solicitar: (valores) => enviar('/portal/reencauches', solicitudHaciaApi(valores)),
   responder: (numero, acepta) => enviar(rutaPortal(numero, '/respuesta'), { acepta }),
-  cancelar: (numero) => enviar(rutaPortal(numero, '/cancelar'), {}),
+  /** Acepta la fecha de revisión que propuso el asesor. */
+  confirmarFecha: (numero) => enviar(rutaPortal(numero, '/fecha')),
+  cancelar: (numero, motivo) => enviar(rutaPortal(numero, '/cancelar'), { motivo }),
 };

@@ -24,8 +24,20 @@ export const clientesSeleccionablesService = {
   },
 };
 
+/** Proveedor: además de los datos de empresa, si es persona natural o jurídica. */
+const proveedorDesdeApi = (p) => ({ ...empresaExternaDesdeApi(p), tipoPersona: p.tipoPersona ?? 'Natural' });
+const proveedorHaciaApi = (v) => {
+  const juridica = v.tipoPersona === 'Jurídica';
+  return {
+    ...empresaExternaHaciaApi(v),
+    tipoPersona: juridica ? 'Jurídica' : 'Natural',
+    // La persona jurídica siempre se identifica con NIT
+    tipoDocumento: juridica ? 'NIT' : v.tipoDocumento,
+  };
+};
+
 export const proveedoresService = conCambioDeEstado(
-  crearServicio({ ruta: '/proveedores', desdeApi: empresaExternaDesdeApi, haciaApi: empresaExternaHaciaApi }),
+  crearServicio({ ruta: '/proveedores', desdeApi: proveedorDesdeApi, haciaApi: proveedorHaciaApi }),
 );
 
 export const tercerosService = conCambioDeEstado(

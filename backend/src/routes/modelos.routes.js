@@ -22,7 +22,8 @@ import {
  *   GET   /:id                                un modelo con sus medidas e imágenes
  *   POST  /                                   crea el modelo (ficha, foto y medidas iniciales)
  *   PUT   /:id                                actualiza el modelo (pasa a todas sus medidas)
- *   PATCH /:id/estado                         activa o desactiva el modelo
+ *   PATCH /:id/estado                         activa o desactiva el modelo (al desactivarlo, también sus medidas)
+ *   DELETE /:id                               elimina el modelo y sus medidas (409 si tienen movimientos)
  *   POST  /:id/referencias                    agrega una medida
  *   PUT   /:id/referencias                    guarda todas las medidas (la tabla del panel)
  *   PUT   /:id/referencias/:referenciaId      edita una medida
@@ -42,6 +43,7 @@ rutasModelos.get('/:id', conId, controlador.obtener);
 rutasModelos.post('/', escritura, validar(esquemaNuevo), controlador.crear);
 rutasModelos.put('/:id', escritura, conId, validar(esquemaEdicion), controlador.actualizar);
 rutasModelos.patch('/:id/estado', escritura, conId, validar(esquemaEstado), controlador.cambiarEstado);
+rutasModelos.delete('/:id', escritura, conId, controlador.eliminar);
 rutasModelos.post('/:id/referencias', escritura, conId, validar(esquemaReferencia), controlador.crearReferencia);
 rutasModelos.put('/:id/referencias', escritura, conId, validar(esquemaReferenciasEnBloque), controlador.guardarReferencias);
 rutasModelos.put(

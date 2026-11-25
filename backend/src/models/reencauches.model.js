@@ -4,8 +4,11 @@ import { actualizarCampos, consultarListado, POOL } from './listado.model.js';
 /**
  * Modelo del reencauche por banda (tablas `reencauche` y `reencauche_llanta`).
  *
- *   reencauche          la solicitud: banda pedida, medida, cantidad y dónde
- *                       se revisan las llantas, con su estado.
+ *   reencauche          la solicitud: dónde y cuándo se revisan las llantas,
+ *                       con su estado. `banda_id` y `medida` son los de la
+ *                       primera línea y `cantidad`, el total de llantas.
+ *   reencauche_item     cada línea pedida (como un carro): banda, medida y
+ *                       cuántas llantas (migración 0045).
  *   reencauche_llanta   cada llanta revisada. Las aptas llevan banda y valor
  *                       y, cuando el cliente acepta, son la orden de
  *                       reencauche en la planta (columna `estado`).
@@ -40,6 +43,9 @@ const RESUMEN = `
 
 const SELECT_SOLICITUD = `
   r.id, r.numero, r.cliente_id AS "clienteId", cl.nombre_completo AS cliente, cl.telefono AS "telefonoCliente",
+  cl.tipo_documento AS "tipoDocumentoCliente", cl.numero_documento AS "documentoCliente",
+  cl.correo AS "correoCliente", cl.direccion AS "direccionCliente",
+  r.fecha_confirmada_en AS "fechaConfirmadaEn",
   r.banda_id AS "bandaId", b.nombre AS banda, b.diseno, b.ancho_mm AS "anchoMm",
   r.medida, r.cantidad, r.lugar, r.direccion, r.fecha_preferida AS "fechaPreferida",
   r.fecha_revision AS "fechaRevision", r.notas, r.estado, r.motivo_cancelacion AS "motivoCancelacion",
@@ -71,6 +77,31 @@ const DESDE_LLANTA = `
   LEFT JOIN tercero t ON t.id = l.tercero_id
   LEFT JOIN producto lp ON lp.id = l.producto_id`;
 
+/** Las líneas pedidas de varias solicitudes → Map id → [{ bandaId, banda, medida, cantidad… }]. */
+async function itemsDe(ids, db = POOL) {
+  const grupos = new Map(ids.map((id) => [id, []]));
+  if (ids.length === 0) return grupos;
+  const { rows } = await db.query(
+    `SELECT i.reencauche_id AS "reencaucheId", i.posicion, i.banda_id AS "bandaId", b.nombre AS banda, b.diseno,
+            b.ancho_mm AS "anchoMm", i.medida, i.cantidad
+       FROM reencauche_item i JOIN banda b ON b.id = i.banda_id
+      WHERE i.reencauche_id = ANY($1::int[])
+      ORDER BY i.posicion`,
+    [ids],
+  );
+  for (const item of rows) grupos.get(item.reencaucheId).push(item);
+  return grupos;
+}
+
+/** Agrega a cada solicitud sus líneas pedidas y sus llantas revisadas. */
+async function completar(filas, db = POOL) {
+  const ids = filas.map((r) => r.id);
+  // Una después de la otra: `db` puede ser la conexión de una transacción
+  const items = await itemsDe(ids, db);
+  const llantas = await llantasDe(ids, db);
+  return filas.map((r) => ({ ...r, items: items.get(r.id), llantas: llantas.get(r.id) }));
+}
+
 /** Las llantas de varias solicitudes, agrupadas por solicitud → Map id → [llantas]. */
 async function llantasDe(ids, db = POOL) {
   const grupos = new Map(ids.map((id) => [id, []]));
@@ -83,14 +114,15 @@ async function llantasDe(ids, db = POOL) {
   return grupos;
 }
 
-// Lo que necesita atención va primero: por agendar, agendadas y cotizadas
+// Lo que necesita atención va primero: por agendar, agendadas, por confirmar y cotizadas
 const ORDEN_SOLICITUDES = `
-  CASE r.estado WHEN 'Por agendar' THEN 0 WHEN 'Agendada' THEN 1 WHEN 'Cotizada' THEN 2 WHEN 'Aceptada' THEN 3 ELSE 4 END,
+  CASE r.estado WHEN 'Por agendar' THEN 0 WHEN 'Agendada' THEN 1 WHEN 'Por confirmar' THEN 2 WHEN 'Cotizada' THEN 3
+                WHEN 'Aceptada' THEN 4 ELSE 5 END,
   r.creado_en DESC, r.id DESC`;
 
-/** Listado del personal con búsqueda, filtro ?estado= y paginación → { filas, total } */
-export function listar(parametros) {
-  return consultarListado(
+/** Listado del personal con búsqueda, filtro ?estado= y paginación → { filas, total } (cada una con sus líneas). */
+export async function listar(parametros) {
+  const resultado = await consultarListado(
     {
       select: SELECT_SOLICITUD,
       desde: DESDE_SOLICITUD,
@@ -101,6 +133,8 @@ export function listar(parametros) {
     },
     parametros,
   );
+  const items = await itemsDe(resultado.filas.map((r) => r.id));
+  return { ...resultado, filas: resultado.filas.map((r) => ({ ...r, items: items.get(r.id) })) };
 }
 
 /**
@@ -115,8 +149,7 @@ export async function detalle(numero, { clienteId } = {}, db = POOL) {
     valores,
   );
   if (!rows[0]) return null;
-  const llantas = await llantasDe([rows[0].id], db);
-  return { ...rows[0], llantas: llantas.get(rows[0].id) };
+  return (await completar(rows, db))[0];
 }
 
 /** Las solicitudes de un cliente con sus llantas (portal), las más nuevas primero. */
@@ -125,27 +158,42 @@ export async function deCliente(clienteId) {
     `SELECT ${SELECT_SOLICITUD} ${DESDE_SOLICITUD} WHERE r.cliente_id = $1 ORDER BY r.creado_en DESC, r.id DESC`,
     [clienteId],
   );
-  const llantas = await llantasDe(rows.map((r) => r.id));
-  return rows.map((r) => ({ ...r, llantas: llantas.get(r.id) }));
+  return completar(rows);
 }
 
-/** Crea una solicitud con su consecutivo (REE-AAAA-NNN) → { id, numero }. */
+/**
+ * Crea una solicitud con su consecutivo (REE-AAAA-NNN) y sus líneas →
+ * { id, numero }. La misma banda con la misma medida se suma en una línea.
+ */
 export async function crear(db, s) {
+  const lineas = [];
+  for (const item of s.items) {
+    const igual = lineas.find((l) => l.bandaId === item.bandaId && l.medida === item.medida);
+    if (igual) igual.cantidad += item.cantidad;
+    else lineas.push({ ...item });
+  }
+  const total = lineas.reduce((suma, l) => suma + l.cantidad, 0);
   const { rows } = await db.query(
     `INSERT INTO reencauche (numero, cliente_id, banda_id, medida, cantidad, lugar, direccion, fecha_preferida, notas)
      VALUES (siguiente_numero('REE'), $1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING id, numero`,
     [
       s.clienteId,
-      s.bandaId,
-      s.medida,
-      s.cantidad,
+      lineas[0].bandaId,
+      lineas[0].medida,
+      total,
       s.lugar,
       s.lugar === 'Cliente' ? s.direccion : null,
       s.fechaPreferida,
       s.notas ?? null,
     ],
   );
+  for (const [i, l] of lineas.entries()) {
+    await db.query(
+      `INSERT INTO reencauche_item (reencauche_id, posicion, banda_id, medida, cantidad) VALUES ($1, $2, $3, $4, $5)`,
+      [rows[0].id, i + 1, l.bandaId, l.medida, l.cantidad],
+    );
+  }
   return rows[0];
 }
 
@@ -155,7 +203,7 @@ export async function crear(db, s) {
  */
 export async function bloquear(db, numero, clienteId = null) {
   const { rows } = await db.query(
-    `SELECT r.id, r.numero, r.estado, r.cliente_id, r.cantidad, r.fecha_revision, r.lugar, b.nombre AS banda
+    `SELECT r.id, r.numero, r.estado, r.cliente_id, r.cantidad, r.fecha_revision, r.fecha_preferida, r.lugar, b.nombre AS banda
        FROM reencauche r JOIN banda b ON b.id = r.banda_id
       WHERE r.numero = $1 ${clienteId ? 'AND r.cliente_id = $2' : ''}
         FOR UPDATE OF r`,
@@ -222,7 +270,8 @@ export async function abrirOrdenes(db, reencaucheId) {
 
 // ---- Órdenes en la reencauchadora ----------------------------------------------
 
-const SELECT_ORDEN = `${SELECT_LLANTA}, r.numero AS reencauche, r.cliente_id AS "clienteId", cl.nombre_completo AS cliente`;
+const SELECT_ORDEN = `${SELECT_LLANTA}, r.numero AS reencauche, r.cliente_id AS "clienteId", cl.nombre_completo AS cliente,
+  cl.telefono AS "telefonoCliente", r.lugar, r.direccion`;
 
 const DESDE_ORDEN = `${DESDE_LLANTA}
   JOIN reencauche r ON r.id = l.reencauche_id

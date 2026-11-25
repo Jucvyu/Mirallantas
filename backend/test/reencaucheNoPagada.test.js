@@ -12,7 +12,6 @@ import { levantarEntorno } from './entorno.js';
 
 let e;
 const t = {};
-const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 const manana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(Date.now() + 86_400_000));
 
 const post = (ruta, cuerpo, token = t.admin) => e.api(ruta, { metodo: 'POST', token, cuerpo });
@@ -21,7 +20,7 @@ const post = (ruta, cuerpo, token = t.admin) => e.api(ruta, { metodo: 'POST', to
 async function llantaLista() {
   const r = await post('/portal/reencauches', { bandaId: t.banda.id, medida: '295/80R22.5', cantidad: 1, lugar: 'Local', fechaPreferida: manana() }, t.luis);
   const numero = r.cuerpo.datos.numero;
-  await post(`/reencauches/${numero}/agenda`, { fechaRevision: hoy() });
+  await post(`/reencauches/${numero}/agenda`, { fechaRevision: manana() });
   await post(`/reencauches/${numero}/revision`, {
     llantas: [{ medida: '295/80R22.5', resultado: 'Apta', bandaId: t.banda.id, manoObra: 220000 }],
   });

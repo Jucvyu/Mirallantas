@@ -13,6 +13,7 @@
     "migrate:down": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env migrate.js down",
     "migrate:status": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env migrate.js status",
     "admin:crear": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env crearAdmin.js",
+    "clave:restablecer": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env restablecerClave.js",
     "db:limpiar": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env limpiar.js",
     "db:eliminargestion": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env eliminarGestion.js",
     "db:respaldo": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env respaldo.js crear",

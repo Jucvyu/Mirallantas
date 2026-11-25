@@ -33,6 +33,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [lucide-react](https://lucide.dev) | 1 | Iconos de la interfaz. |
 | react-icons | 5 | Logos de redes sociales del pie de página. |
 | `fetch` (nativo del navegador) | — | Peticiones HTTP a la API (ver `src/api/cliente.js`). |
+| [socket.io-client](https://socket.io) | 4 | Tiempo real: las pantallas se actualizan solas y las notificaciones llegan al instante. |
 | [oxlint](https://oxc.rs) | 1 | Revisión estática del código (`npm run lint`). |
 
 ### Backend
@@ -51,6 +52,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 8 | Limita las solicitudes por IP y los intentos de inicio de sesión (contra fuerza bruta). |
 | [cloudinary](https://cloudinary.com/documentation/node_integration) | 2 | Guarda las imágenes subidas (fotos y comprobantes) fuera de la base. |
 | [Brevo](https://brevo.com) (API HTTP) | — | Envía el código para recuperar la contraseña (sin librería: `fetch` nativo de Node; va por HTTPS porque Render gratis bloquea SMTP). |
+| [Socket.IO](https://socket.io) | 4 | Tiempo real en `/api/socket`: avisa los cambios a las pantallas abiertas y empuja cada notificación solo a quien le toca. |
 | [PDFKit](https://pdfkit.org) | 0.20 | Genera en el servidor la cotización formal y el comprobante de venta en PDF. |
 | `node:crypto` (nativo de Node) | — | Doble factor TOTP y cifrado AES-256-GCM de datos sensibles, sin librerías extra. |
 | [embedded-postgres](https://github.com/leinelissen/embedded-postgres) | 18.4 (dev) | **Solo desarrollo y pruebas**: un PostgreSQL real sin instalar nada. |
@@ -157,6 +159,7 @@ Todos se ejecutan desde la raíz:
 | `npm run migrate:status` | Muestra qué migraciones están aplicadas. |
 | `npm run migrate:down` | Revierte la última migración (borra datos: solo en desarrollo). |
 | `npm run admin:crear -- …` | Crea el primer Administrador (solo si no hay ninguno activo). |
+| `npm run clave:restablecer -- --correo …` | Nueva contraseña temporal para una cuenta que nadie recuerda (la muestra una vez y desbloquea la cuenta). |
 | `npm run db:respaldo` | Copia de seguridad completa en `database/respaldos/` (JSON). |
 | `npm run db:restaurar -- respaldos/archivo.json` | Restaura una copia (ruta dentro de `database/`) en una base **nueva y vacía** (ya migrada). |
 | `npm run db:limpiar -- --confirmar` | Borra todos los datos de negocio y deja solo al Administrador. ⚠ Saca antes un respaldo. |

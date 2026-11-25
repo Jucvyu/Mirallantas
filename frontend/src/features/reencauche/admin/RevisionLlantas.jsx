@@ -8,7 +8,7 @@ import { formatCOP, parseCOP } from '../../../utils/formato';
 
 const miles = (n) => (n ? Number(n).toLocaleString('es-CO') : '');
 
-/** Llantas del formulario: las ya revisadas, o tantas vacías como pidió el cliente. */
+/** Llantas del formulario: las ya revisadas, o tantas vacías como pidió el cliente de cada banda. */
 function filasIniciales(solicitud, bandas) {
   if (solicitud.llantas.length) {
     return solicitud.llantas.map((l) => ({
@@ -21,16 +21,19 @@ function filasIniciales(solicitud, bandas) {
       manoObra: miles(l.manoObra),
     }));
   }
-  const pedida = bandas.find((b) => b.id === solicitud.bandaId);
-  return Array.from({ length: solicitud.cantidad }, () => ({
-    medida: solicitud.medida,
-    reencauchesPrevios: '0',
-    resultado: 'Apta',
-    motivoNoApta: '',
-    bandaId: pedida?.activo ? pedida.id : '',
-    precioBanda: pedida?.activo ? miles(pedida.precioValor) : '',
-    manoObra: '',
-  }));
+  // Tantas llantas como pidió de cada banda, con su medida y la banda propuesta
+  return solicitud.items.flatMap((item) => {
+    const pedida = bandas.find((b) => b.id === item.bandaId);
+    return Array.from({ length: item.cantidad }, () => ({
+      medida: item.medida,
+      reencauchesPrevios: '0',
+      resultado: 'Apta',
+      motivoNoApta: '',
+      bandaId: pedida?.activo ? pedida.id : '',
+      precioBanda: pedida?.activo ? miles(pedida.precioValor) : '',
+      manoObra: '',
+    }));
+  });
 }
 
 /** Lo que le falta a cada llanta (por campo), o {} si está completa. */
@@ -158,7 +161,7 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-2">
                 <Campo etiqueta="Medida">
                   <Selector value={f.medida} onChange={(e) => cambiar(i, { medida: e.target.value })}>
                     {medidas.map((m) => (
@@ -210,7 +213,7 @@ export default function RevisionLlantas({ solicitud, bandas, onEmitir, onCancela
               </div>
 
               {apta ? (
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-2">
                   <Campo etiqueta="Banda" error={err.bandaId} className="sm:col-span-2">
                     {opciones.length ? (
                       <Selector value={f.bandaId} error={err.bandaId} onChange={(e) => cambiar(i, { bandaId: e.target.value })}>

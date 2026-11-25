@@ -128,9 +128,12 @@ export const FLUJOS = {
   // Solicitud de reencauche: se agenda, se revisa en persona y el cliente
   // responde la cotización. Mientras no responda, la revisión se puede
   // corregir (Cotizada → Cotizada).
+  // Si el asesor propone un día distinto al que pidió el cliente, la
+  // solicitud espera su confirmación ("Por confirmar").
   reencauche: {
-    'Por agendar': ['Agendada', 'Cancelada'],
-    Agendada: ['Cotizada', 'Sin llantas aptas', 'Cancelada'],
+    'Por agendar': ['Agendada', 'Por confirmar', 'Cancelada'],
+    'Por confirmar': ['Agendada', 'Cancelada'],
+    Agendada: ['Cotizada', 'Sin llantas aptas', 'Cancelada', 'Por confirmar'],
     Cotizada: ['Aceptada', 'No aceptada', 'Sin llantas aptas'],
     Aceptada: [],
     'No aceptada': [],

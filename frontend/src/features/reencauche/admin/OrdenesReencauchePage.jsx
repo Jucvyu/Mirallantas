@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Ban, Check, Eye, FileText, HandCoins, PackageCheck, Search, Store, Truck } from 'lucide-react';
+import { Ban, Check, CheckCheck, Eye, Factory, FileText, HandCoins, Layers, PackageCheck, Phone, Search, Store, Truck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import AvisoError from '../../../components/base/AvisoError';
 import Badge from '../../../components/base/Badge';
@@ -9,7 +9,7 @@ import { DetalleDatos, DetalleImagen, DetalleResumen, DetalleSeccion } from '../
 import { BORDER_OK, INPUT, LABEL, formatoMiles } from '../../../components/base/formStyles';
 import Modal from '../../../components/base/Modal';
 import PageHeader from '../../../components/base/PageHeader';
-import { DIAS_PARA_NO_PAGADA, estadosOrdenReencauche, mediosPago } from '../../../constantes';
+import { DIAS_PARA_NO_PAGADA, mediosPago } from '../../../constantes';
 import { useEnvio } from '../../../hooks/useEnvio';
 import { useRecurso } from '../../../hooks/useRecurso';
 import { ordenesReencaucheService, tercerosService } from '../../../services';
@@ -52,6 +52,18 @@ function pagoDe(o) {
   return { texto: 'Pendiente', tono: 'Pendiente', nota: 'Se cobra al entregar' };
 }
 
+/**
+ * Etapas de la página: cada pestaña muestra las llantas de esa etapa,
+ * agrupadas por su solicitud. "En proceso" junta lo que aún pide trabajo.
+ */
+const ETAPAS = [
+  { clave: 'proceso', titulo: 'En proceso', icono: Layers, estados: ['Por enviar', 'En planta', 'Lista para entregar'] },
+  { clave: 'enviar', titulo: 'Por enviar', icono: Truck, estados: ['Por enviar'], nota: 'Salen a la reencauchadora' },
+  { clave: 'planta', titulo: 'En planta', icono: Factory, estados: ['En planta'], nota: 'En la reencauchadora' },
+  { clave: 'listas', titulo: 'Listas para entregar', icono: HandCoins, estados: ['Lista para entregar'], nota: 'Se cobran al entregar' },
+  { clave: 'cerradas', titulo: 'Cerradas', icono: CheckCheck, estados: ['Entregada', 'No pagada', 'Rechazada en planta'] },
+];
+
 const ESTADO_MAS_URGENTE = ['Lista para entregar', 'Por enviar', 'En planta', 'Entregada', 'No pagada', 'Rechazada en planta'];
 
 /**
@@ -75,6 +87,7 @@ function agrupar(ordenes) {
     return {
       id: numero,
       cliente: llantas[0].cliente,
+      telefonoCliente: llantas[0].telefonoCliente,
       llantas,
       // El estado del grupo es el de la llanta que más pide atención
       estado: ESTADO_MAS_URGENTE.find((e) => llantas.some((o) => o.estado === e)),
@@ -123,7 +136,12 @@ const columns = [
     render: (g) => (
       <div>
         <p className="whitespace-nowrap font-semibold text-slate-800 dark:text-slate-100">{g.id}</p>
-        <Segunda>{g.cliente}</Segunda>
+        <p className="text-sm text-slate-600 dark:text-slate-300">{g.cliente}</p>
+        {g.telefonoCliente && (
+          <a href={`tel:${g.telefonoCliente}`} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-amber-600">
+            <Phone size={11} /> {g.telefonoCliente}
+          </a>
+        )}
       </div>
     ),
   },
@@ -497,8 +515,14 @@ export default function OrdenesReencauchePage() {
   const [accion, setAccion] = useState(null);
   const [viendo, setViendo] = useState(null);
 
-  const grupos = useMemo(() => agrupar(ordenes.filas), [ordenes.filas]);
-  const cuenta = (estado) => ordenes.filas.filter((o) => o.estado === estado).length;
+  const [etapa, setEtapa] = useState('proceso');
+  const estadosEtapa = ETAPAS.find((e) => e.clave === etapa).estados;
+  // Solo las llantas de la etapa elegida, agrupadas por solicitud
+  const grupos = useMemo(
+    () => agrupar(ordenes.filas.filter((o) => estadosEtapa.includes(o.estado))),
+    [ordenes.filas, estadosEtapa],
+  );
+  const deEtapa = (e) => ordenes.filas.filter((o) => e.estados.includes(o.estado));
   const porCobrar = ordenes.filas
     .filter((o) => o.estado === 'Lista para entregar')
     .reduce((suma, o) => suma + o.valor, 0);
@@ -517,21 +541,51 @@ export default function OrdenesReencauchePage() {
   return (
     <div>
       <PageHeader crumbs={['Inicio', 'Reencauche', 'Órdenes']} />
-      <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Órdenes de reencauche</h1>
-      <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-        <span>
-          <b className="tabular-nums text-slate-800 dark:text-slate-100">{cuenta('Lista para entregar')}</b> listas para entregar
-        </span>
-        <span>
-          <b className="tabular-nums text-slate-800 dark:text-slate-100">{cuenta('Por enviar')}</b> por enviar
-        </span>
-        <span>
-          <b className="tabular-nums text-slate-800 dark:text-slate-100">{cuenta('En planta')}</b> en planta
-        </span>
-        <span>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Órdenes de reencauche</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Cada llanta aceptada es una orden: sale a la planta, vuelve reencauchada y se cobra al entregarla.
+          </p>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           <b className="tabular-nums text-slate-800 dark:text-slate-100">{formatCOP(porCobrar)}</b> por cobrar al entregar
-        </span>
-      </p>
+        </p>
+      </div>
+
+      {/* Etapas: cada tarjeta filtra la tabla y dice cuántas llantas hay */}
+      <div role="tablist" aria-label="Etapa de las órdenes" className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        {ETAPAS.map((e) => {
+          const lista = deEtapa(e);
+          const activa = etapa === e.clave;
+          const Icono = e.icono;
+          return (
+            <button
+              key={e.clave}
+              type="button"
+              role="tab"
+              aria-selected={activa}
+              onClick={() => setEtapa(e.clave)}
+              className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                activa
+                  ? 'border-amber-400 bg-amber-400/10 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-brand-navy-800 dark:hover:border-white/20'
+              }`}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className={`text-xs font-semibold ${activa ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {e.titulo}
+                </span>
+                <Icono size={15} className={activa ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600'} />
+              </span>
+              <span className="mt-1 block text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{lista.length}</span>
+              <span className="block text-[11px] text-slate-400">
+                {e.clave === 'listas' && lista.length ? formatCOP(lista.reduce((suma, o) => suma + o.valor, 0)) : e.nota ?? llantasTexto(lista.length)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       <DataTable
         columns={columns}
@@ -560,7 +614,6 @@ export default function OrdenesReencauchePage() {
             onLista={(o) => ordenes.ejecutar(() => ordenesReencaucheService.marcarLista(o))}
           />
         )}
-        filters={[{ key: 'estado', label: 'Estado', options: estadosOrdenReencauche }]}
       />
       <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
         Despliega cada solicitud para ver y mover sus llantas. ¿Buscas la revisión? Está en{' '}
