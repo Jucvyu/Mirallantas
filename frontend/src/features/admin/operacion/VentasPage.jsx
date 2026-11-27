@@ -64,7 +64,7 @@ const columns = [
   },
   columnaCliente(),
   { key: 'metodoPago', label: 'Método de pago' },
-  { key: 'cotizacion', label: 'Cotización', render: (row) => row.cotizacion || 'Venta directa' },
+  { key: 'cotizacion', label: 'Origen', render: (row) => row.origen, exportar: (row) => row.origen },
   // Vendido = lo pactado; cobrado = lo que ya entró; saldo = lo que falta (solo a crédito)
   { key: 'totalVendido', label: 'Vendido', render: (row) => <span className="font-semibold tabular-nums">{row.totalVendido}</span> },
   { key: 'cobrado', label: 'Cobrado', render: (row) => <span className="tabular-nums">{row.cobrado}</span> },

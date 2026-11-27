@@ -356,6 +356,8 @@ export const ventaDesdeApi = (f) => ({
   cobrado: formatCOP(f.cobrado ?? f.total),
   saldo: formatCOP(f.saldo ?? 0),
   cotizacion: f.cotizacion ?? '',
+  // De dónde salió la venta: su cotización, el cobro de un reencauche o directa
+  origen: f.cotizacion || (f.reencauche ? `Reencauche ${f.reencauche} · ${f.llantaReencauche}` : 'Venta directa'),
   proveedor: f.proveedor ?? '',
   tercero: f.tercero ?? '',
   comprobantePago: f.comprobanteUrl ?? '',

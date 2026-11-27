@@ -612,6 +612,7 @@ describe('Registro, perfil y tableros', () => {
         telefono: '3000000000',
         correo: 'otro@ejemplo.com',
         password: 'clave-segura-1',
+        aceptaTerminos: true,
       },
     });
     assert.equal(r.estado, 409);
@@ -627,6 +628,7 @@ describe('Registro, perfil y tableros', () => {
         telefono: '3001234567',
         correo: 'nuevo@ejemplo.com',
         password: 'clave-segura-1',
+        aceptaTerminos: true,
       },
     });
     assert.equal(r.estado, 201);

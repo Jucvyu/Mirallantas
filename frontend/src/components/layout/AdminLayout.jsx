@@ -24,7 +24,6 @@ const TITLES = {
   '/admin/reencauches': 'Revisiones',
   '/admin/ordenes-reencauche': 'Órdenes de reencauche',
   '/admin/bandas': 'Bandas',
-  '/admin/solicitudes-servicio': 'Servicios anteriores',
   '/admin/creditos': 'Cartera',
   '/admin/solicitudes-credito': 'Solicitudes de crédito',
   '/admin/abonos': 'Abonos',

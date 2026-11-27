@@ -22,7 +22,6 @@ export const MODULOS_ADMIN = [
   { ruta: '/admin/reencauches', permiso: 'Reencauche' },
   { ruta: '/admin/ordenes-reencauche', permiso: 'Reencauche' },
   { ruta: '/admin/bandas', permiso: 'Reencauche' },
-  { ruta: '/admin/solicitudes-servicio', permiso: 'Solicitudes de servicio' },
   { ruta: '/admin/creditos', permiso: 'Cartera' },
   { ruta: '/admin/solicitudes-credito', permiso: 'Cartera' },
   { ruta: '/admin/abonos', permiso: 'Abonos' },

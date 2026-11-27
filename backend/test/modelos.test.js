@@ -237,6 +237,32 @@ describe('Editar el modelo y sus medidas', () => {
     // Una medida de otro modelo no se toca desde aquí
     assert.equal((await patch(`/modelos/${t.modelo.id}/referencias/1/estado`, { activo: false })).estado, 404);
   });
+
+  test('si se desactivan todas sus medidas, el producto se desactiva solo', async () => {
+    const m = (
+      await post('/modelos', modeloNuevo({ nombre: 'Modelo que se apaga', referencias: [{ medidas: '12R22.5' }, { medidas: '13R22.5' }] }))
+    ).cuerpo.datos;
+    const [a, b] = m.referencias;
+    await patch(`/modelos/${m.id}/referencias/${a.id}/estado`, { activo: false });
+    assert.equal((await e.api(`/modelos/${m.id}`, { token: t.admin })).cuerpo.datos.activo, true, 'con una medida activa sigue activo');
+    await patch(`/modelos/${m.id}/referencias/${b.id}/estado`, { activo: false });
+    assert.equal((await e.api(`/modelos/${m.id}`, { token: t.admin })).cuerpo.datos.activo, false, 'sin medidas activas se desactiva');
+
+    // Reactivar una medida no reactiva el producto: lo decide el administrador
+    await patch(`/modelos/${m.id}/referencias/${b.id}/estado`, { activo: true });
+    assert.equal((await e.api(`/modelos/${m.id}`, { token: t.admin })).cuerpo.datos.activo, false);
+
+    // Lo mismo desde la tabla de medidas (guardar todas de una vez)
+    await patch(`/modelos/${m.id}/estado`, { activo: true });
+    const r = await put(`/modelos/${m.id}/referencias`, {
+      referencias: [
+        { id: a.id, medidas: '12R22.5', activo: false },
+        { id: b.id, medidas: '13R22.5', activo: false },
+      ],
+    });
+    assert.equal(r.estado, 200, JSON.stringify(r.cuerpo));
+    assert.equal(r.cuerpo.datos.activo, false);
+  });
 });
 
 describe('Tabla de medidas y datos por categoría', () => {

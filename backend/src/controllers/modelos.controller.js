@@ -155,6 +155,7 @@ export async function actualizarReferencia(req, res) {
       throw new HttpError(422, 'La llanta reencauchada se edita desde su producto, con su precio de venta.');
     }
     await productosModel.actualizar(db, referenciaId, aPares(cambios, productosModel.COLUMNAS_REFERENCIA));
+    await modelosModel.desactivarSiSinMedidas(db, id);
   });
   enviarProducto(res, await productosModel.buscarPorId(referenciaId));
 }
@@ -186,6 +187,7 @@ export async function guardarReferencias(req, res) {
       const nuevaId = await productosModel.crear(db, { ...nueva, modeloId: id });
       if (nueva.activo === false) await productosModel.actualizar(db, nuevaId, [['activo', false]]);
     }
+    await modelosModel.desactivarSiSinMedidas(db, id);
   });
   enviarModelo(res, await completo(id));
 }
@@ -203,6 +205,7 @@ export async function cambiarEstadoReferencia(req, res) {
       throw new HttpError(422, 'La llanta reencauchada se activa desde su producto, con su precio de venta.');
     }
     await productosModel.actualizar(db, referenciaId, [['activo', activo]]);
+    if (!activo) await modelosModel.desactivarSiSinMedidas(db, id);
   });
   enviarProducto(res, await productosModel.buscarPorId(referenciaId));
 }

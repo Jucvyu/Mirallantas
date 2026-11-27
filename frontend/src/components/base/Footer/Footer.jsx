@@ -91,6 +91,10 @@ export default function Footer() {
             Proyecto ADSO SENA · React y Tailwind CSS ·{' '}
             <a href="/licencias" className="underline-offset-2 hover:text-brand-gold-600 hover:underline dark:hover:text-brand-gold-400">
               Licencias
+            </a>{' '}
+            ·{' '}
+            <a href="/terminos" className="underline-offset-2 hover:text-brand-gold-600 hover:underline dark:hover:text-brand-gold-400">
+              Términos y condiciones
             </a>
           </p>
         </div>

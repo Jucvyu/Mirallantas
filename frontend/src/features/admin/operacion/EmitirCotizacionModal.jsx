@@ -280,7 +280,7 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
         <AvisoError mensaje={error || errorEnvio} />
         {cargando && <SkeletonLineas lineas={4} />}
 
-        {/* Con reencauche: su precio se define en "Solicitudes de servicio" antes de emitir */}
+        {/* Con reencauche: su precio se define en la revisión antes de emitir */}
         {serviciosSinPrecio.length > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-400/60 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
             <Wrench size={15} className="mt-px shrink-0 text-amber-500" />
@@ -288,8 +288,8 @@ export default function EmitirCotizacionModal({ cotizacion: inicial, onEmitida, 
               <p className="font-semibold">Esta cotización incluye reencauche sin precio.</p>
               <p className="mt-0.5">
                 Asigna el precio de {serviciosSinPrecio.map((l) => l.solicitud).filter(Boolean).join(', ') || 'el servicio'} en{' '}
-                <Link to="/admin/solicitudes-servicio" className="font-semibold underline underline-offset-2">
-                  Solicitudes de servicio
+                <Link to="/admin/reencauches" className="font-semibold underline underline-offset-2">
+                  Revisiones
                 </Link>{' '}
                 para poder emitir la cotización.
               </p>

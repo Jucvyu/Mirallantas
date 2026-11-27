@@ -366,6 +366,25 @@ describe('Órdenes y cobro al entregar', () => {
     assert.equal(s.rechazadasPlanta, 1);
   });
 
+  test('el cobro queda como una venta de contado con la línea del reencauche', async () => {
+    const ventas = (await e.api(`/ventas?q=${t.numero}`, { token: t.admin })).cuerpo.datos;
+    assert.equal(ventas.length, 1, 'una venta por la llanta cobrada (la rechazada no se vende)');
+    const v = ventas[0];
+    assert.equal(v.reencauche, t.numero);
+    assert.equal(v.metodoPago, 'Contado');
+    assert.equal(v.estado, 'Completada');
+    assert.equal(v.total, 470000 + 220000);
+    assert.equal(v.tercero !== null, true, 'lleva la reencauchadora');
+    const detalle = (await e.api(`/ventas/${v.numero}`, { token: t.admin })).cuerpo.datos;
+    assert.equal(detalle.detalle.length, 1);
+    assert.equal(detalle.detalle[0].tipo, 'servicio');
+    assert.equal(detalle.detalle[0].subtotal, 470000 + 220000);
+
+    // No se duplica aunque se vuelva a pedir la venta de la misma llanta
+    await e.db.query('SELECT venta_de_reencauche($1)', [t.ordenA]);
+    assert.equal((await e.api(`/ventas?q=${t.numero}`, { token: t.admin })).cuerpo.datos.length, 1);
+  });
+
   test('la base no deja registrar un pago sin entrega', async () => {
     await assert.rejects(
       e.db.query(

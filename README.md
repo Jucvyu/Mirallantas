@@ -33,7 +33,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [lucide-react](https://lucide.dev) | 1 | Iconos de la interfaz. |
 | react-icons | 5 | Logos de redes sociales del pie de página. |
 | `fetch` (nativo del navegador) | — | Peticiones HTTP a la API (ver `src/api/cliente.js`). |
-| [socket.io-client](https://socket.io) | 4 | Tiempo real: las pantallas se actualizan solas y las notificaciones llegan al instante. |
+| [socket.io-client](https://socket.io) | 4 | Tiempo real: las pantallas se actualizan solas y las notificaciones llegan al instante. Cada pantalla recarga solo lo que depende del cambio (`src/services/tiempoReal.js`, `src/services/dependencias.js`, `src/hooks/useAlCambiar.js`). |
 | [oxlint](https://oxc.rs) | 1 | Revisión estática del código (`npm run lint`). |
 
 ### Backend
@@ -52,7 +52,7 @@ El `package.json` de la raíz no instala nada: solo trae atajos (`npm run dev`, 
 | [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 8 | Limita las solicitudes por IP y los intentos de inicio de sesión (contra fuerza bruta). |
 | [cloudinary](https://cloudinary.com/documentation/node_integration) | 2 | Guarda las imágenes subidas (fotos y comprobantes) fuera de la base. |
 | [Brevo](https://brevo.com) (API HTTP) | — | Envía el código para recuperar la contraseña (sin librería: `fetch` nativo de Node; va por HTTPS porque Render gratis bloquea SMTP). |
-| [Socket.IO](https://socket.io) | 4 | Tiempo real en `/api/socket`: avisa los cambios a las pantallas abiertas y empuja cada notificación solo a quien le toca. |
+| [Socket.IO](https://socket.io) | 4 | Tiempo real en `/api/socket`: avisa los cambios a las pantallas abiertas (agrupados) y empuja cada notificación solo a quien le toca. Prueba de saturación en `test/saturacion.test.js`. |
 | [PDFKit](https://pdfkit.org) | 0.20 | Genera en el servidor la cotización formal y el comprobante de venta en PDF. |
 | `node:crypto` (nativo de Node) | — | Doble factor TOTP y cifrado AES-256-GCM de datos sensibles, sin librerías extra. |
 | [embedded-postgres](https://github.com/leinelissen/embedded-postgres) | 18.4 (dev) | **Solo desarrollo y pruebas**: un PostgreSQL real sin instalar nada. |
@@ -739,6 +739,7 @@ propia.
 | jspdf / jspdf-autotable | 4.2.1 / 5.0.8 | MIT | Frontend |
 | qrcode | 1.5.4 | MIT | Frontend |
 | fflate | 0.8.3 | MIT | Frontend |
+| socket.io-client | 4.8.4 | MIT | Frontend (y pruebas del backend) |
 | express | 5.3.0 | MIT | Backend |
 | pg | 8.23.1 | MIT | Backend y scripts |
 | zod | 4.6.7 | MIT | Backend |
@@ -748,6 +749,7 @@ propia.
 | cors | 2.8.6 | MIT | Backend |
 | compression | 1.8.2 | MIT | Backend |
 | express-rate-limit | 8.7.1 | MIT | Backend |
+| socket.io | 4.8.4 | MIT | Backend |
 | pdfkit | 0.20.2 | MIT | Backend |
 | cloudinary (SDK) | 2.11.0 | MIT | Backend |
 | vite / @vitejs/plugin-react | 8.2.2 / 6.1.1 | MIT | Desarrollo |

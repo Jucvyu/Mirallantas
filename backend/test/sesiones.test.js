@@ -108,6 +108,7 @@ describe('Validaciones de los datos', () => {
         numeroDocumento: '1098765432',
         telefono: '310 555 1234',
         correo: 'laura.validaciones@ejemplo.com',
+        aceptaTerminos: true,
         password: 'ClaveSegura2026',
         ...cambios,
       },
@@ -121,9 +122,14 @@ describe('Validaciones de los datos', () => {
     assert.ok((await campoConError({ tipoDocumento: 'NIT', numeroDocumento: '12345' })).includes('numeroDocumento'));
     assert.ok((await campoConError({ nombre: 'Juan 23' })).includes('nombre'));
     assert.ok((await campoConError({ nombre: 'Al' })).includes('nombre'), 'mínimo 3 caracteres');
+    // Sin aceptar los términos y condiciones no se crea la cuenta
+    assert.ok((await campoConError({ aceptaTerminos: false })).includes('aceptaTerminos'));
+    assert.ok((await campoConError({ aceptaTerminos: undefined })).includes('aceptaTerminos'));
 
     // Fijo con +57 y espacios, y NIT con dígito de verificación: válidos
     const ok = await registro({ telefono: '+57 604 123 4567' });
     assert.equal(ok.estado, 201, JSON.stringify(ok.cuerpo));
+    const { rows } = await e.db.query('SELECT terminos_aceptados_en FROM usuario WHERE correo = $1', ['laura.validaciones@ejemplo.com']);
+    assert.ok(rows[0].terminos_aceptados_en, 'queda la fecha en que aceptó los términos');
   });
 });

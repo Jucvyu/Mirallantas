@@ -24,7 +24,7 @@ export const clientesSeleccionablesService = {
   },
 };
 
-/** Proveedor: además de los datos de empresa, si es persona natural o jurídica. */
+/** Proveedor y tercero: además de los datos de empresa, si es persona natural o jurídica. */
 const proveedorDesdeApi = (p) => ({ ...empresaExternaDesdeApi(p), tipoPersona: p.tipoPersona ?? 'Natural' });
 const proveedorHaciaApi = (v) => {
   const juridica = v.tipoPersona === 'Jurídica';
@@ -41,5 +41,5 @@ export const proveedoresService = conCambioDeEstado(
 );
 
 export const tercerosService = conCambioDeEstado(
-  crearServicio({ ruta: '/terceros', desdeApi: empresaExternaDesdeApi, haciaApi: empresaExternaHaciaApi }),
+  crearServicio({ ruta: '/terceros', desdeApi: proveedorDesdeApi, haciaApi: proveedorHaciaApi }),
 );

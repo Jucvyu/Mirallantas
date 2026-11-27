@@ -111,7 +111,7 @@ export default function DetalleCotizacionModal({ cotizacion: inicial, servicio, 
             esCotizacion && cotizacion.emitidaEn && { etiqueta: 'Vence', valor: fechaCorta(cotizacion.venceEn) },
             esCotizacion && cotizacion.emitidaEn && { etiqueta: 'Vigencia', valor: `${VIGENCIA_COTIZACION_DIAS} días calendario` },
             // Datos propios de una venta
-            !esCotizacion && { etiqueta: 'Cotización', valor: cotizacion.cotizacion || 'Venta directa' },
+            !esCotizacion && { etiqueta: cotizacion.reencauche ? 'Origen' : 'Cotización', valor: cotizacion.origen || cotizacion.cotizacion || 'Venta directa' },
             !esCotizacion && { etiqueta: 'Crédito', valor: cotizacion.credito },
             !esCotizacion && { etiqueta: 'Proveedor', valor: cotizacion.proveedor },
             !esCotizacion && { etiqueta: 'Tercero', valor: cotizacion.tercero },

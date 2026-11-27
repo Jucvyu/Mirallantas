@@ -109,6 +109,7 @@ function textoParaExportar(row, col) {
  *   accionesIniciales: igual, pero antes de desplegar (p. ej. un "ver detalle" propio)
  *   accionesFinales: igual, pero después de Editar (p. ej. anular: lo destructivo va al final)
  *   formValidate: (values) => ({ campo: 'mensaje' }) reglas entre campos
+ *   formInitialValues: valores con los que abre el formulario de "Nuevo"
  *   exportable, canView / canEdit / canDelete, entityGender, titleKey
  *   (canEdit y canDelete también aceptan una función (row) => boolean para
  *   bloquear filas concretas, p. ej. el rol Administrador)
@@ -150,6 +151,7 @@ export default function DataTable({
   accionesFinales,
   statusFlow,
   formValidate,
+  formInitialValues,
   exportable = true,
   canView = true,
   canEdit = true,
@@ -557,6 +559,7 @@ export default function DataTable({
           title={`${nuevo} ${entityName}`}
           subtitle="Completa los campos marcados con * para registrar."
           sections={sections}
+          initialValues={formInitialValues}
           validate={formValidate}
           submitLabel={`Guardar ${entityName}`}
           onSubmit={onCreate}

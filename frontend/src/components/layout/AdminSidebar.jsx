@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Banknote,
   Building2,
   ChevronDown,
   ChevronLeft,
+  ChevronUp,
   ClipboardCheck,
   CreditCard,
   Factory,
   FileText,
   HandCoins,
-  History,
   Layers,
   LayoutGrid,
   LogOut,
@@ -74,8 +74,6 @@ const SECTIONS = [
       { to: '/admin/reencauches', label: 'Revisiones', icon: ClipboardCheck },
       { to: '/admin/ordenes-reencauche', label: 'Órdenes', icon: Factory },
       { to: '/admin/bandas', label: 'Bandas', icon: Layers },
-      // Solo para terminar los servicios que se pidieron con el flujo anterior
-      { to: '/admin/solicitudes-servicio', label: 'Servicios anteriores', icon: History },
     ],
   },
   {
@@ -152,6 +150,10 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
     setAbiertaManual(undefined);
   }
   const seccionAbierta = abiertaManual === undefined ? seccionDeRuta : abiertaManual;
+  // Con el menú encogido cada sección se ve como sus 4 primeras letras; al
+  // abrirla, la abreviatura da paso a los iconos de sus módulos. Por
+  // defecto queda abierta la sección de la página actual.
+  const [abiertasEncogido, setAbiertasEncogido] = useState({});
   // cerrarSesion invalida el token en la API y lleva a la página de inicio
   const { tienePermiso, cerrarSesion } = useAuth();
   // Avisos nuevos por módulo, para las burbujas del menú
@@ -165,6 +167,10 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
 
 
   const alternarSeccion = (label) => setAbiertaManual(seccionAbierta === label ? null : label);
+  const contieneActual = (section) => section.items.some(({ to }) => pathname === to || pathname.startsWith(`${to}/`));
+  const abiertaEncogido = (section) => abiertasEncogido[section.label] ?? contieneActual(section);
+  const alternarEncogido = (section) =>
+    setAbiertasEncogido((prev) => ({ ...prev, [section.label]: !abiertaEncogido(section) }));
   const iniciales = profile.nombre
     .split(' ')
     .slice(0, 2)
@@ -191,6 +197,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
         } ${collapsed ? 'w-[84px]' : 'w-[264px]'}`}
       >
         <div className="flex items-center justify-between px-4 py-5">
+          <Link to="/" aria-label="Ir a la página de inicio de Mirallantas" title="Ir a la página de inicio" className="shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400/50">
           {collapsed ? (
             <img
               src={logoOficial}
@@ -202,6 +209,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           ) : (
             <Logo size="sm" tono="oscuro" />
           )}
+          </Link>
           {!collapsed && (
             <>
               <span className="ml-auto mr-1.5 hidden lg:inline-flex">
@@ -273,9 +281,31 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
           {secciones.map((section) => {
             // Con el sidebar en modo icono no hay títulos que plegar, así
             // que el acordeón solo aplica cuando está expandido.
-            const abierta = collapsed || seccionAbierta === section.label;
+            const abierta = collapsed ? abiertaEncogido(section) : seccionAbierta === section.label;
+            const conAvisos = section.items.some(({ to }) => avisosPorRuta[to] > 0);
             return (
-            <div key={section.label} className="mb-3">
+            <div key={section.label} className={collapsed ? 'mb-1.5' : 'mb-3'}>
+              {/* Encogido: la abreviatura de la sección (o, abierta, una flecha para cerrarla) */}
+              {collapsed && (
+                <Tooltip className="w-full" texto={abierta ? `Ocultar ${section.label.toLowerCase()}` : section.label}>
+                  <button
+                    type="button"
+                    onClick={() => alternarEncogido(section)}
+                    aria-expanded={abierta}
+                    aria-label={`${abierta ? 'Ocultar' : 'Mostrar'} ${section.label}`}
+                    className={`relative flex w-full items-center justify-center rounded-lg text-[10px] font-bold tracking-wider transition-colors ${
+                      abierta
+                        ? 'py-0.5 text-slate-600 hover:bg-white/5 hover:text-slate-300'
+                        : `py-2 hover:bg-white/5 hover:text-slate-200 ${contieneActual(section) ? 'text-amber-400' : 'text-slate-400'}`
+                    }`}
+                  >
+                    {abierta ? <ChevronUp size={13} /> : section.label.slice(0, 4)}
+                    {!abierta && conAvisos && (
+                      <span className="absolute right-1.5 top-1 h-2 w-2 rounded-full bg-red-500" aria-label="Hay avisos nuevos" />
+                    )}
+                  </button>
+                </Tooltip>
+              )}
               {!collapsed && (
                 <button
                   type="button"
@@ -287,7 +317,7 @@ export default function AdminSidebar({ profile, mobileOpen = false, onCloseMobil
                   <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider">
                     {section.label}
                     {/* Sección plegada con avisos: un punto para no perderlos de vista */}
-                    {!abierta && section.items.some(({ to }) => avisosPorRuta[to] > 0) && (
+                    {!abierta && conAvisos && (
                       <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-label="Hay avisos nuevos" />
                     )}
                   </span>

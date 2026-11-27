@@ -17,6 +17,7 @@ import {
   tiposVehiculoService,
 } from '../../../services';
 import { camposBasicos } from './camposProducto';
+import DetalleProductoModal from './DetalleProductoModal';
 
 // Catálogo por productos (modelos de llanta) y sus medidas.
 //
@@ -164,6 +165,8 @@ export default function ProductosPage() {
   const referencias = useRecurso(referenciasService);
   const productos = useRecurso(productosService);
   const [errorMedida, setErrorMedida] = useState('');
+  // Producto abierto en "Ver detalle" (su id, para verlo siempre actualizado)
+  const [detalleId, setDetalleId] = useState(null);
 
   const contexto = { categorias: categorias.filas, marcas: marcas.filas, tipos: tipos.filas };
 
@@ -189,7 +192,8 @@ export default function ProductosPage() {
     setErrorMedida('');
     try {
       await modelosService.cambiarEstadoReferencia(modelo, referencia, estado);
-      await referencias.recargar();
+      // Si era su última medida activa, el producto también quedó inactivo
+      await Promise.all([referencias.recargar(), modelos.recargar()]);
     } catch (e) {
       setErrorMedida(e.message);
     }
@@ -227,8 +231,9 @@ export default function ProductosPage() {
         // Orden de las acciones: ver detalle, desplegar medidas, editar, eliminar
         canView={false}
         canEdit={false}
+        // El ojo abre el detalle de solo lectura (con sus medidas); el lápiz, la edición
         accionesIniciales={(fila) => (
-          <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => navigate(`/admin/productos/${fila.id}`)} />
+          <BotonAccion icono={Eye} etiqueta="Ver detalle" accion="verDetalle" onClick={() => setDetalleId(fila.id)} />
         )}
         rowActions={(fila) => (
           <BotonAccion icono={Pencil} etiqueta="Editar" accion="editar" onClick={() => navigate(`/admin/productos/${fila.id}?pestana=general`)} />
@@ -244,8 +249,11 @@ export default function ProductosPage() {
           { key: 'estado', label: 'Estado', options: estadosActivo },
         ]}
       />
+      {detalleId && filasModelos.some((m) => m.id === detalleId) && (
+        <DetalleProductoModal producto={filasModelos.find((m) => m.id === detalleId)} onClose={() => setDetalleId(null)} />
+      )}
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Cada fila es un producto con todas sus medidas. Ábrelo con el lápiz para editar sus medidas, la ficha técnica y la foto.
+        Cada fila es un producto con todas sus medidas. Con el ojo ves su detalle y sus medidas; con el lápiz editas sus medidas, la ficha técnica y la foto.
       </p>
 
       {(reencauchadas.length > 0 || productos.cargando) && (

@@ -228,7 +228,7 @@ export default function ReencaucheDetallePage() {
 
   // Si el cliente responde desde el portal (u otro asesor cambia algo), se
   // ve aquí al instante, sin recargar la página
-  useAlCambiar(cargar);
+  useAlCambiar(cargar, ['reencauches']);
 
   /** Ejecuta una acción y vuelve a cargar lo que quedó guardado. */
   const tras = (accion) => async (...argumentos) => {

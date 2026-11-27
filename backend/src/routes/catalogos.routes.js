@@ -101,4 +101,5 @@ export const rutasTerceros = rutasCatalogo({
   que: 'El tercero',
   permiso: 'Terceros',
   esquema: esquemas.esquemaEmpresaExterna,
+  reglas: esquemas.reglasTipoPersona,
 });

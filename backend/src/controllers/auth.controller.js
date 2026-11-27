@@ -194,12 +194,15 @@ export async function registrarse(req, res) {
       (await clientesModel.idPorDocumento(db, d.tipoDocumento, d.numeroDocumento));
     if (repetido) throw new HttpError(409, 'No pudimos crear tu usuario.');
     const clienteId = await clientesModel.crear(db, d);
-    return usuariosModel.crear(db, {
+    const nuevoId = await usuariosModel.crear(db, {
       ...d,
       passwordHash: await cifrarPassword(d.password),
       rolId: await rolesModel.idPorNombre(db, rolesModel.ROL_CLIENTE),
       clienteId,
     });
+    // Queda constancia de cuándo aceptó los términos y condiciones
+    await db.query('UPDATE usuario SET terminos_aceptados_en = now() WHERE id = $1', [nuevoId]);
+    return nuevoId;
   });
 
   await eventos.registrar({ tipo: 'registro', usuarioId: id, correo: d.correo, ...origen(req) });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { avisosPersonalService } from '../services';
-import { useAlCambiar } from './useAlCambiar';
+import { tiempoRealConectado } from '../services/tiempoReal';
+import { useAlNotificar } from './useAlNotificar';
 
 /** Cada cuánto se revisa si llegaron avisos nuevos (igual que la campana). */
 const CADA_MS = 60_000;
@@ -11,15 +12,16 @@ const CADA_MS = 60_000;
  * { '/admin/abonos': 2, … } y, con `notificacionesService`, en el portal
  * del cliente { '/portal/pedidos': 1, … }.
  *
- * Revisa al montar, cada minuto y al cambiar de pantalla. Al entrar a un
+ * Revisa al montar, al cambiar de pantalla y cuando la API avisa una
+ * notificación nueva (tiempo real). Al entrar a un
  * módulo con avisos, su burbuja desaparece y la API lo recuerda.
  */
 export function useAvisosPorModulo(servicio = avisosPersonalService) {
   const [porRuta, setPorRuta] = useState({});
   const { pathname } = useLocation();
-  // Sube cuando la API avisa un cambio (tiempo real): se revisa enseguida
+  // Sube cuando la API avisa una notificación nueva (tiempo real): se revisa enseguida
   const [aviso, setAviso] = useState(0);
-  useAlCambiar(() => setAviso((n) => n + 1));
+  useAlNotificar(() => setAviso((n) => n + 1));
 
   useEffect(() => {
     let vigente = true;
@@ -29,7 +31,8 @@ export function useAvisosPorModulo(servicio = avisosPersonalService) {
         .then((datos) => vigente && setPorRuta(datos))
         .catch(() => {}); // Sin conexión: se vuelve a intentar en el siguiente minuto
     revisar();
-    const id = setInterval(revisar, CADA_MS);
+    // Respaldo: solo si el tiempo real está caído se revisa cada cierto tiempo
+    const id = setInterval(() => !tiempoRealConectado() && revisar(), CADA_MS);
     return () => {
       vigente = false;
       clearInterval(id);

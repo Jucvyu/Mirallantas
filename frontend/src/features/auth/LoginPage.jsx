@@ -69,6 +69,19 @@ const registroSections = [
       { key: 'password2', label: 'Repite la contraseña', type: 'password', required: true },
     ],
   },
+  {
+    title: 'Términos y condiciones',
+    fields: [
+      {
+        key: 'aceptaTerminos',
+        type: 'aceptacion',
+        span: 2,
+        label: 'Acepto los términos y condiciones',
+        enlace: { texto: 'Leer los términos y condiciones', a: '/terminos' },
+        hint: 'Incluye el tratamiento de tus datos personales (Ley 1581 de 2012).',
+      },
+    ],
+  },
 ];
 
 /** Reglas que miran varios campos del registro a la vez. */
@@ -82,6 +95,9 @@ function validarRegistro(values) {
   }
   if (values.password2 && values.password !== values.password2) {
     errores.password2 = 'Las contraseñas no coinciden';
+  }
+  if (values.aceptaTerminos !== true) {
+    errores.aceptaTerminos = 'Debes aceptar los términos y condiciones para crear tu cuenta';
   }
   return errores;
 }

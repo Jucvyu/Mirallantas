@@ -56,8 +56,9 @@ export function useRecurso(servicio) {
     }
   }, [servicio]);
 
-  // Tiempo real: otro usuario (u otra pantalla) cambió datos
-  useAlCambiar(recargar);
+  // Tiempo real: otro usuario (u otra pantalla) cambió datos de este recurso
+  // (o de uno relacionado); los cambios de otros módulos no lo recargan
+  useAlCambiar(recargar, servicio.ruta ? [servicio.ruta.split('/')[1]] : undefined);
 
   /** Ejecuta una operación del servicio y luego recarga el listado. */
   const ejecutar = async (operacion) => {

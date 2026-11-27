@@ -152,6 +152,42 @@ describe('Estado Inactivo', () => {
   });
 });
 
+describe('Proveedores y terceros: persona natural o jurídica', () => {
+  const empresa = (extra) => ({
+    tipoDocumento: 'CC',
+    numeroDocumento: '1034567890',
+    nombreRazonSocial: 'Ana Restrepo',
+    telefono: '3104567890',
+    correo: 'ana.prov@ejemplo.com',
+    ...extra,
+  });
+
+  test('la persona natural se registra con su cédula y la jurídica exige NIT', async () => {
+    for (const ruta of ['/proveedores', '/terceros']) {
+      const natural = await e.api(ruta, { metodo: 'POST', token: t.admin, cuerpo: empresa({ tipoPersona: 'Natural', numeroDocumento: ruta === '/proveedores' ? '1034567890' : '1034567891' }) });
+      assert.equal(natural.estado, 201, JSON.stringify(natural.cuerpo));
+      assert.equal(natural.cuerpo.datos.tipoPersona, 'Natural');
+
+      const juridicaConCedula = await e.api(ruta, { metodo: 'POST', token: t.admin, cuerpo: empresa({ tipoPersona: 'Jurídica', numeroDocumento: '1034567899' }) });
+      assert.equal(juridicaConCedula.estado, 422);
+      assert.equal(juridicaConCedula.cuerpo.detalles?.[0]?.campo, 'tipoDocumento');
+
+      assert.equal((await e.api(ruta, { metodo: 'POST', token: t.admin, cuerpo: empresa({ tipoPersona: 'Otra' }) })).estado, 422);
+    }
+  });
+
+  test('ninguna persona jurídica queda sin NIT (lo exige la base)', async () => {
+    for (const tabla of ['proveedor', 'tercero']) {
+      const { rows } = await e.db.query(`SELECT count(*)::int AS n FROM ${tabla} WHERE tipo_persona = 'Jurídica' AND tipo_documento <> 'NIT'`);
+      assert.equal(rows[0].n, 0);
+      await assert.rejects(
+        e.db.query(`UPDATE ${tabla} SET tipo_persona = 'Jurídica', tipo_documento = 'CC' WHERE id = (SELECT min(id) FROM ${tabla})`),
+        /juridica_con_nit/,
+      );
+    }
+  });
+});
+
 describe('Cambio de rol', () => {
   test('un cliente al que hacen Administrador entra al panel y ve todo', async () => {
     const maria = await idDe('usuario', 'correo', 'maria@gmail.com');

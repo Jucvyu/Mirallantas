@@ -28,7 +28,6 @@ const MarcasPage = lazy(() => import('./features/admin/catalogo/MarcasPage'));
 const PedidosCotizacionPage = lazy(() => import('./features/admin/operacion/PedidosCotizacionPage'));
 const VentasPage = lazy(() => import('./features/admin/operacion/VentasPage'));
 const ComprasPage = lazy(() => import('./features/admin/operacion/ComprasPage'));
-const SolicitudesServicioPage = lazy(() => import('./features/reencauche/admin/serviciosAnteriores/SolicitudesServicioPage'));
 // Reencauche por banda
 const BandasPage = lazy(() => import('./features/reencauche/admin/BandasPage'));
 const RevisionesPage = lazy(() => import('./features/reencauche/admin/RevisionesPage'));
@@ -43,6 +42,7 @@ const ClientHomePage = lazy(() => import('./features/portal/ClientHomePage'));
 const CatalogoPage = lazy(() => import('./features/portal/CatalogoPage'));
 const CatalogoPublicoPage = lazy(() => import('./features/landing/CatalogoPublicoPage'));
 const LicenciasPage = lazy(() => import('./features/legal/LicenciasPage'));
+const TerminosPage = lazy(() => import('./features/legal/TerminosPage'));
 const LicenciasPanelPage = lazy(() => import('./features/legal/LicenciasPanelPage'));
 const DetalleProductoPublicoPage = lazy(() => import('./features/landing/DetalleProductoPublicoPage'));
 const DetalleProductoPage = lazy(() => import('./features/portal/DetalleProductoPage'));
@@ -73,7 +73,6 @@ const PAGINAS_ADMIN = [
   { ruta: 'ordenes-reencauche', permiso: 'Reencauche', pagina: <OrdenesReencauchePage /> },
   { ruta: 'bandas', permiso: 'Reencauche', pagina: <BandasPage /> },
   // Servicios del flujo anterior (con foto de la carcasa), para terminar los que quedaron a medias
-  { ruta: 'solicitudes-servicio', permiso: 'Solicitudes de servicio', pagina: <SolicitudesServicioPage /> },
   { ruta: 'creditos', permiso: 'Cartera', pagina: <CreditosPage /> },
   { ruta: 'solicitudes-credito', permiso: 'Cartera', pagina: <SolicitudesCreditoPage /> },
   { ruta: 'abonos', permiso: 'Abonos', pagina: <AbonosPage /> },
@@ -98,6 +97,7 @@ export default function App() {
             <Route path="/catalogo/:modeloId" element={<DetalleProductoPublicoPage />} />
             <Route path="/catalogo/unidad/:productoId" element={<DetalleProductoPublicoPage />} />
             <Route path="/licencias" element={<LicenciasPage />} />
+            <Route path="/terminos" element={<TerminosPage />} />
             <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
             <Route path="/cuenta-inactiva" element={<CuentaInactivaPage />} />
 

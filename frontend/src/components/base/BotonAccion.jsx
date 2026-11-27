@@ -1,4 +1,5 @@
 import Tooltip from './Tooltip';
+import { useProcesando } from '../../hooks/useProcesando';
 import { usePrivilegio } from '../../hooks/usePrivilegio';
 import { NOMBRE_ACCION } from '../../privilegios';
 
@@ -24,19 +25,31 @@ const TONOS = {
  *
  * `accion` (nivel 3 de seguridad): si el rol la tiene negada en el módulo de
  * la pantalla, el botón queda deshabilitado y lo explica.
+ *
+ * Si `onClick` devuelve una promesa (una petición a la API), mientras
+ * responde el icono se ve como un skeleton y el botón no recibe más clics.
  */
 export default function BotonAccion({ icono: Icono, etiqueta, onClick, tono = 'neutro', deshabilitado = false, motivo, accion }) {
   const puede = usePrivilegio();
+  const [procesando, ejecutar] = useProcesando(onClick);
   if (accion && !puede(accion)) {
     deshabilitado = true;
     motivo = `Tu rol no tiene permiso para: ${NOMBRE_ACCION[accion] ?? accion}`;
   }
   const titulo = deshabilitado ? `${etiqueta} · ${motivo ?? 'No disponible'}` : etiqueta;
+  if (procesando) {
+    return (
+      <span role="status" aria-label={`${etiqueta}: procesando`} className="inline-flex shrink-0 cursor-wait p-0.5">
+        <span aria-hidden="true" className="block h-[15px] w-[15px] animate-pulse rounded bg-slate-200 dark:bg-white/10" />
+        <span className="sr-only">Procesando</span>
+      </span>
+    );
+  }
   return (
     <Tooltip texto={titulo} className={deshabilitado ? 'cursor-not-allowed' : ''}>
       <button
         type="button"
-        onClick={deshabilitado ? undefined : onClick}
+        onClick={deshabilitado ? undefined : (e) => ejecutar(e)}
         disabled={deshabilitado}
         aria-label={titulo}
         className={`shrink-0 rounded p-0.5 transition-colors ${

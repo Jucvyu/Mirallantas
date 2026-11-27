@@ -53,7 +53,7 @@ export function PortalProvider({ children }) {
   }, []);
 
   // Tiempo real: el asesor cambió algo (precio, pago, crédito…)
-  useAlCambiar(recargar);
+  useAlCambiar(recargar, ['portal']);
 
   const valor = useMemo(() => ({ ...datos, cargando, error, recargar }), [datos, cargando, error, recargar]);
 
