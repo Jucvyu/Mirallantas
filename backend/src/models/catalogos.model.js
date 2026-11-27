@@ -104,6 +104,7 @@ export function crearModeloCatalogo({ tabla, campos, buscarEn, ordenarPor, conAc
 
 /** Campos comunes de proveedores y terceros (reencauchadoras). */
 const CAMPOS_EMPRESA_EXTERNA = {
+  tipoPersona: 'tipo_persona',
   tipoDocumento: 'tipo_documento',
   numeroDocumento: 'numero_documento',
   nombreRazonSocial: 'nombre_razon_social',
@@ -159,8 +160,8 @@ export const clientes = crearModeloCatalogo({
 
 export const proveedores = crearModeloCatalogo({
   tabla: 'proveedor',
-  // Persona natural o jurídica (migración 0044)
-  campos: { tipoPersona: 'tipo_persona', ...CAMPOS_EMPRESA_EXTERNA },
+  // Persona natural o jurídica (migraciones 0044 y 0046)
+  campos: CAMPOS_EMPRESA_EXTERNA,
   buscarEn: ['nombre_razon_social', 'numero_documento', 'contacto'],
   ordenarPor: 'nombre_razon_social',
 });

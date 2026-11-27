@@ -24,8 +24,12 @@ export const MAXIMO_POR_USUARIO = 10;
 
 /** Cada cuánto se revisa que la sesión de cada conexión siga valiendo. */
 const REVISAR_SESION_MS = 25_000;
-/** Los cambios que llegan juntos se avisan en un solo mensaje. */
-const AGRUPAR_MS = 150;
+/**
+ * Los cambios que llegan juntos se avisan en un solo mensaje: una ráfaga de
+ * 60 cambios produce unos pocos avisos, no 60 recargas en cada pestaña (ver
+ * test/saturacion.test.js).
+ */
+const AGRUPAR_MS = 300;
 /**
  * Los avisos se crean dentro de una transacción: se emiten un instante
  * después para que, cuando la campana los pida, ya estén guardados.

@@ -54,6 +54,8 @@ export const esquemaRegistro = z.object({
   correo,
   password,
   captcha,
+  // Sin aceptar los términos y condiciones no se crea la cuenta
+  aceptaTerminos: z.literal(true, { error: 'Debes aceptar los términos y condiciones para crear tu cuenta.' }),
 }).superRefine(documentoSegunTipo);
 
 /**

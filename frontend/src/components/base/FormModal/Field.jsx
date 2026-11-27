@@ -188,6 +188,64 @@ export default function Field({ field, value, error, onChange, onBlur, mode = 'e
     );
   }
 
+  // ---- Casilla de aceptación (p. ej. términos y condiciones al registrarse) ----
+  // Guarda true al marcarla; desmarcada queda vacía.
+  if (type === 'aceptacion') {
+    return (
+      <div className={field.span === 2 ? 'sm:col-span-2' : ''}>
+        <label
+          htmlFor={id}
+          className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${
+            error
+              ? 'border-red-400 bg-red-500/5'
+              : value === true
+                ? 'border-emerald-400/60 bg-emerald-500/5'
+                : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/10 dark:bg-brand-navy-900/70 dark:hover:border-white/20'
+          }`}
+        >
+          <input
+            id={id}
+            type="checkbox"
+            checked={value === true}
+            disabled={readOnly}
+            onChange={(e) => onChange(key, e.target.checked ? true : '')}
+            onBlur={() => onBlur?.(key)}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${id}-error` : hint ? `${id}-ayuda` : undefined}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-amber-500"
+          />
+          <span className="min-w-0">
+            <span className="font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+            {field.enlace && (
+              <>
+                {' · '}
+                <a
+                  href={field.enlace.a}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold text-amber-700 underline underline-offset-2 hover:text-amber-600 dark:text-amber-400"
+                >
+                  {field.enlace.texto}
+                </a>
+              </>
+            )}
+            {hint && (
+              <span id={`${id}-ayuda`} className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                {hint}
+              </span>
+            )}
+          </span>
+        </label>
+        {error && (
+          <p id={`${id}-error`} className="mt-1 text-xs font-medium text-red-500">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (mode !== 'view' && field.soloLectura && !TIPOS_CON_VISTA_PROPIA.includes(type)) {
     const texto = options.find((o) => o?.valor === value)?.etiqueta ?? value;
     return (

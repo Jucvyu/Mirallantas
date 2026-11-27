@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ConfirmDialog from '../base/ConfirmDialog';
 import { notificacionesService } from '../../services';
 import { fechaISO } from '../../utils/formato';
-import { useAlCambiar } from '../../hooks/useAlCambiar';
-import { EVENTO_NOTIFICACION } from '../../services/tiempoReal';
+import { EVENTO_NOTIFICACION, tiempoRealConectado } from '../../services/tiempoReal';
 import { codigoDeAviso } from '../../utils/avisos';
 
 /** Cada cuánto se revisa si llegaron avisos nuevos (respaldo del tiempo real). */
@@ -36,8 +35,9 @@ function cuandoFue(fecha) {
  *
  * En el portal avisa lo que hizo el asesor (valor de un servicio, pagos y
  * abonos aprobados o rechazados, créditos); en el panel, lo que llega a
- * Pedidos-Cotización (cotizaciones nuevas, pagos por revisar). Revisa cada
- * minuto; si llega algo nuevo llama a `onNuevas` (p. ej. para recargar los
+ * Pedidos-Cotización (cotizaciones nuevas, pagos por revisar). Revisa al
+ * abrir y cuando llega una notificación por tiempo real (si la conexión
+ * está caída, cada minuto); si llega algo nuevo llama a `onNuevas` (p. ej. para recargar los
  * datos de la pantalla). Al abrirla, los avisos quedan como leídos.
  *
  * Se puede borrar un aviso o todos (con confirmación). En el panel, como los
@@ -49,9 +49,9 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
   // Borrado pendiente de confirmar: { notificacion } (una) o { todas: true }
   const [porBorrar, setPorBorrar] = useState(null);
   const [datos, setDatos] = useState({ notificaciones: [], sinLeer: 0 });
-  // Sube cuando la API avisa un cambio (tiempo real): se revisa enseguida
+  // Sube cuando llega una notificación (tiempo real): se revisa enseguida.
+  // Los demás cambios no la revisan: así no se satura la API.
   const [aviso, setAviso] = useState(0);
-  useAlCambiar(() => setAviso((n) => n + 1));
   // Notificación que acaba de llegar por el tiempo real: se muestra emergente
   const [emergente, setEmergente] = useState(null);
   useEffect(() => {
@@ -94,7 +94,8 @@ export default function NotificacionesMenu({ servicio = notificacionesService, o
         })
         .catch(() => {}); // Sin conexión: se vuelve a intentar en el siguiente minuto
     revisar();
-    const id = setInterval(revisar, CADA_MS);
+    // Respaldo: solo si el tiempo real está caído se revisa cada minuto
+    const id = setInterval(() => !tiempoRealConectado() && revisar(), CADA_MS);
     return () => {
       vigente = false;
       clearInterval(id);

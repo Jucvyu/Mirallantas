@@ -74,8 +74,9 @@ export const esquemaCliente = z.object({
 });
 
 /**
- * Proveedor: persona natural o jurídica (migración 0044). La jurídica se
- * identifica con NIT y lleva persona de contacto.
+ * Proveedores y terceros (reencauchadoras): persona natural o jurídica
+ * (migraciones 0044 y 0046). La jurídica se identifica con NIT y lleva
+ * persona de contacto. Los dos usan el mismo formulario.
  */
 export const esquemaProveedor = z.object({
   // Sin indicarlo queda como persona natural (valor por defecto en la base)
@@ -99,12 +100,5 @@ export function reglasTipoPersona(datos, ctx) {
   }
 }
 
-/** Proveedores y terceros (reencauchadoras) comparten campos. */
-export const esquemaEmpresaExterna = z.object({
-  tipoDocumento,
-  numeroDocumento,
-  nombreRazonSocial: nombreEntidad(80),
-  contacto: textoOpcional(80),
-  ...contactoOpcional,
-  ...activo,
-});
+/** Mismo esquema para los terceros (reencauchadoras). */
+export const esquemaEmpresaExterna = esquemaProveedor;

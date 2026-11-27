@@ -37,6 +37,9 @@ function desdePostgres(error) {
     case '23514': // check_violation
       // Un método de pago de otro tipo (p. ej. "Contado" para pagar un abono)
       if (/(_es_medio|_es_forma)$/.test(error.constraint ?? '')) return new HttpError(422, MENSAJES_LISTA.metodo_pago);
+      if (/_juridica_con_nit$/.test(error.constraint ?? '')) {
+        return new HttpError(422, 'Una persona jurídica se identifica con NIT.', [{ campo: 'tipoDocumento', mensaje: 'La persona jurídica usa NIT.' }]);
+      }
       return new HttpError(422, 'Algún valor no cumple una regla del negocio.');
     case '23502': // not_null_violation
       return new HttpError(422, `Falta el campo obligatorio "${error.column}".`);

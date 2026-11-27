@@ -132,6 +132,21 @@ export async function guardarFoto(db, modeloId, foto) {
   if (foto) await db.query('INSERT INTO modelo_imagen (modelo_id, url) VALUES ($1, $2)', [modeloId, foto]);
 }
 
+/**
+ * Si al modelo ya no le queda ninguna medida activa, el modelo también se
+ * desactiva (no se puede ofrecer un producto sin medidas). Reactivar una
+ * medida no reactiva el modelo: eso lo decide el administrador.
+ */
+export async function desactivarSiSinMedidas(db, modeloId) {
+  await db.query(
+    `UPDATE modelo_llanta ml SET activo = FALSE
+      WHERE ml.id = $1 AND ml.activo
+        AND EXISTS (SELECT 1 FROM producto p WHERE p.modelo_id = ml.id)
+        AND NOT EXISTS (SELECT 1 FROM producto p WHERE p.modelo_id = ml.id AND p.activo)`,
+    [modeloId],
+  );
+}
+
 /** ¿Esta referencia (producto) pertenece al modelo? Devuelve su fila mínima o null. */
 export async function referenciaDe(db, modeloId, referenciaId) {
   const { rows } = await db.query('SELECT id, reencauchada, activo FROM producto WHERE id = $1 AND modelo_id = $2', [

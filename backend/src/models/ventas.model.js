@@ -15,6 +15,8 @@ const VENTA = {
     cr.numero AS credito,
     v.proveedor_id AS "proveedorId", pr.nombre_razon_social AS proveedor,
     v.tercero_id AS "terceroId", te.nombre_razon_social AS tercero,
+    -- Venta que nació al cobrar una llanta reencauchada (migración 0047)
+    re.numero AS reencauche, rl.identificador AS "llantaReencauche",
     -- Lo vendido, lo cobrado y lo que falta. De contado coinciden; a crédito
     -- la venta vale lo cobrado (abonos confirmados) y el resto es el saldo
     -- del crédito, hasta completar el monto pactado.
@@ -27,7 +29,9 @@ const VENTA = {
     LEFT JOIN cotizacion co ON co.id = v.cotizacion_id
     LEFT JOIN credito cr ON cr.venta_id = v.id
     LEFT JOIN proveedor pr ON pr.id = v.proveedor_id
-    LEFT JOIN tercero te ON te.id = v.tercero_id`,
+    LEFT JOIN tercero te ON te.id = v.tercero_id
+    LEFT JOIN reencauche_llanta rl ON rl.id = v.reencauche_llanta_id
+    LEFT JOIN reencauche re ON re.id = rl.reencauche_id`,
   columnaCliente: 'v.cliente_id',
   columnaNumero: 'v.numero',
 };
@@ -46,7 +50,7 @@ export function listar(parametros) {
   return consultarListado(
     {
       ...VENTA,
-      buscarEn: ['v.numero', 'cl.nombre_completo', 'co.numero'],
+      buscarEn: ['v.numero', 'cl.nombre_completo', 'co.numero', 're.numero', 'rl.identificador'],
       filtros: { estado: 'v.estado', estadoEntrega: 'v.estado_entrega', metodoPago: 'v.metodo_pago', clienteId: 'v.cliente_id' },
       orden: 'v.fecha DESC, v.id DESC',
     },
@@ -81,6 +85,16 @@ export async function crearDirecta(v, db = POOL) {
     [v.clienteId, v.proveedorId ?? null, v.terceroId ?? null, v.fecha, v.metodoPago, v.interes, v.total, v.cuotaInicial, v.comprobante ?? null],
   );
   return rows[0].numero;
+}
+
+/**
+ * Venta de una llanta reencauchada que se acaba de cobrar: de contado,
+ * completada y con la línea del servicio "Reencauche" por lo cobrado. La
+ * arma la base (función venta_de_reencauche, migración 0047). Devuelve su id.
+ */
+export async function crearDeReencauche(db, llantaId) {
+  const { rows } = await db.query('SELECT venta_de_reencauche($1) AS id', [llantaId]);
+  return rows[0].id;
 }
 
 /** Venta que ya nació de la cotización → { id, estado } o undefined. */

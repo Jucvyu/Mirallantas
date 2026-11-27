@@ -71,6 +71,7 @@ describe('Captcha del inicio de sesión', () => {
           numeroDocumento: '1012345678',
           telefono: '3115557788',
           correo: 'camila.captcha@ejemplo.com',
+          aceptaTerminos: true,
           password: 'ClaveSegura2026',
           ...(captcha ? { captcha } : {}),
         },

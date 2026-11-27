@@ -103,6 +103,7 @@ export const productosService = {
  * (índice de carga, lonas…), para agruparlas bajo su modelo en el admin.
  */
 export const referenciasService = {
+  ruta: '/productos',
   async listar() {
     return (await traerTodo('/productos')).map(referenciaDesdeApi);
   },

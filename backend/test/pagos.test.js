@@ -167,6 +167,7 @@ describe('Datos que no se repiten entre cuentas', () => {
         numeroDocumento: '70707070',
         telefono: '3157778899',
         correo: 'persona.nueva@ejemplo.com',
+        aceptaTerminos: true,
         password: 'ClaveSegura2026',
         ...cambios,
       },

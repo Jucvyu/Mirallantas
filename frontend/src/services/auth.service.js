@@ -77,6 +77,7 @@ export const authService = {
         direccion: valores.direccion || null,
         correo: valores.correo.trim().toLowerCase(),
         password: valores.password,
+        aceptaTerminos: valores.aceptaTerminos === true,
         captcha,
       },
     });

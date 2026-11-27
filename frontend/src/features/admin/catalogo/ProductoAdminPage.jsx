@@ -122,7 +122,7 @@ export default function ProductoAdminPage() {
   // Si otro usuario cambia el producto, se ve aquí, salvo que haya cambios sin guardar
   useAlCambiar(() => {
     if (!sucio) cargar();
-  });
+  }, ['modelos']);
 
   const ocultos = useMemo(() => ocultosDe(categorias.filas, valores?.categoria), [categorias.filas, valores?.categoria]);
   const campos = useMemo(

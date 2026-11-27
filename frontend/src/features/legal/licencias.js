@@ -26,6 +26,7 @@ import {
   SiReact,
   SiReactrouter,
   SiRender,
+  SiSocketdotio,
   SiSupabase,
   SiTailwindcss,
   SiThreedotjs,
@@ -142,6 +143,7 @@ export const TECNOLOGIAS = [
   { grupo: 'Frontend', nombre: 'jsPDF', paquete: 'jspdf', version: '4.2.1', licencia: 'MIT', uso: 'Documentos PDF en el navegador', color: '#E2231A', icono: FileText, sitio: 'https://parall.ax/products/jspdf', repo: 'https://github.com/parallax/jsPDF' },
   { grupo: 'Frontend', nombre: 'jsPDF-AutoTable', paquete: 'jspdf-autotable', version: '5.0.8', licencia: 'MIT', uso: 'Tablas dentro de los PDF', color: '#E2231A', icono: FileText, sitio: 'https://simonbengtsson.github.io/jsPDF-AutoTable', repo: 'https://github.com/simonbengtsson/jsPDF-AutoTable' },
   { grupo: 'Frontend', nombre: 'node-qrcode', paquete: 'qrcode', version: '1.5.4', licencia: 'MIT', uso: 'Códigos QR (verificación en dos pasos)', color: '#111827', icono: QrCode, sitio: 'https://github.com/soldair/node-qrcode', repo: 'https://github.com/soldair/node-qrcode' },
+  { grupo: 'Frontend', nombre: 'Socket.IO (cliente)', paquete: 'socket.io-client', version: '4.8.4', licencia: 'MIT', uso: 'Avisos en tiempo real y notificaciones', color: '#010101', icono: SiSocketdotio, sitio: 'https://socket.io', repo: 'https://github.com/socketio/socket.io' },
   { grupo: 'Frontend', nombre: 'fflate', paquete: 'fflate', version: '0.8.3', licencia: 'MIT', uso: 'Compresión de archivos exportados', color: '#F59E0B', icono: Package, sitio: 'https://101arrowz.github.io/fflate', repo: 'https://github.com/101arrowz/fflate' },
 
   // ---- Backend ----
@@ -154,6 +156,7 @@ export const TECNOLOGIAS = [
   { grupo: 'Backend', nombre: 'CORS', paquete: 'cors', version: '2.8.6', licencia: 'MIT', uso: 'Orígenes autorizados a llamar la API', color: '#000000', icono: SiExpress, sitio: 'https://github.com/expressjs/cors', repo: 'https://github.com/expressjs/cors' },
   { grupo: 'Backend', nombre: 'compression', paquete: 'compression', version: '1.8.2', licencia: 'MIT', uso: 'Respuestas comprimidas', color: '#000000', icono: SiExpress, sitio: 'https://github.com/expressjs/compression', repo: 'https://github.com/expressjs/compression' },
   { grupo: 'Backend', nombre: 'express-rate-limit', paquete: 'express-rate-limit', version: '8.7.1', licencia: 'MIT', uso: 'Límite de peticiones por usuario', color: '#000000', icono: Gauge, sitio: 'https://express-rate-limit.mintlify.app', repo: 'https://github.com/express-rate-limit/express-rate-limit' },
+  { grupo: 'Backend', nombre: 'Socket.IO', paquete: 'socket.io', version: '4.8.4', licencia: 'MIT', uso: 'Tiempo real: avisa los cambios y las notificaciones', color: '#010101', icono: SiSocketdotio, sitio: 'https://socket.io', repo: 'https://github.com/socketio/socket.io' },
   { grupo: 'Backend', nombre: 'PDFKit', paquete: 'pdfkit', version: '0.20.2', licencia: 'MIT', uso: 'Cotizaciones y comprobantes en PDF', color: '#1F6FEB', icono: ScrollText, sitio: 'https://pdfkit.org', repo: 'https://github.com/foliojs/pdfkit' },
   { grupo: 'Backend', nombre: 'Cloudinary SDK', paquete: 'cloudinary', version: '2.11.0', licencia: 'MIT', uso: 'Subida de imágenes', color: '#3448C5', icono: SiCloudinary, sitio: 'https://cloudinary.com', repo: 'https://github.com/cloudinary/cloudinary_npm' },
 

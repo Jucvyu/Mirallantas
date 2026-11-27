@@ -53,7 +53,7 @@ export function useMedidasDeProducto(servicio, { modeloId, productoId }) {
     };
   }, [pedir, clave]);
 
-  useAlCambiar(recargar);
+  useAlCambiar(recargar, ['productos']);
 
   const cargando = cargadoDe !== clave;
   // Al pasar a otro producto no se muestran los datos del anterior

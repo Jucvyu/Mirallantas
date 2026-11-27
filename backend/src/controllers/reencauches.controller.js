@@ -7,6 +7,7 @@ import * as avisosPersonal from '../models/notificacionesPersonal.model.js';
 import * as notificaciones from '../models/notificaciones.model.js';
 import * as reencauchesModel from '../models/reencauches.model.js';
 import * as productosModel from '../models/productos.model.js';
+import * as ventasModel from '../models/ventas.model.js';
 import { DIAS_PARA_NO_PAGADA, exigirMedioAceptado, pesos, validarTransicion } from '../reglas.js';
 import { enviarDato, enviarLista, enviarTodo } from '../views/respuesta.view.js';
 import { exigirActivo } from './estados.js';
@@ -411,6 +412,7 @@ export function rechazarEnPlanta(req, res) {
 /**
  * POST /reencauches/ordenes/:id/entrega — se entrega y se cobra (el único
  * cobro). Por transferencia se adjunta el pantallazo de la consignación.
+ * El cobro queda como una venta de contado en Ventas.
  */
 export function entregarOrden(req, res) {
   const { medioPago, comprobante } = req.validado.body;
@@ -422,6 +424,7 @@ export function entregarOrden(req, res) {
       comprobante: medioPago === 'Transferencia' ? comprobante : null,
       usuarioId: req.usuario.id,
     });
+    await ventasModel.crearDeReencauche(db, orden.id);
     await notificaciones.crear(
       {
         clienteId: orden.cliente_id,

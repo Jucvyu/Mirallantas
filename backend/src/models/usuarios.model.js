@@ -1,5 +1,6 @@
 import { query } from '../db.js';
 import { actualizarCampos, POOL } from './listado.model.js';
+import { cerrarConexionesDe } from '../utils/tiempoReal.js';
 
 /**
  * Modelo de usuarios (tabla `usuario`).
@@ -210,6 +211,8 @@ export async function sesionVigente(id, version) {
 /** Invalida todos los tokens emitidos al usuario (cierre de sesión global). */
 export async function subirVersionSesion(id, db = POOL) {
   await db.query('UPDATE usuario SET version_sesion = version_sesion + 1 WHERE id = $1', [id]);
+  // Sus pestañas abiertas (con el token viejo) dejan de recibir avisos al instante
+  cerrarConexionesDe(id);
 }
 
 /** Guarda el secreto del doble factor (ya cifrado) y si está activo. */
